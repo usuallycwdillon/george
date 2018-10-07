@@ -10,14 +10,12 @@ import sim.engine.SimState;
 import sim.engine.Steppable;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.io.Serializable;
+import java.util.*;
 
 
 @NodeEntity
-public class Tile extends Entity implements Steppable {
+public class Tile extends Entity implements Steppable, Serializable {
     /**
      * Tiles are implemented as hexagonal (and 12 pentagonal) territorial units defined by Uber H3 Hierarchical Discrete
      * Global Grid object boundaries. Only land tiles are implemented.
@@ -26,7 +24,7 @@ public class Tile extends Entity implements Steppable {
     private String id;
     @Index(unique = true)
     private String address;
-    private GeoCoord center;
+//    private GeoCoord center;
     private double urbanization;
     private double productivity = 1.03;
     private double economicPolicy [] = {0.5, 0.5};
@@ -35,7 +33,7 @@ public class Tile extends Entity implements Steppable {
     private int naturalResources;
     private double wealth;
     private double wealthLastStep;
-    H3Core h3;
+
 //    private History themTimes = new History(52 * 4); // Four year history
 
      // anonymous H3Core class instantiation
@@ -47,17 +45,12 @@ public class Tile extends Entity implements Steppable {
     private List<String>neighborAddresses = new ArrayList<>();
 
     public Tile() {
-        try {
-            h3 = H3Core.newInstance();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
     }
 
     public Tile(String address) {
         this();
         this.address = address;
-        this.center = h3.h3ToGeo(address);
+//        setCenter();
         learnNeighborhood();
     }
 
@@ -117,11 +110,20 @@ public class Tile extends Entity implements Steppable {
         return address;
     }
 
-    public GeoCoord getCenter() {
-        return center;
-    }
+//    public GeoCoord getCenter() {
+//        return center;
+//    }
 
-    public List<GeoCoord> getBoundary() {return h3.h3ToGeoBoundary(this.address); }
+    public List<GeoCoord> getBoundary() {
+        List<GeoCoord> boundary = new ArrayList<>();
+        try {
+            H3Core h3 = H3Core.newInstance();
+            boundary = h3.h3ToGeoBoundary(address);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return boundary;
+    }
 
     public Set<Tile> getNeighbors() {
         return neighbors;
@@ -132,8 +134,13 @@ public class Tile extends Entity implements Steppable {
     }
 
     private void learnNeighborhood() {
-        this.neighborAddresses = h3.kRing(this.address, 1);
-        this.neighborAddresses.remove(this.address);
+        try {
+            H3Core h3 = H3Core.newInstance();
+            this.neighborAddresses = h3.kRing(address, 1);
+            this.neighborAddresses.remove(address);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     public List<String> getNeighborAddresses() {
@@ -172,4 +179,29 @@ public class Tile extends Entity implements Steppable {
         this.naturalResources = naturalResources;
     }
 
+//    private void setCenter() {
+//        try {
+//            H3Core h3 = H3Core.newInstance();
+//            this.center = h3.h3ToGeo(address);
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
+//    }
+
+    @Override
+    public String toString() {
+        final StringBuilder sb = new StringBuilder("Tile{");
+        sb.append("id=").append(id);
+        sb.append("address=").append(address);
+//        sb.append("center=").append(center.toString());
+        sb.append("urbanization=").append(urbanization);
+        sb.append("productivity=").append(productivity);
+        sb.append("economicPolicy=").append(economicPolicy);
+        sb.append("population=").append(population);
+        sb.append("products=").append(products);
+        sb.append("naturalResources=").append(naturalResources);
+        sb.append("wealth=").append(wealth);
+        sb.append("wealthLastStep=").append(wealthLastStep);
+        return sb.toString();
+    }
 }
