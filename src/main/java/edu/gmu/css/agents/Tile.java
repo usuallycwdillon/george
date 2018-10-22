@@ -20,8 +20,9 @@ public class Tile extends Entity implements Steppable, Serializable {
      * Tiles are implemented as hexagonal (and 12 pentagonal) territorial units defined by Uber H3 Hierarchical Discrete
      * Global Grid object boundaries. Only land tiles are implemented.
      */
-    @Id @GeneratedValue (strategy = edu.gmu.css.service.H3IdStrategy.class)
-    private String id;
+    @Id @GeneratedValue (strategy = H3IdStrategy.class)
+    private Long id;
+    private Long h3Id;
     @Index(unique = true)
     private String address;
 //    private GeoCoord center;
@@ -42,15 +43,13 @@ public class Tile extends Entity implements Steppable, Serializable {
     @Relationship(type="ABUTS", direction = Relationship.UNDIRECTED)
     private Set<Tile> neighbors = new HashSet<>();
 
-    private List<String>neighborAddresses = new ArrayList<>();
+    private List<Long>neighborIds = new ArrayList<>();
 
     public Tile() {
     }
 
-    public Tile(String address) {
-        this();
-        this.address = address;
-//        setCenter();
+    public Tile(Long h3Id) {
+        this.h3Id = h3Id;
         learnNeighborhood();
     }
 
@@ -110,6 +109,8 @@ public class Tile extends Entity implements Steppable, Serializable {
         return address;
     }
 
+    public Long getH3Id() {return h3Id; }
+
 //    public GeoCoord getCenter() {
 //        return center;
 //    }
@@ -136,15 +137,15 @@ public class Tile extends Entity implements Steppable, Serializable {
     private void learnNeighborhood() {
         try {
             H3Core h3 = H3Core.newInstance();
-            this.neighborAddresses = h3.kRing(address, 1);
-            this.neighborAddresses.remove(address);
+            this.neighborIds = h3.kRing(h3Id, 1);
+            this.neighborIds.remove(h3Id);
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    public List<String> getNeighborAddresses() {
-        return this.neighborAddresses;
+    public List<Long> getNeighborIds() {
+        return this.neighborIds;
     }
 
     public int getPopulation() {
@@ -188,20 +189,20 @@ public class Tile extends Entity implements Steppable, Serializable {
 //        }
 //    }
 
-    @Override
-    public String toString() {
-        final StringBuilder sb = new StringBuilder("Tile{");
-        sb.append("id=").append(id);
-        sb.append("address=").append(address);
-//        sb.append("center=").append(center.toString());
-        sb.append("urbanization=").append(urbanization);
-        sb.append("productivity=").append(productivity);
-        sb.append("economicPolicy=").append(economicPolicy);
-        sb.append("population=").append(population);
-        sb.append("products=").append(products);
-        sb.append("naturalResources=").append(naturalResources);
-        sb.append("wealth=").append(wealth);
-        sb.append("wealthLastStep=").append(wealthLastStep);
-        return sb.toString();
-    }
+//    @Override
+//    public String toString() {
+//        final StringBuilder sb = new StringBuilder("Tile{");
+//        sb.append("id=").append(id);
+//        sb.append("address=").append(address);
+////        sb.append("center=").append(center.toString());
+//        sb.append("urbanization=").append(urbanization);
+//        sb.append("productivity=").append(productivity);
+//        sb.append("economicPolicy=").append(economicPolicy);
+//        sb.append("population=").append(population);
+//        sb.append("products=").append(products);
+//        sb.append("naturalResources=").append(naturalResources);
+//        sb.append("wealth=").append(wealth);
+//        sb.append("wealthLastStep=").append(wealthLastStep);
+//        return sb.toString();
+//    }
 }

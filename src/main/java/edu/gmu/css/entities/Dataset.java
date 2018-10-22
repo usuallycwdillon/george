@@ -1,18 +1,20 @@
 package edu.gmu.css.entities;
 
 import edu.gmu.css.service.DateConverter;
+import org.neo4j.ogm.annotation.GeneratedValue;
 import org.neo4j.ogm.annotation.Id;
 import org.neo4j.ogm.annotation.Relationship;
 import org.neo4j.ogm.annotation.typeconversion.Convert;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 
 
 public class Dataset extends Entity {
 
-    @Id
+    @Id @GeneratedValue
     Long id;
     String filename;
     String name;
@@ -29,7 +31,13 @@ public class Dataset extends Entity {
     private Set<Territory> facts = new HashSet<>();
 
     public Dataset() {
+    }
 
+    public Dataset(String filename, String name, Double version) {
+        this.filename = filename;
+        this.name = name;
+        this.version = version;
+        this.facts = new HashSet<>();
     }
 
     @Override
@@ -55,6 +63,10 @@ public class Dataset extends Entity {
 
     public void addFacts(Territory t) {
         this.facts.add(t);
+    }
+
+    public void addAllFacts(Collection<Territory> theseTerritories) {
+        this.facts.addAll(theseTerritories);
     }
 
     public LocalDate getPublished() {

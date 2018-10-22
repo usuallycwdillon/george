@@ -18,6 +18,7 @@ import org.neo4j.ogm.annotation.GeneratedValue;
 import org.neo4j.ogm.annotation.Id;
 import org.neo4j.ogm.annotation.NodeEntity;
 import org.neo4j.ogm.annotation.Relationship;
+import sim.engine.SimState;
 
 import java.io.File;
 import java.io.IOException;
@@ -29,14 +30,15 @@ public class Territory extends Entity implements Serializable{
 
     @Id @GeneratedValue
     Long id;
-    long creationDate;
+    Long creationDate;
     String name;
     String abbr;
-    Double area;
+    Double area = 0.0;
     int year;
     int resolution;
 
-    public static Map<String, Tile> globalHexes = MultiThreadedHexFactory.hzi.getMap("globalHexes");
+//    public static Map<Long, Tile> globalHexes = MultiThreadedHexFactory.hzi.getMap("globalHexes");
+    List<Long> hexList;
 
     @Relationship(type="OCCUPATION_OF")
     Set<Tile> hexSet;
@@ -48,20 +50,22 @@ public class Territory extends Entity implements Serializable{
     public Territory() {
         this.creationDate = 0L;
         this.hexSet = new HashSet<>();
+        this.hexList = new ArrayList<>();
     }
 
-    public Territory(String name, String abbr, Double area, long stepNo) {
+    public Territory(String name, String abbr, Double area, int year, int resolution) {
         this();
+        this.year = year;
+        this.creationDate = (year - 1815) * 52L;
+        this.hexSet = new HashSet<>();
         this.name = name;
         this.abbr = abbr;
-        this.area = area;
-        this.creationDate = stepNo;
+        this.resolution = resolution;
+        if (area != null) {this.area = area;} else {this.area = 0.0;}
+
     }
 
-
-    public void updateOccupation(Feature inputFeature) {
-        this.area += inputFeature.getProperty("AREA");
-        getTilesFromPolygons(inputFeature);
+    public Territory(SimState simState) {
     }
 
     public Long getId() {
@@ -76,98 +80,113 @@ public class Territory extends Entity implements Serializable{
         this.name = name;
     }
 
+    public Double getArea() {
+        return area;
+    }
+
+    public void setArea(Double area) {
+        this.area = area;
+    }
+
+    public int getYear() {
+        return year;
+    }
+
+    public int getResolution() {
+        return resolution;
+    }
+
+    public void setResolution(int resolution) {
+        this.resolution = resolution;
+    }
+
     public Set<Tile> getHexSet() {
         return hexSet;
     }
 
-    public void addHexes(Tile hex) {this.hexSet.add(hex);}
+    public List<Long> getHexList() { return hexList; }
+
+    public void addHex(Tile hex) {this.hexSet.add(hex);}
 
     public Set<Territory> getNeighbors() {
         return neighbors;
     }
 
-    public void buildTerritory(Feature inputFeature, String name, int resolution, int year) {
-        this.year = year;
-        this.resolution = resolution;
-        this.name = name + " of " + year;
-        this.abbr = inputFeature.getProperty("WB_CNTRY");
-        this.area = inputFeature.getProperty("AREA");
-        getTilesFromPolygons(inputFeature);
+    public void buildTerritory(Feature inputFeature) {
+        getTileIdsFromPolygons(inputFeature);
     }
 
-    private void getTilesFromPolygons(Feature inputFeature) {
+    public void updateOccupation(Feature inputFeature) {
+        if (inputFeature.getProperty("AREA") != null) {
+            this.area += inputFeature.getProperty("AREA");
+        }
+        getTileIdsFromPolygons(inputFeature);
+    }
+
+    private void getTileIdsFromPolygons(Feature inputFeature) {
+        // All territory elements are multipolygons, even if there is only one polygon in the array
         MultiPolygon geom = (MultiPolygon) inputFeature.getGeometry();
-        int numGeometries = geom.getCoordinates().size();
+        int numPolygons = geom.getCoordinates().size();
 
-        System.out.println("Creating territory " + name);
+        for (int i = 0; i < numPolygons; i++) {
+            List<List<GeoCoord>> holes = new ArrayList<>();
 
-        for (int i = 0; i < numGeometries; i++) {
             int numInnerLists = geom.getCoordinates().get(i).size();
-            if (numInnerLists > 1) {
-                System.out.println(name + " has more than one inner geometry list!");
-            }
 
             List<LngLatAlt> coordinates = geom.getCoordinates().get(i).get(0);
-            List<GeoCoord> boundaryCoordinates = new ArrayList<>();
-            for (LngLatAlt c : coordinates) {
-                GeoCoord gc = new GeoCoord(c.getLatitude(), c.getLongitude());
-                boundaryCoordinates.add(gc);
-            }
+            List<GeoCoord> boundaryCoordinates = swapCoordinateOrdering(coordinates);
 
-            List<String> hexList = new ArrayList<>();
-            List<List<GeoCoord>> holes = new ArrayList<>();
+            if (numInnerLists > 1) {        // second thru last elements are holes in the outer polygon
+                for (int il=1; il<numInnerLists; il++) {
+                    List<GeoCoord> hole = swapCoordinateOrdering(geom.getCoordinates().get(i).get(il));
+                    holes.add(hole);
+                }
+            }
 
             try {
                 H3Core h3 = H3Core.newInstance();
-                if (area < 40000.0 && !name.equals("Russian Empire")) {
-                    hexList = new ArrayList<>(h3.polyfillAddress(boundaryCoordinates, holes, resolution));
+                if (area == null) {
+                    System.out.println("The area is null");
+                }
+                if (name == null) {
+                    System.out.println("The name is null");
+                }
+                if (area < 40000.0 && !name.equals("Russian Empire of " + year)) {
+                    hexList = new ArrayList<>(h3.polyfill(boundaryCoordinates, holes, resolution));
                 } else {
                     int res = resolution - 1;
-                    List<String> bigList = new ArrayList<>(h3.polyfillAddress(boundaryCoordinates, holes, res));
-                    for (String s : bigList) {
+                    List<Long> bigList = new ArrayList<>(h3.polyfill(boundaryCoordinates, holes, res));
+                    if (bigList.size() < 1) {
+                        hexList = new ArrayList<>(h3.polyfill(boundaryCoordinates, holes, resolution));
+                    }
+                    for (Long s : bigList) {
                         hexList.addAll(h3.h3ToChildren(s, resolution));
                     }
                 }
             } catch (Exception e) {
                 e.printStackTrace();
             }
-
-            Session session = Neo4jSessionFactory.getInstance().getNeo4jSession();
-            Transaction tx = session.beginTransaction();
-
-            for (String h : hexList) {
-                if (!globalHexes.containsKey(h)) {
-                    Tile hex = new Tile(h);
-//                    System.out.println(" created hex " + h);
-                    this.addHexes(hex);
-                    globalHexes.put(h, hex);
-                    session.save(hex);
-                } else {
-                    Tile hex = globalHexes.get(h);
-                    this.addHexes(hex);
-                    session.save(hex);
-                }
-            }
-
-            tx.commit();
-            session.clear();
-            System.out.println("Committed a geometry's worth of hexes to " + name);
         }
-
-        System.out.println("Committed the complete territory " + name);
     }
 
-
-    @Override
-    public String toString() {
-        final StringBuilder sb = new StringBuilder("Tile{");
-        sb.append("id=").append(id);
-        sb.append("creationDate=").append(creationDate);
-        sb.append("name=").append(name);
-        sb.append("abbr=").append(abbr);
-        sb.append("area=").append(area);
-        sb.append("year=").append(year);
-        sb.append("resolution=").append(resolution);
-        return sb.toString();
+    private List<GeoCoord> swapCoordinateOrdering(List<LngLatAlt> coordinates) {
+        List<GeoCoord> h3Coords = new ArrayList<>();
+        for (LngLatAlt c : coordinates) {
+            GeoCoord gc = new GeoCoord(c.getLatitude(), c.getLongitude());
+            h3Coords.add(gc);
+        }
+        return h3Coords;
     }
+
+//    @Override
+//    public String toString() {
+//        final StringBuilder sb = new StringBuilder("Territory{");
+//        sb.append("name=").append(name);
+//        sb.append("abbr=").append(abbr);
+//        sb.append("area=").append(area);
+//        sb.append("year=").append(year);
+//        sb.append("resolution=").append(resolution);
+//        return sb.toString();
+//    }
+
 }

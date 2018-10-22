@@ -33,7 +33,7 @@
     <dependency>
       <groupId>org.neo4j</groupId>
       <artifactId>neo4j</artifactId>
-      <version>3.4.4</version>
+      <version>3.4.6</version>
     </dependency>
     <dependency>
       <groupId>org.neo4j</groupId>
@@ -51,6 +51,12 @@
       <groupId>org.neo4j.driver</groupId>
       <artifactId>neo4j-java-driver</artifactId>
       <version>1.6.2</version>
+    </dependency>
+    <!-- https://mvnrepository.com/artifact/org.neo4j.procedure/apoc -->
+    <dependency>
+      <groupId>org.neo4j.procedure</groupId>
+      <artifactId>apoc</artifactId>
+      <version>3.4.0.3</version>
     </dependency>
     <dependency>
       <groupId>org.projectlombok</groupId>
@@ -88,16 +94,26 @@
       <artifactId>hazelcast</artifactId>
       <version>3.10.5</version>
     </dependency>
-      <dependency>
-          <groupId>com.hazelcast</groupId>
-          <artifactId>hazelcast-client</artifactId>
-          <version>3.10.5</version>
-      </dependency>
-      <dependency>
-          <groupId>de.grundid.opendatalab</groupId>
-          <artifactId>geojson-jackson</artifactId>
-          <version>1.8.1</version>
-      </dependency>
+    <dependency>
+      <groupId>com.hazelcast</groupId>
+      <artifactId>hazelcast-client</artifactId>
+      <version>3.10.5</version>
+    </dependency>
+    <dependency>
+      <groupId>com.hazelcast.jet</groupId>
+      <artifactId>hazelcast-jet</artifactId>
+      <version>0.7</version>
+    </dependency>
+    <dependency>
+      <groupId>de.grundid.opendatalab</groupId>
+      <artifactId>geojson-jackson</artifactId>
+      <version>1.8.1</version>
+    </dependency>
+    <dependency>
+      <groupId>edu.gmu.eclab</groupId>
+      <artifactId>mason</artifactId>
+      <version>19</version>
+    </dependency>
   </dependencies>
 
   <repositories>

@@ -9,7 +9,7 @@ import edu.gmu.css.service.Neo4jSessionFactory;
 public abstract class GenericService<T extends Entity> implements Service<T> {
 
     private static final int DEPTH_LIST = 1;
-    private static final int DEPTH_ENTITY = 2;
+    private static final int DEPTH_ENTITY = 1;
     protected Session session = Neo4jSessionFactory.getInstance().getNeo4jSession();
 
     @Override

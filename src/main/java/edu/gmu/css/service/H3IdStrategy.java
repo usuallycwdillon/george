@@ -8,6 +8,6 @@ public class H3IdStrategy implements IdStrategy {
     @Override
     public Object generateId(Object entity) {
         Tile tile = (Tile) entity;
-        return tile.getAddress();
+        return tile.getH3Id();
     }
 }
