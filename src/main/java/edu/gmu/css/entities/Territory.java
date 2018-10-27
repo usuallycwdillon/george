@@ -11,6 +11,7 @@ import org.geojson.Feature;
 import org.geojson.Geometry;
 import org.geojson.LngLatAlt;
 import org.geojson.MultiPolygon;
+import org.jetbrains.annotations.NotNull;
 import org.neo4j.ogm.session.Session;
 import org.neo4j.ogm.transaction.Transaction;
 
@@ -26,7 +27,7 @@ import java.io.Serializable;
 import java.util.*;
 
 @NodeEntity
-public class Territory extends Entity implements Serializable{
+public class Territory extends Entity implements Serializable {
 
     @Id @GeneratedValue
     Long id;
@@ -37,7 +38,6 @@ public class Territory extends Entity implements Serializable{
     int year;
     int resolution;
 
-//    public static Map<Long, Tile> globalHexes = MultiThreadedHexFactory.hzi.getMap("globalHexes");
     List<Long> hexList;
 
     @Relationship(type="OCCUPATION_OF")
@@ -62,8 +62,21 @@ public class Territory extends Entity implements Serializable{
         this.abbr = abbr;
         this.resolution = resolution;
         if (area != null) {this.area = area;} else {this.area = 0.0;}
-
     }
+
+    public Territory(String name, String abbr, Double area, int year, int resolution, Feature feature) {
+        this();
+        this.year = year;
+        this.creationDate = (year - 1815) * 52L;
+        this.hexSet = new HashSet<>();
+        this.name = name;
+        this.abbr = abbr;
+        this.resolution = resolution;
+        if (area != null) {this.area = area;} else {this.area = 0.0;}
+        buildTerritory(feature);
+        getTilesFromAddresses();
+    }
+
 
     public Territory(SimState simState) {
     }
@@ -114,6 +127,7 @@ public class Territory extends Entity implements Serializable{
 
     public void buildTerritory(Feature inputFeature) {
         getTileIdsFromPolygons(inputFeature);
+        getTilesFromAddresses();
     }
 
     public void updateOccupation(Feature inputFeature) {
@@ -121,6 +135,7 @@ public class Territory extends Entity implements Serializable{
             this.area += inputFeature.getProperty("AREA");
         }
         getTileIdsFromPolygons(inputFeature);
+        getTilesFromAddresses();
     }
 
     private void getTileIdsFromPolygons(Feature inputFeature) {
@@ -169,7 +184,7 @@ public class Territory extends Entity implements Serializable{
         }
     }
 
-    private List<GeoCoord> swapCoordinateOrdering(List<LngLatAlt> coordinates) {
+    private List<GeoCoord> swapCoordinateOrdering(@NotNull List<LngLatAlt> coordinates) {
         List<GeoCoord> h3Coords = new ArrayList<>();
         for (LngLatAlt c : coordinates) {
             GeoCoord gc = new GeoCoord(c.getLatitude(), c.getLongitude());
@@ -178,15 +193,20 @@ public class Territory extends Entity implements Serializable{
         return h3Coords;
     }
 
-//    @Override
-//    public String toString() {
-//        final StringBuilder sb = new StringBuilder("Territory{");
-//        sb.append("name=").append(name);
-//        sb.append("abbr=").append(abbr);
-//        sb.append("area=").append(area);
-//        sb.append("year=").append(year);
-//        sb.append("resolution=").append(resolution);
-//        return sb.toString();
-//    }
+    public void getTilesFromAddresses() {
+        Session session = Neo4jSessionFactory.getInstance().getNeo4jSession();
+        for (Long h : hexList) {
+            if (HexFactory.globalHexes.containsKey(h)) {
+                Tile t = HexFactory.globalHexes.get(h);
+                hexSet.add(t);
+                session.save(t, 1);
+            } else {
+                Tile t = new Tile(h);
+                HexFactory.globalHexes.put(h, t);
+                hexSet.add(t);
+                session.save(t, 1);
+            }
+        }
+    }
 
 }

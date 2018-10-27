@@ -28,25 +28,40 @@
     <dependency>
       <groupId>com.uber</groupId>
       <artifactId>h3</artifactId>
-      <version>3.0.4</version>
+      <version>3.2.0</version>
     </dependency>
     <dependency>
       <groupId>org.neo4j</groupId>
       <artifactId>neo4j</artifactId>
-      <version>3.4.6</version>
+      <version>3.4.9</version>
     </dependency>
     <dependency>
       <groupId>org.neo4j</groupId>
       <artifactId>neo4j-ogm-core</artifactId>
-      <version>3.1.3</version>
+      <version>3.1.4</version>
       <scope>compile</scope>
     </dependency>
     <dependency>
       <groupId>org.neo4j</groupId>
+      <artifactId>neo4j-ogm-api</artifactId>
+      <version>3.1.4</version>
+    </dependency>
+    <dependency>
+      <groupId>org.neo4j</groupId>
       <artifactId>neo4j-ogm-bolt-driver</artifactId>
-      <version>3.1.3</version>
+      <version>3.1.4</version>
       <scope>runtime</scope>
     </dependency>
+    <!-- https://mvnrepository.com/artifact/org.neo4j/neo4j-ogm-embedded-driver -->
+    <dependency>
+      <groupId>org.neo4j</groupId>
+      <artifactId>neo4j-ogm-embedded-driver</artifactId>
+      <version>3.1.4</version>
+    </dependency>
+    <!--<dependency>-->
+      <!--<groupId>org.neo4j</groupId>-->
+      <!--<artifactId>neo4j-</artifactId>-->
+    <!--</dependency>-->
     <dependency>
       <groupId>org.neo4j.driver</groupId>
       <artifactId>neo4j-java-driver</artifactId>
@@ -113,6 +128,17 @@
       <groupId>edu.gmu.eclab</groupId>
       <artifactId>mason</artifactId>
       <version>19</version>
+    </dependency>
+    <dependency>
+      <groupId>com.google.inject</groupId>
+      <artifactId>guice</artifactId>
+      <version>4.1.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.jetbrains</groupId>
+      <artifactId>annotations</artifactId>
+      <version>RELEASE</version>
+      <scope>compile</scope>
     </dependency>
   </dependencies>
 
