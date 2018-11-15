@@ -9,10 +9,12 @@ public class Neo4jSessionFactory {
     private final static Configuration configuration = new Configuration.Builder()
 //            .uri("file:///home/cw/Code/george/src/main/resources/data/databases/worldOrderData.db")
             .uri("bolt://localhost")
+//            .uri("bolt://192.168.2.94")
             .credentials("neo4j", "george")
             .build();
 
     static H3IdStrategy idStrategy = new H3IdStrategy();
+    static NameIdStrategy nameIdStrategy = new NameIdStrategy();
 
     private static final SessionFactory sessionFactory = new SessionFactory(configuration, "edu.gmu.css.entities", "edu.gmu.css.agents");
 

@@ -6,6 +6,7 @@ import com.uber.h3core.util.GeoCoord;
 import edu.gmu.css.agents.Tile;
 import edu.gmu.css.hexFactory.*;
 
+import edu.gmu.css.service.NameIdStrategy;
 import edu.gmu.css.service.Neo4jSessionFactory;
 import org.geojson.Feature;
 import org.geojson.Geometry;
@@ -29,10 +30,13 @@ import java.util.*;
 @NodeEntity
 public class Territory extends Entity implements Serializable {
 
-    @Id @GeneratedValue
-    Long id;
-    Long creationDate;
+    Map<Long, Tile> globalHexes = HexFactory.globalHexes;
+
+    @Id @GeneratedValue (strategy = NameIdStrategy.class)
+    String mapKey;
+    //    Long id;
     String name;
+    Long creationDate;
     String abbr;
     Double area = 0.0;
     int year;
@@ -48,7 +52,10 @@ public class Territory extends Entity implements Serializable {
 
 
     public Territory() {
+        this.resolution = 4;
         this.creationDate = 0L;
+        this.name = "Unnamed";
+        this.area = 0.0;
         this.hexSet = new HashSet<>();
         this.hexList = new ArrayList<>();
     }
@@ -72,17 +79,23 @@ public class Territory extends Entity implements Serializable {
         this.name = name;
         this.abbr = abbr;
         this.resolution = resolution;
+        this.mapKey = name + " of " + year;
         if (area != null) {this.area = area;} else {this.area = 0.0;}
         buildTerritory(feature);
-        getTilesFromAddresses();
+    }
+
+    public Territory(Feature input, int year) {
+        this();
+        this.name = input.getProperty("NAME");
+        this.abbr = input.getProperty("WB_CNTRY");
+        this.year = year;
+        this.mapKey = name + " of " + year;
+        if (input.getProperty("AREA") != null) {this.area = input.getProperty("AREA");} else {this.area = 0.0;}
+        buildTerritory(input);
     }
 
 
     public Territory(SimState simState) {
-    }
-
-    public Long getId() {
-        return this.id;
     }
 
     public String getName() {
@@ -113,6 +126,10 @@ public class Territory extends Entity implements Serializable {
         this.resolution = resolution;
     }
 
+    public String getMapKey() {
+        return mapKey;
+    }
+
     public Set<Tile> getHexSet() {
         return hexSet;
     }
@@ -127,18 +144,18 @@ public class Territory extends Entity implements Serializable {
 
     public void buildTerritory(Feature inputFeature) {
         getTileIdsFromPolygons(inputFeature);
-        getTilesFromAddresses();
+        hexSet.addAll(getTilesFromAddresses());
     }
 
     public void updateOccupation(Feature inputFeature) {
         if (inputFeature.getProperty("AREA") != null) {
-            this.area += inputFeature.getProperty("AREA");
+            this.area = this.area + (Double) inputFeature.getProperty("AREA");
         }
         getTileIdsFromPolygons(inputFeature);
-        getTilesFromAddresses();
+        hexSet.addAll(getTilesFromAddresses());
     }
 
-    private void getTileIdsFromPolygons(Feature inputFeature) {
+    private void getTileIdsFromPolygons(@NotNull Feature inputFeature) {
         // All territory elements are multipolygons, even if there is only one polygon in the array
         MultiPolygon geom = (MultiPolygon) inputFeature.getGeometry();
         int numPolygons = geom.getCoordinates().size();
@@ -193,20 +210,19 @@ public class Territory extends Entity implements Serializable {
         return h3Coords;
     }
 
-    public void getTilesFromAddresses() {
-        Session session = Neo4jSessionFactory.getInstance().getNeo4jSession();
+    public Set<Tile> getTilesFromAddresses() {
+        Set<Tile> tiles = new HashSet<>();
         for (Long h : hexList) {
-            if (HexFactory.globalHexes.containsKey(h)) {
-                Tile t = HexFactory.globalHexes.get(h);
-                hexSet.add(t);
-                session.save(t, 1);
-            } else {
+            if (globalHexes.containsKey(h)) {
+                Tile t = globalHexes.get(h);
+                tiles.add(t);
+            } else  {
                 Tile t = new Tile(h);
-                HexFactory.globalHexes.put(h, t);
-                hexSet.add(t);
-                session.save(t, 1);
+                globalHexes.put(h, t);
+                tiles.add(t);
             }
         }
+        return tiles;
     }
 
 }

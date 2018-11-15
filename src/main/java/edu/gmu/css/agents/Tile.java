@@ -23,7 +23,6 @@ public class Tile extends Entity implements Serializable {
      * Global Grid object boundaries. Only land tiles are implemented.
      */
     @Id @GeneratedValue (strategy = H3IdStrategy.class)
-//    private Long id;
     private Long h3Id;
 
     @Index(unique = true)
@@ -116,6 +115,30 @@ public class Tile extends Entity implements Serializable {
 
     public Long getH3Id() {return h3Id; }
 
+    public Set<Tile> getNeighbors() {
+        return neighbors;
+    }
+
+    public void addNeighbor(Tile n) {
+        this.neighbors.add(n);
+    }
+
+    private void learnNeighborhood() {
+        try {
+            H3Core h3 = H3Core.newInstance();
+            this.neighborIds = h3.kRing(h3Id, 1);
+            this.neighborIds.remove(h3Id);
+            // unrelated, but I'm taking advantage of having already initiated an H3 instance
+            this.address = h3.h3ToString(h3Id);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public List<Long> getNeighborIds() {
+        return this.neighborIds;
+    }
+
 //    public GeoCoord getCenter() {
 //        return center;
 //    }
@@ -130,30 +153,6 @@ public class Tile extends Entity implements Serializable {
 //        }
 //        return boundary;
 //    }
-
-    public Set<Tile> getNeighbors() {
-        return neighbors;
-    }
-
-    public void addNeighbor(Tile n) {
-        this.neighbors.add(n);
-    }
-
-    private void learnNeighborhood() {
-        try {
-            H3Core h3 = H3Core.newInstance();
-            this.neighborIds = h3.kRing(h3Id, 1);
-            this.neighborIds.remove(h3Id);
-            this.address = h3.h3ToString(h3Id);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-
-    public List<Long> getNeighborIds() {
-        return this.neighborIds;
-    }
 
 //    public int getPopulation() {
 //        return population;
