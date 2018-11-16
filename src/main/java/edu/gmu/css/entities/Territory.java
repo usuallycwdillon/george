@@ -36,6 +36,7 @@ public class Territory extends Entity implements Serializable {
     String mapKey;
     //    Long id;
     String name;
+    String cowcode;
     Long creationDate;
     String abbr;
     Double area = 0.0;
@@ -90,6 +91,7 @@ public class Territory extends Entity implements Serializable {
         this.abbr = input.getProperty("WB_CNTRY");
         this.year = year;
         this.mapKey = name + " of " + year;
+        if (input.getProperty("CCODE") != null) {this.cowcode = "" + input.getProperty("CCODE");} else {this.cowcode = "";}
         if (input.getProperty("AREA") != null) {this.area = input.getProperty("AREA");} else {this.area = 0.0;}
         buildTerritory(input);
     }
