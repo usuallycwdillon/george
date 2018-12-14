@@ -2,17 +2,19 @@
 //
 //
 //import com.fasterxml.jackson.databind.ObjectMapper;
+//import com.hazelcast.config.*;
 //import edu.gmu.css.agents.Tile;
-//import edu.gmu.css.data.DatasetData;
+//import edu.gmu.css.data.GeoDatasetData;
 //import edu.gmu.css.entities.Dataset;
 //import edu.gmu.css.entities.Territory;
+//import edu.gmu.css.hazelcast.DeployedConfig;
+//import edu.gmu.css.hazelcast.LocalConfig;
 //import edu.gmu.css.service.*;
 //import org.geojson.FeatureCollection;
 //import org.geojson.Feature;
 //import org.neo4j.helpers.collection.MapUtil;
 //import org.neo4j.ogm.session.Session;
 //import org.neo4j.ogm.transaction.Transaction;
-//import com.hazelcast.config.Config;
 //import com.hazelcast.core.*;
 //
 //import java.io.File;
@@ -24,7 +26,7 @@
 //
 //public class MultiThreadedHexFactory {
 //
-//    private static Map<Integer, Dataset> geodatasets= DatasetData.GEODATASETS;
+//    private static Map<Integer, Dataset> geodatasets= GeoDatasetData.GEODATASETS;
 //    private static String[] yearString = {"1815", "1880", "1914", "1945", "1994"};
 //    private static int[] yearInt = {1815, 1880, 1914, 1945, 1994};
 ////    private static int[] yearInt = {1815};
@@ -48,7 +50,7 @@
 //                    new TerritoryHexSetProcessor());
 //            Session session = Neo4jSessionFactory.getInstance().getNeo4jSession();
 //            Transaction tx = session.beginTransaction();
-//            session.save(t, 2);
+//            session.save(t, 1);
 //            tx.commit();
 //            session.clear();
 //        }
@@ -58,8 +60,38 @@
 //        Map<Long, Tile> missingHexes = new HashMap<>();
 //        Iterator it = globalHexes.entrySet().iterator();
 //        while (it.hasNext()) {
-//            Session session = Neo4jSessionFactory.getInstance().getNeo4jSession();
-//            Transaction tx = session.beginTransaction();
+////            Session session = Neo4jSessionFactory.getInstance().getNeo4jSession();
+////            Transaction tx = session.beginTransaction();
+//            Map.Entry pair = (Map.Entry) it.next();
+//            Tile tile = (Tile) pair.getValue();
+////            Long key = (Long) pair.getKey();
+////            String processThread = (String) globalHexes.executeOnKey(key,
+////                    new TileJoinEntryProcessor(tile));
+//            for (Long h : tile.getNeighborIds()) {
+//                if (globalHexes.containsKey(h)) {
+//                    tile.addNeighbor(globalHexes.get(h));
+//                } else {
+//                    Tile newHex = new Tile(h);
+//                    missingHexes.put(h, newHex);
+//                    tile.addNeighbor(newHex);
+//                }
+////                session.save(tile);
+//            }
+////            tx.commit();
+////            it.remove(); // avoid a ConcurrentModificationException
+//        }
+//
+//        if (missingHexes.size() != 0) {
+//            globalHexes.putAll(missingHexes);
+//        }
+//
+//        System.out.println("There were " + missingHexes.size() + " missing hex Tiles.");
+//    }
+//
+//    private void altJoinHexes() {
+//        Map<Long, Tile> missingHexes = new HashMap<>();
+//        Iterator it = globalHexes.entrySet().iterator();
+//        while (it.hasNext()) {
 //            Map.Entry pair = (Map.Entry) it.next();
 //            Tile tile = (Tile) pair.getValue();
 ////            Long key = (Long) pair.getKey();
@@ -74,24 +106,16 @@
 //                    tile.addNeighbor(newHex);
 //                }
 //            }
-//            session.save(tile);
-//            tx.commit();
-////            it.remove(); // avoid a ConcurrentModificationException
 //        }
-//
-//        if (missingHexes.size() != 0) {
-//            globalHexes.putAll(missingHexes);
-////                joinHexes();
-//        }
-//
-//        System.out.println("There were " + missingHexes.size() + " missing hex Tiles.");
 //    }
 //
 //    private void findTerritoryNeighbors(int year) {
 //        String query = "MATCH (t1:Territory{year:{year}})-[:OCCUPATION_OF]->(h1:Tile)-[:ABUTS]-(h2:Tile)<-[:OCCUPATION_OF]-(t2:Territory{year:{year}}) " +
 //                "WHERE t1 <> t2 AND t1.year = t2.year " +
 //                "MERGE (t1)-[b:BORDERS{during:{year} } ]->(t2) " +
-//                "MERGE (t1)-[d:DURING]->(y:Year{name:toString({year})}) " +
+//                "WITH t1, t2 " +
+//                "MATCH (y:Year{name:{year}})" +
+//                "MERGE (t1)-[d:DURING]->(y) " +
 //                "MERGE (t2)-[e:DURING]->(y)";
 //        Neo4jSessionFactory.getInstance().getNeo4jSession().query(query, MapUtil.map("year", year));
 //    }
@@ -101,15 +125,17 @@
 //        LocalTime startTime = LocalTime.now();
 //        System.out.println("The simulation began at: " + startTime);
 //
-////        For testing and debugging locally, we can create a two-node hazelcast cluster within this jvm
-//        Config config = new Config();
+////      For testing and debugging locally, we can create a two-node hazelcast cluster within this jvm, using the
+////      LocalConfig object. When deployed we use the DeployedConfig object instead.
+//
+//        Config config = new DeployedConfig();
+////        Config config = new LocalConfig();
+////        HazelcastInstance hzj = Hazelcast.newHazelcastInstance(config);
+//
+//        Hazelcast.getAllHazelcastInstances();
+////
+//        config.setLiteMember(true);
 //        hzi = Hazelcast.newHazelcastInstance(config);
-//        HazelcastInstance hzj = Hazelcast.newHazelcastInstance(config);
-//
-//
-////        Config hazelConfig = new Config();
-////        hazelConfig.setLiteMember(true);
-////        hci = Hazelcast.newHazelcastInstance(hazelConfig);
 //
 //        globalHexes = hzi.getMap("globalHexes");
 //        globalHexes.clear();
@@ -126,7 +152,7 @@
 //        for (Map.Entry<Integer, Dataset> entry : geodatasets.entrySet()) {
 //            Dataset d = entry.getValue();
 //            // Dynamically get the geojson file associated with the year
-//            String filename = "world_" + entry.getKey() + ".geojson";
+//            String filename = "cowWorld_" + entry.getKey() + ".geojson";
 //            String filepath = "src/main/resources/historicalBasemaps/" + filename;
 //            File file = new File(filepath);
 //            if (!file.exists() || !filepath.endsWith(".geojson")) {
@@ -167,7 +193,7 @@
 //                            t = territories.get(keyname);
 //                            String offloadedThread = (String) territories.executeOnKey(keyname,
 //                                    new TerritoryUpdateFeatureProcessor(thisFeature));
-//                            System.out.println(offloadedThread);
+//                            System.out.println(offloadedThread + " for " + keyname);
 //                        } else {
 //                            String abbr = thisFeature.getProperty("WB_CNTRY");
 //                            Double area = thisFeature.getProperty("AREA");
@@ -175,7 +201,7 @@
 //                            territories.put(keyname, t);
 //                            String offloadedThread = (String) territories.executeOnKey(keyname,
 //                                    new TerritoryCreateFeatureProcessor(thisFeature));
-//                            System.out.println(offloadedThread);
+//                            System.out.println(offloadedThread + " for " + keyname);
 //                        }
 //
 //                        d.addFacts(t);
@@ -196,7 +222,7 @@
 //        }
 //
 //        System.out.println("Now, it's " + LocalTime.now() + " and we're about to update territory hexLists with Tiles.");
-//        new MultiThreadedHexFactory().revisitHexLists();
+////        new MultiThreadedHexFactory().revisitHexLists();
 //
 //        System.out.println("The time is " + LocalTime.now() + " and it's about to lattice them hexes...");
 //        new MultiThreadedHexFactory().joinHexes();
@@ -208,10 +234,10 @@
 //
 //        System.out.println("The simulation completed at: " + LocalTime.now());
 ////        hci.shutdown();
-//        hzj.shutdown();
-//        hzi.shutdown();
-//
-//        System.exit(0);
+////        hzj.shutdown();
+////        hzi.shutdown();
+////
+////        System.exit(0);
 //    }
 //
 //

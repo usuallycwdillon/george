@@ -1,12 +1,9 @@
-package edu.gmu.css.agents;
+package edu.gmu.css.entities;
 
 
-import edu.gmu.css.entities.Territory;
+import edu.gmu.css.agents.Tile;
 import edu.gmu.css.worldOrder.*;
-import org.neo4j.ogm.annotation.GeneratedValue;
-import org.neo4j.ogm.annotation.Id;
-import org.neo4j.ogm.annotation.NodeEntity;
-import org.neo4j.ogm.annotation.Relationship;
+import org.neo4j.ogm.annotation.*;
 import sim.engine.SimState;
 import sim.engine.Steppable;
 
@@ -21,17 +18,28 @@ public class State implements Steppable {
     @Id
     @GeneratedValue
     private long id;
+    @Transient
     private String stateCode;
+    @Transient
     private String stateName;
+    @Transient
     private int natResources = 500;
+    @Transient
     private double wealth = 500;
+    @Transient
     private int population = 500; // in thousands
+    @Transient
     private int products = 500;
+    @Transient
     private double productivity = 1.05;
+    @Transient
     private double liability = 0;
+    @Transient
     private double urbanPortion = 0.20;
+    @Transient
     private double treasury = 1000;
 
+    @Transient
     private Resources myResources = new Resources.ResourceBuilder()
             .population(population)
             .products(products)
@@ -39,14 +47,11 @@ public class State implements Steppable {
             .wealth(wealth)
             .build();
 
+    @Relationship(type = "OCCUPIED")                                // State can (should) occupy territories
     private Territory territory;
 
-
-    @Relationship(type = "OCCUPIES")                                // State can (should) occupy territories
-    private Set<Tile> territories = new HashSet<>();
-
-    @Relationship(type = "BORDERS")                                 // State's neighbors are mediated by territories they occupy
-    private Set<State> neighbors = new HashSet<>();
+    @Relationship(type = "BORDERS_WITH")                                 // State's neighbors are mediated by territories they occupy
+    private Set<State> bordersWith = new HashSet<>();
 
 //    @Relationship(type = "PARTICIPATE_IN")                          // States may have wars
 //    private Set<War> myWars = new HashSet<>();HashSet
@@ -75,7 +80,6 @@ public class State implements Steppable {
     // Neo4j OGM requires a no-argument constructor
     public State() {
     }
-
 
 
     public void step(SimState simState) {

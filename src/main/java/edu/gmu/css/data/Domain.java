@@ -1,4 +1,4 @@
-package edu.gmu.css.worldOrder;
+package edu.gmu.css.data;
 
 public enum Domain {
     WAR,

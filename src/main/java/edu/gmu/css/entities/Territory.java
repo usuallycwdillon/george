@@ -1,31 +1,26 @@
 package edu.gmu.css.entities;
 
 import com.uber.h3core.H3Core;
-
 import com.uber.h3core.util.GeoCoord;
+import ec.util.MersenneTwisterFast;
 import edu.gmu.css.agents.Tile;
 import edu.gmu.css.hexFactory.*;
 
 import edu.gmu.css.service.NameIdStrategy;
 import edu.gmu.css.service.Neo4jSessionFactory;
-import org.geojson.Feature;
-import org.geojson.Geometry;
-import org.geojson.LngLatAlt;
-import org.geojson.MultiPolygon;
+import edu.gmu.css.util.MTFApache;
+import org.apache.commons.math3.distribution.ZipfDistribution;
+import org.geojson.*;
 import org.jetbrains.annotations.NotNull;
-import org.neo4j.ogm.session.Session;
-import org.neo4j.ogm.transaction.Transaction;
+import org.neo4j.ogm.annotation.*;
 
-import org.neo4j.ogm.annotation.GeneratedValue;
-import org.neo4j.ogm.annotation.Id;
-import org.neo4j.ogm.annotation.NodeEntity;
-import org.neo4j.ogm.annotation.Relationship;
+import org.neo4j.ogm.model.Result;
 import sim.engine.SimState;
 
-import java.io.File;
-import java.io.IOException;
+
 import java.io.Serializable;
 import java.util.*;
+import java.util.stream.IntStream;
 
 @NodeEntity
 public class Territory extends Entity implements Serializable {
@@ -34,19 +29,28 @@ public class Territory extends Entity implements Serializable {
 
     @Id @GeneratedValue (strategy = NameIdStrategy.class)
     String mapKey;
-    //    Long id;
+    @Property
     String name;
+    @Property
     String cowcode;
-    Long creationDate;
+    @Property
+    Long creationStep;
+    @Property
     String abbr;
+    @Property
     Double area = 0.0;
-    int year;
-    int resolution;
+    @Property
+    Integer year;
+    @Property
+    Integer resolution;
+    @Transient
+    Integer population;
 
-    List<Long> hexList;
+    @Property
+    Set<Long> linkedTileIds;
 
-    @Relationship(type="OCCUPATION_OF")
-    Set<Tile> hexSet;
+    @Relationship(type="INCLUDES")
+    Set<Inclusion> tileLinks;
 
     @Relationship(type="BORDERS")
     Set<Territory> neighbors;
@@ -54,18 +58,18 @@ public class Territory extends Entity implements Serializable {
 
     public Territory() {
         this.resolution = 4;
-        this.creationDate = 0L;
+        this.creationStep = 0L;
         this.name = "Unnamed";
         this.area = 0.0;
-        this.hexSet = new HashSet<>();
-        this.hexList = new ArrayList<>();
+        this.tileLinks = new HashSet<>();
+        this.linkedTileIds = new HashSet<>();
     }
 
     public Territory(String name, String abbr, Double area, int year, int resolution) {
         this();
         this.year = year;
-        this.creationDate = (year - 1815) * 52L;
-        this.hexSet = new HashSet<>();
+        this.creationStep = (year - 1815) * 52L;
+        this.tileLinks = new HashSet<>();
         this.name = name;
         this.abbr = abbr;
         this.resolution = resolution;
@@ -75,8 +79,8 @@ public class Territory extends Entity implements Serializable {
     public Territory(String name, String abbr, Double area, int year, int resolution, Feature feature) {
         this();
         this.year = year;
-        this.creationDate = (year - 1815) * 52L;
-        this.hexSet = new HashSet<>();
+        this.creationStep = (year - 1815) * 52L;
+        this.tileLinks = new HashSet<>();
         this.name = name;
         this.abbr = abbr;
         this.resolution = resolution;
@@ -91,14 +95,23 @@ public class Territory extends Entity implements Serializable {
         this.abbr = input.getProperty("WB_CNTRY");
         this.year = year;
         this.mapKey = name + " of " + year;
-        if (input.getProperty("CCODE") != null) {this.cowcode = "" + input.getProperty("CCODE");} else {this.cowcode = "";}
-        if (input.getProperty("AREA") != null) {this.area = input.getProperty("AREA");} else {this.area = 0.0;}
+        if (input.getProperty("AREA") != null) {
+            this.area = input.getProperty("AREA");
+        } else {
+            this.area = 0.0;
+        }
+        if (input.getProperty("CCODE") != null) {
+            this.cowcode = "" + input.getProperty("CCODE");
+        } else {
+            this.cowcode = "";
+        }
         buildTerritory(input);
     }
 
-
     public Territory(SimState simState) {
     }
+
+    //------------------------------------------------------------------------------------------------------------------
 
     public String getName() {
         return name;
@@ -106,6 +119,22 @@ public class Territory extends Entity implements Serializable {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public String getAbbr() {
+        return abbr;
+    }
+
+    public void setAbbr(String abbr) {
+        this.abbr = abbr;
+    }
+
+    public String getCowcode() {
+        return cowcode;
+    }
+
+    public void setCowcode(String cowcode) {
+        this.cowcode = cowcode;
     }
 
     public Double getArea() {
@@ -128,17 +157,28 @@ public class Territory extends Entity implements Serializable {
         this.resolution = resolution;
     }
 
+    public Integer getPopulation() {
+        return population;
+    }
+
+    public void setPopulation(Integer population) {
+        this.population = population;
+    }
+
     public String getMapKey() {
         return mapKey;
     }
 
-    public Set<Tile> getHexSet() {
-        return hexSet;
+    public Set<Inclusion> getTileLinks() {
+        return tileLinks;
     }
 
-    public List<Long> getHexList() { return hexList; }
+    public Set<Long> getLinkedTileIds() { return linkedTileIds; }
 
-    public void addHex(Tile hex) {this.hexSet.add(hex);}
+    public void addHex(Tile hex) {
+        Inclusion o = new Inclusion(this, hex, year);
+        this.tileLinks.add(o);
+    }
 
     public Set<Territory> getNeighbors() {
         return neighbors;
@@ -146,7 +186,7 @@ public class Territory extends Entity implements Serializable {
 
     public void buildTerritory(Feature inputFeature) {
         getTileIdsFromPolygons(inputFeature);
-        hexSet.addAll(getTilesFromAddresses());
+        tileLinks.addAll(getTilesFromAddresses());
     }
 
     public void updateOccupation(Feature inputFeature) {
@@ -154,7 +194,7 @@ public class Territory extends Entity implements Serializable {
             this.area = this.area + (Double) inputFeature.getProperty("AREA");
         }
         getTileIdsFromPolygons(inputFeature);
-        hexSet.addAll(getTilesFromAddresses());
+        tileLinks.addAll(getTilesFromAddresses());
     }
 
     private void getTileIdsFromPolygons(@NotNull Feature inputFeature) {
@@ -162,9 +202,10 @@ public class Territory extends Entity implements Serializable {
         MultiPolygon geom = (MultiPolygon) inputFeature.getGeometry();
         int numPolygons = geom.getCoordinates().size();
 
+        Set<Long> tempList5 = new HashSet<>();
+
         for (int i = 0; i < numPolygons; i++) {
             List<List<GeoCoord>> holes = new ArrayList<>();
-
             int numInnerLists = geom.getCoordinates().get(i).size();
 
             List<LngLatAlt> coordinates = geom.getCoordinates().get(i).get(0);
@@ -179,24 +220,15 @@ public class Territory extends Entity implements Serializable {
 
             try {
                 H3Core h3 = H3Core.newInstance();
-                if (area == null) {
-                    System.out.println("The area is null");
-                }
-                if (name == null) {
-                    System.out.println("The name is null");
-                }
-                if (area < 40000.0 && !name.equals("Russian Empire of " + year)) {
-                    hexList = new ArrayList<>(h3.polyfill(boundaryCoordinates, holes, resolution));
-                } else {
-                    int res = resolution - 1;
-                    List<Long> bigList = new ArrayList<>(h3.polyfill(boundaryCoordinates, holes, res));
-                    if (bigList.size() < 1) {
-                        hexList = new ArrayList<>(h3.polyfill(boundaryCoordinates, holes, resolution));
-                    }
-                    for (Long s : bigList) {
-                        hexList.addAll(h3.h3ToChildren(s, resolution));
+                tempList5.addAll(h3.polyfill(boundaryCoordinates, holes, resolution + 1));
+                for (Long t5 : tempList5) {
+                    Long t5Parent = h3.h3ToParent(t5, resolution);
+                    List<Long> t5Siblings = h3.h3ToChildren(t5Parent, resolution + 1);
+                    if (tempList5.contains(t5Siblings.get(0))) {
+                        linkedTileIds.add(t5Parent);
                     }
                 }
+
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -212,19 +244,65 @@ public class Territory extends Entity implements Serializable {
         return h3Coords;
     }
 
-    public Set<Tile> getTilesFromAddresses() {
-        Set<Tile> tiles = new HashSet<>();
-        for (Long h : hexList) {
+    public Set<Inclusion> getTilesFromAddresses() {
+        Set<Inclusion> tiles = new HashSet<>();
+        for (Long h : linkedTileIds) {
             if (globalHexes.containsKey(h)) {
                 Tile t = globalHexes.get(h);
-                tiles.add(t);
+                this.occupation(t);
             } else  {
                 Tile t = new Tile(h);
                 globalHexes.put(h, t);
-                tiles.add(t);
+                this.occupation(t);
             }
         }
         return tiles;
     }
+
+    public Inclusion occupation(Tile tile) {
+        Inclusion occupied = new Inclusion(this, tile, year);
+        this.tileLinks.add(occupied);
+        return occupied;
+    }
+
+    public void loadBaselinePopulation() {
+        if (cowcode != null && !cowcode.equals("")) {
+            Map<String, Object> params = new HashMap<>();
+            params.put("cowcode", cowcode);
+            String popQuery = "MATCH (t:Territory)-[o]-(s:State{cowcode:$cowcode})-[:POPULATION]-(f:Fact)-[:DURING]-(y:Year) " +
+                    "WHERE (:Dataset{name:'NMC Supplemental'})-[:CONTRIBUTES]-(f) AND 1815 < y.began.year < 1870 " +
+                    "RETURN f.value LIMIT 1";
+            Result popVal = Neo4jSessionFactory.getInstance().getNeo4jSession().query(popQuery, params);
+            Iterator it = popVal.iterator();
+            while (it.hasNext()) {
+                Map<String, Map.Entry<String, Object>> values = (Map) it.next();
+                for (Map.Entry e : values.entrySet()) {
+                    Long pop = (Long) e.getValue() * 1000;
+                    int num = tileLinks.size();
+                    MersenneTwisterFast random = new MersenneTwisterFast();
+                    ZipfDistribution distribution = new ZipfDistribution(new MTFApache(random), num, 2.5);
+                    int [] levels = distribution.sample(num);
+                    int distSum = IntStream.of(levels).sum();
+                    int proportion = pop.intValue() / distSum;
+                    if (num > 0) {
+                        List<Tile> tiles = new ArrayList<>();
+                        int pacer = 0;
+                        int summedPopulation = 0;
+                        for (Inclusion h : tileLinks) {
+                            Tile t = h.getTile();
+                            int thisPop = proportion * levels[pacer];
+                            t.setPopulation(thisPop);
+                            summedPopulation += thisPop;
+                            tiles.add(h.getTile());
+                            pacer ++;
+                        }
+                        System.out.println(mapKey + " has population " + pop + " and the distributed population is " + summedPopulation );
+                    }
+                }
+            }
+        }
+    }
+
+    // TODO: Add equals method, toString method,
 
 }

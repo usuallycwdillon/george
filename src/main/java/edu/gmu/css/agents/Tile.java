@@ -2,48 +2,55 @@ package edu.gmu.css.agents;
 
 import com.uber.h3core.H3Core;
 import com.uber.h3core.util.GeoCoord;
-import edu.gmu.css.entities.Entity;
-import edu.gmu.css.entities.Territory;
-import edu.gmu.css.service.H3IdStrategy;
 
-import org.neo4j.cypher.internal.frontend.v2_3.SemanticDirection;
+import edu.gmu.css.entities.Entity;
+import edu.gmu.css.service.H3IdStrategy;
+import edu.gmu.css.worldOrder.History;
+
+import one.util.streamex.DoubleStreamEx;
 import org.neo4j.ogm.annotation.*;
 import sim.engine.SimState;
 import sim.engine.Steppable;
-
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.*;
 
 
 @NodeEntity
-public class Tile extends Entity implements Serializable {
+public class Tile extends Entity implements Serializable, Steppable {
     /**
      * Tiles are implemented as hexagonal (and 12 pentagonal) territorial units defined by Uber H3 Hierarchical Discrete
-     * Global Grid object boundaries. Only land tiles are implemented.
+     * Global Grid object boundaries. Only land tiles are implemented (though, undefined and unmanaged tiles along the
+     * coastlines get created as a side-effect.
      */
     @Id @GeneratedValue (strategy = H3IdStrategy.class)
     private Long h3Id;
-
+    @Property
     @Index(unique = true)
     private String address;
-//    private GeoCoord center;
+    @Property
     private double urbanization;
-    private double productivity = 1.03;
-    private double economicPolicy [] = {0.5, 0.5};
+    @Property
     private int population;
+    @Transient
     private int products;
+    @Transient
     private int naturalResources;
-//    private double wealth;
+    @Transient
+    private double wealth;
+    @Transient
     private double wealthLastStep;
-
-//    private History themTimes = new History(52 * 4); // Four year history
-
-
-    @Relationship(type="ABUTS", direction = Relationship.UNDIRECTED)
-    private Set<Tile> neighbors = new HashSet<>();
-
+    @Transient
+    private double productivity = 1.03;
+    @Transient
+    private double[] economicPolicy = {0.5, 0.5};
+    @Transient
+    private History memory = new History(52 * 4); // Four year history
+    @Property
     private List<Long>neighborIds = new ArrayList<>();
+    @Relationship(type="ABUTS", direction = Relationship.UNDIRECTED)
+    private List<Tile> neighbors = new ArrayList<>();
+
 
     public Tile() {
     }
@@ -64,50 +71,46 @@ public class Tile extends Entity implements Serializable {
     // Population growth and earth's human carrying capacity}, volume={269}, number={5222}, pages={341--346}, year={1995},
     // publisher = {American Association for the Advancement of Science}, URL={http://science.sciencemag.org/content/269/5222/341},
     // journal = {Science} } and a linear model: urbanPopulation [0.0, 0.3, 0.8] x growth [0.02, 0.01, 0.003], lm(growth ~ uP)
-//    private void growPopulation() {
-//        double rate;
-////        double trend = DoubleStreamEx.of(themTimes).pairMap((a,b) -> b - a).sum();
-////        if (trend < 0) {
-////            rate = 1.0 - (urbanization * -0.0205);
-////            rate = 1.0 - ((1.0 - rate) / 52);
-////        } else {
-////            rate = 1.02 + (urbanization * -0.0205);
-////            rate = ((rate - 1.0) / 52) + 1.0;
-////        }
-////       this.population = (int) (this.population * rate);
-//    }
+    private void growPopulation() {
+        double rate;
+        double trend = DoubleStreamEx.of(memory).pairMap((a, b) -> b - a).sum();
+        if (trend < 0) {
+            rate = 1.0 - (urbanization * -0.0205);
+            rate = 1.0 - ((1.0 - rate) / 52);
+        } else {
+            rate = 1.02 + (urbanization * -0.0205);
+            rate = ((rate - 1.0) / 52) + 1.0;
+        }
+       this.population = (int) (this.population * rate);
+    }
 
-//    private void produce() {
-//        // Crude Cobb-Douglass production function using urban/rural percentages as beta/alpha and population/wealth for
-//        // capital and labor. The constant is ~ 1.0 +- normal random 10%
-//        double production = (productivity * (
-//                Math.pow(population, (1 - urbanization)) * Math.pow(wealth, urbanization)));
-//        this.products += this.products + ((int) (production * economicPolicy[0]));
-//        this.wealth += this.wealth + (production * economicPolicy[1]);
-//    }
+    private void produce() {
+        // Crude Cobb-Douglass production function using urban/rural percentages as beta/alpha and population/wealth for
+        // capital and labor. The constant is ~ 1.0 +- normal random 10%
+        double production = (productivity * (
+                Math.pow(population, (1 - urbanization)) * Math.pow(wealth, urbanization)));
+        this.products += this.products + ((int) (production * economicPolicy[0]));
+        this.wealth += this.wealth + (production * economicPolicy[1]);
+    }
 
-//    // External (State) agents demand taxes and draft soldiers.
-//    public double payTaxes(double rate) {
-//        double amount = rate * this.wealth;
-//        this.wealth =- amount;
-//        return amount;
-//    }
+    // External (State) agents demand taxes and draft soldiers.
+    public double payTaxes(double rate) {
+        double amount = rate * this.wealth;
+        this.wealth =- amount;
+        return amount;
+    }
 
-//    public int recruitSoldiers(double portion) {
-//        int numSoldiers = (int) portion * this.population;
-//        this.population =- numSoldiers;
-//        return numSoldiers;
-//    }
+    public int recruitSoldiers(double portion) {
+        int numSoldiers = (int) portion * this.population;
+        this.population =- numSoldiers;
+        return numSoldiers;
+    }
 
-//    public void step(SimState simState) {
-////        themTimes.add(this.wealth);     // Wealth gets recorded before any increase from current production
-//        produce();
+    public void step(SimState simState) {
+//        memory.add(this.wealth);     // Wealth gets recorded before any increase from current production
+        produce();
 //        growPopulation();
-//    }
-//    @Override
-//    public Long getId() {
-//        return id;
-//    }
+    }
 
     public String getAddress() {
         return address;
@@ -115,7 +118,7 @@ public class Tile extends Entity implements Serializable {
 
     public Long getH3Id() {return h3Id; }
 
-    public Set<Tile> getNeighbors() {
+    public List<Tile> getNeighbors() {
         return neighbors;
     }
 
@@ -139,51 +142,46 @@ public class Tile extends Entity implements Serializable {
         return this.neighborIds;
     }
 
-//    public GeoCoord getCenter() {
-//        return center;
-//    }
+    public int getPopulation() {
+        return population;
+    }
 
-//    public List<GeoCoord> getBoundary() {
-//        List<GeoCoord> boundary = new ArrayList<>();
-//        try {
-//            H3Core h3 = H3Core.newInstance();
-//            boundary = h3.h3ToGeoBoundary(address);
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
-//        return boundary;
-//    }
+    public void setPopulation(int population) {
+        this.population = population;
+    }
 
-//    public int getPopulation() {
-//        return population;
-//    }
-//
-//    public void setPopulation(int population) {
-//        this.population = population;
-//    }
-//
-//    public int getProducts() {
-//        return products;
-//    }
-//
-//    public void setProducts(int products) {
-//        this.products = products;
-//    }
-//
-//    public double getWealth() {
-//        return wealth;
-//    }
-//
-//    public void setWealth(double wealth) {
-//        this.wealth = wealth;
-//    }
-//
-//    public int getNaturalResources() {
-//        return naturalResources;
-//    }
+    public int getProducts() {
+        return products;
+    }
 
-//    public void setNaturalResources(int naturalResources) {
-//        this.naturalResources = naturalResources;
+    public void setProducts(int products) {
+        this.products = products;
+    }
+
+    public double getWealth() {
+        return wealth;
+    }
+
+    public void setWealth(double wealth) {
+        this.wealth = wealth;
+    }
+
+    public int getNaturalResources() {
+        return naturalResources;
+    }
+
+    public void setNaturalResources(int naturalResources) {
+        this.naturalResources = naturalResources;
+    }
+
+//    @Override
+//    boolean equals(Object o) {
+//
+//    }
+//
+//    @Override
+//    int hashCode() {
+//        return (id == null) ? -1 : id.hashCode()
 //    }
 
 }
