@@ -104,6 +104,18 @@
       <artifactId>mason</artifactId>
       <version>19</version>
     </dependency>
+    <!-- https://mvnrepository.com/artifact/com.massisframework.j3d/vecmath -->
+    <dependency>
+      <groupId>com.massisframework.j3d</groupId>
+      <artifactId>vecmath</artifactId>
+      <version>1.6.0.1</version>
+    </dependency>
+    <!-- https://mvnrepository.com/artifact/com.massisframework.j3d/java3d-core -->
+    <dependency>
+      <groupId>com.massisframework.j3d</groupId>
+      <artifactId>java3d-core</artifactId>
+      <version>1.6.0.1</version>
+    </dependency>
     <dependency>
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-math3</artifactId>

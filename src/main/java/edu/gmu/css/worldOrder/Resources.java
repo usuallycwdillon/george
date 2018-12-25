@@ -42,11 +42,9 @@ public class Resources {
             return this;
         }
 
-
         public Resources build() {
             Resources resources = new Resources();
             return resources;
-
         }
     }
 
@@ -56,7 +54,6 @@ public class Resources {
         this.natResources = builder.natResources;
         this.wealth = builder.wealth;
     }
-
 
     private Resources() { }
 
@@ -105,6 +102,5 @@ public class Resources {
     public void setWealth(double wealth) {
         this.wealth = wealth;
     }
-
 
 }

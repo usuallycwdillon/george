@@ -1,7 +1,12 @@
-//package edu.gmu.css.worldOrder;
-//
-//import edu.gmu.css.agents.Institution;
-//
-//public class Peace extends Institution {
-//
-//}
+package edu.gmu.css.worldOrder;
+
+import sim.engine.SimState;
+
+public class Peace extends Institution {
+
+
+    @Override
+    public void step(SimState simState) {
+
+    }
+}

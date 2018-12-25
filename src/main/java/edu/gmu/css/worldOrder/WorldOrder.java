@@ -32,7 +32,11 @@ public class WorldOrder extends SimState {
     // The simulation singleton self-manifest
     public WorldOrder(long seed) {
         super(seed);
+        // Some default values to boostrap some values, globally
     }
+
+    public static Double EFFECT = 0.001;
+
 
     /**
      * Select a year for baseline data and initialize the global environment with empirical descriptions of States,
@@ -42,7 +46,6 @@ public class WorldOrder extends SimState {
      *
      */
     int startYear = 1816; // Choices are 1816, 1880, 1914, 1938, 1945, 1994
-
 
 
     public Set<State> allTheStates = new HashSet<>();
@@ -78,11 +81,10 @@ public class WorldOrder extends SimState {
         String datasetQuery = "MATCH (d:Dataset{name:\"world 1816\"}) RETURN d";
 
         tiles = Neo4jSessionFactory.getInstance().getNeo4jSession().loadAll(Tile.class, 0);
-        System.out.println("Loaded " + tiles.size() + " tile into the simulation.");
 
-//        Filter popFilter = new Filter("year", ComparisonOperator.EQUALS, startYear);
-//        territories = Neo4jSessionFactory.getInstance().getNeo4jSession().loadAll(Territory.class, popFilter);
-//        territories.forEach(Territory::loadBaselinePopulation);
+        Filter popFilter = new Filter("year", ComparisonOperator.EQUALS, startYear);
+        territories = Neo4jSessionFactory.getInstance().getNeo4jSession().loadAll(Territory.class, popFilter);
+        territories.forEach(Territory::loadBaselinePopulation);
 
         // TODO: Setup the global system of states
         allTheStates = new StateQueries().getStates("Expanded State System", 1816);
@@ -90,8 +92,14 @@ public class WorldOrder extends SimState {
 
 
         // TODO: Add Steppables to the Schedule
+        for (Tile t : tiles) {
+            schedule.scheduleRepeating(t);
+        }
+
 
     }
+
+
 
     // Primary sequence of the simulation
     Steppable historysMarch = new Steppable() {
@@ -102,7 +110,13 @@ public class WorldOrder extends SimState {
              */
             // Record the global probability of war whether it's prescribed or calculated
 //            globalHostility.add(globalWarLikelihood);
-
+            long stepNo = getStepNumber();
+            if(stepNo % 52 == 0) {
+                for (Territory t : territories) {
+                    t.updateTotals();
+                    System.out.println("At step number " + stepNo + " the population of " + t.getName() + " is " + t.getPopulation());
+                }
+            }
 
             // End the simulation if the global probability of war is stagnate or stable at zero
             if (globalWarLikelihood <= 0) {

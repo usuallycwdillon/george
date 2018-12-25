@@ -107,9 +107,9 @@ public class Tile extends Entity implements Serializable, Steppable {
     }
 
     public void step(SimState simState) {
-//        memory.add(this.wealth);     // Wealth gets recorded before any increase from current production
+        memory.add(this.wealth);     // Wealth gets recorded before any increase from current production
         produce();
-//        growPopulation();
+        growPopulation();
     }
 
     public String getAddress() {
@@ -174,14 +174,5 @@ public class Tile extends Entity implements Serializable, Steppable {
         this.naturalResources = naturalResources;
     }
 
-//    @Override
-//    boolean equals(Object o) {
-//
-//    }
-//
-//    @Override
-//    int hashCode() {
-//        return (id == null) ? -1 : id.hashCode()
-//    }
 
 }

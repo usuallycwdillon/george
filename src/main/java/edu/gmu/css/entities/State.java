@@ -7,31 +7,23 @@ import org.neo4j.ogm.annotation.*;
 import sim.engine.SimState;
 import sim.engine.Steppable;
 
+import java.io.Serializable;
 import java.util.HashSet;
 import java.util.Set;
 
 @NodeEntity
-public class State implements Steppable {
+public class State extends Polity implements Serializable {
     /**
      *
      */
     @Id
     @GeneratedValue
     private long id;
-    @Transient
-    private String stateCode;
-    @Transient
-    private String stateName;
-    @Transient
-    private int natResources = 500;
-    @Transient
-    private double wealth = 500;
-    @Transient
-    private int population = 500; // in thousands
-    @Transient
-    private int products = 500;
-    @Transient
-    private double productivity = 1.05;
+    @Property
+    private String cowCode;
+    @Property
+    private String name;
+
     @Transient
     private double liability = 0;
     @Transient
@@ -39,13 +31,13 @@ public class State implements Steppable {
     @Transient
     private double treasury = 1000;
 
-    @Transient
-    private Resources myResources = new Resources.ResourceBuilder()
-            .population(population)
-            .products(products)
-            .natResources(natResources)
-            .wealth(wealth)
-            .build();
+//    @Transient
+//    private Resources myResources = new Resources.ResourceBuilder()
+//            .population(population)
+//            .products(products)
+//            .natResources(natResources)
+//            .wealth(wealth)
+//            .build();
 
     @Relationship(type = "OCCUPIED")                                // State can (should) occupy territories
     private Territory territory;
@@ -82,13 +74,6 @@ public class State implements Steppable {
     }
 
 
-    public void step(SimState simState) {
-//        updateResources();
-//        updateLiabilities();
-//        updateWarStrategy();
-//        updateEconomicPolicy();
-//        updateForeignPolicy();
-        }
 
 //    private void updateLiabilities() {
 //        this.liability = myWars.stream().mapToDouble(w -> w.getCostliness()).sum();
@@ -98,12 +83,7 @@ public class State implements Steppable {
 //        myResources.setPopulation(territories.stream().mapToInt(t -> t.getPopulation()).sum());
 //    }
 
-    private double produce() {
-        // quick Cobb-Douglass using wealth ILO capital, population ILO labor, %rural/urban ILO beta/alpha;
-        double production = (productivity * (
-                Math.pow(population, (1 - urbanPortion)) * Math.pow(wealth, urbanPortion)));
-        return production;
-    }
+
 
 
 

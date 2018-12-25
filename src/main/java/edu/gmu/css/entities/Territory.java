@@ -303,6 +303,10 @@ public class Territory extends Entity implements Serializable {
         }
     }
 
+    public void updateTotals() {
+        population = tileLinks.stream().mapToInt(Inclusion::getTilePopulation).sum();
+    }
+
     // TODO: Add equals method, toString method,
 
 }
