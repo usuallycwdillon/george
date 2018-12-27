@@ -34,8 +34,6 @@ public class State extends Polity implements Serializable {
 //    @Transient
 //    private Resources myResources = new Resources.ResourceBuilder()
 //            .population(population)
-//            .products(products)
-//            .natResources(natResources)
 //            .wealth(wealth)
 //            .build();
 

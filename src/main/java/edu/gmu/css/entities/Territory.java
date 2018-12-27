@@ -45,6 +45,8 @@ public class Territory extends Entity implements Serializable {
     Integer resolution;
     @Transient
     Integer population;
+    @Transient
+    Double wealth;
 
     @Property
     Set<Long> linkedTileIds;

@@ -24,11 +24,11 @@ public class Leadership implements Steppable {
     public void step(SimState simState) {
         worldOrder = (WorldOrder) simState;
         updateEconomicPolicy();
-        updateSecurityStragety();
+        updateSecurityStrategy();
 
     }
 
-    void updateSecurityStragety() {
+    void updateSecurityStrategy() {
         if (polity != null) {
 
         }
@@ -43,10 +43,9 @@ public class Leadership implements Steppable {
     }
 
     void initiateWarProcess(Polity target) {
-
-        Resources resources = new Resources.ResourceBuilder().wealth().population().build();
         // TODO: If our allies are already at war with this other state, join that process instead of starting a new one.
-        Process process = new WarProcess(polity, target, resources);
+        Process process = new WarProcess(polity, target);
+
     }
 
     void initiatePeaceProcess() {
@@ -65,8 +64,11 @@ public class Leadership implements Steppable {
 
     }
 
+    void initiateAllianceProcess() {
 
+    }
 
+    void initiateStatehoodProcess() {
 
-
+    }
 }

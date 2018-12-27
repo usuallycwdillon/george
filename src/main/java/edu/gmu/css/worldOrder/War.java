@@ -16,22 +16,12 @@ public class War extends Institution {
      *
      */
     @Id @GeneratedValue
-    private long id;
-    private double costliness;  // How much does the war cost (split between parties) each step
-    private double issueValue;  // What is the value of the war subject?
-    private long start;         // Week @start
-    private double overallCost; // Cumulative cost from all participants for each step the war lasts
-    public int numParticipants;
+    private int cost;          // Magnitude, cumulative for whole war, all sides
 
     @Relationship (type = "PARTICIPATE_IN", direction = "INCOMING")
     private Set<State> participants = new HashSet<>();
 
-    public War(long start) {
-        if (numParticipants > 0) {
-            setCostliness();
-        }
-//        this.issueValue = value;
-        this.start = start;
+    public War() {
     }
 
     @Override
@@ -39,19 +29,8 @@ public class War extends Institution {
 
     }
 
-    public double getCostliness() {
-        return costliness;
-    }
-
-    private double setCostliness() {
-//        if (numParticipants > 0) {
-//            costliness = (participants.stream().mapToDouble(s -> s.getResources() * (0.10)).sum() / numParticipants);
-//            }
-        return costliness;
-    }
-
-    public double getValue() {
-        return issueValue;
+    public int getCost() {
+        return cost;
     }
 
     public Set<State> getParticipants() {
@@ -60,7 +39,6 @@ public class War extends Institution {
 
     public void addParticipant(State participant) {
         this.participants.add(participant);
-        setCostliness();
     }
 
 }

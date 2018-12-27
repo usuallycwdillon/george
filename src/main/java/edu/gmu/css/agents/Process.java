@@ -3,6 +3,7 @@ package edu.gmu.css.agents;
 import ec.util.MersenneTwisterFast;
 import edu.gmu.css.data.Domain;
 import edu.gmu.css.entities.Entity;
+import edu.gmu.css.entities.Organization;
 import edu.gmu.css.entities.Polity;
 import edu.gmu.css.entities.ProcessDisposition;
 import edu.gmu.css.worldOrder.*;
@@ -79,7 +80,7 @@ public abstract class Process extends Entity implements Steppable, Serializable 
     protected Domain domain;
 
     @Relationship(direction = "INCOMING")
-    private Set<ProcessDisposition> processParticipantLinks = new HashSet<>();
+    protected Set<ProcessDisposition> processParticipantLinks = new HashSet<>();
 
 
     public Process() {
@@ -219,8 +220,8 @@ public abstract class Process extends Entity implements Steppable, Serializable 
     }
 
     @Override
-    public void step(SimState state) {
-        WorldOrder worldOrder = (WorldOrder) state;
+    public void step(SimState simState) {
+        worldOrder = (WorldOrder) simState;
         long stepNum = worldOrder.schedule.getSteps();
 
         // TODO: stability is the sum of system-linked relationships with institutions
@@ -284,16 +285,25 @@ public abstract class Process extends Entity implements Steppable, Serializable 
         Institution institution;
         switch (domain) {
             case WAR:
-                return institution = new War(worldOrder.getStepNumber());
+                return institution = new War();
             case PEACE:
                 return institution = new Peace();
             case TRADE:
                 return institution = new Trade();
             case DIPLOMACY:
                 return institution = new Diplomacy();
+            case ALLIANCE:
+                return institution = new Alliance();
+            case STATEHOOD:
+                return institution = new Statehood();
             default:
                 return institution = null;
         }
+    }
+
+    public Organization createOrganization(Institution institution) {
+        Organization organization = new Organization(institution);
+        return organization;
     }
 
 

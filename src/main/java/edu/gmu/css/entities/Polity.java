@@ -4,6 +4,7 @@ import edu.gmu.css.agents.Leadership;
 import edu.gmu.css.worldOrder.Institution;
 import edu.gmu.css.agents.Process;
 import edu.gmu.css.worldOrder.Resources;
+import edu.gmu.css.worldOrder.War;
 import edu.gmu.css.worldOrder.WorldOrder;
 import org.neo4j.ogm.annotation.*;
 import sim.engine.SimState;
@@ -32,7 +33,7 @@ public class Polity implements Serializable {
     @Transient
     private List<Institution> institutionList;
     @Transient
-    private SecurityStrategy securityStrategy;
+    private Resources securityStrategy;
     @Transient
     private EconomicPolicy economicPolicy;
     @Transient
@@ -113,12 +114,23 @@ public class Polity implements Serializable {
         processList.add(disposition);
     }
 
-    public SecurityStrategy getSecurityStrategy() {
+    public Resources getSecurityStrategy() {
         return securityStrategy;
     }
 
-    public void setSecurityStrategy(SecurityStrategy securityStrategy) {
-        this.securityStrategy = securityStrategy;
+    public void setSecurityStrategy(Resources securityStrategy) {
+        // Some portion of overall resources that can be used for wars
+        if (securityStrategy.getWealth() < resources.getWealth() && securityStrategy.getPopulation() < resources.getPopulation()) {
+            this.securityStrategy = securityStrategy;
+        } else {
+            Integer pop = (int) (resources.getPopulation() * 0.8);
+            Double cost = resources.getWealth() * 0.8;
+            securityStrategy = new Resources.ResourceBuilder()
+                    .population(pop)
+                    .wealth(cost)
+                    .build();
+        }
+
     }
 
     public EconomicPolicy getEconomicPolicy() {
@@ -127,6 +139,14 @@ public class Polity implements Serializable {
 
     public void setEconomicPolicy(EconomicPolicy economicPolicy) {
         this.economicPolicy = economicPolicy;
+    }
+
+    public double getWealth() {
+        return resources.getWealth();
+    }
+
+    public int getPopulation() {
+        return territory.getPopulation();
     }
 
     private void recruit() {
@@ -139,13 +159,11 @@ public class Polity implements Serializable {
 
 
 
-    class SecurityStrategy {
-
-    }
 
     class EconomicPolicy {
 
     }
+
 
 
 }

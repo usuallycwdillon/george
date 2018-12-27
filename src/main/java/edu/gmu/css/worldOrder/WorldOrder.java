@@ -73,7 +73,6 @@ public class WorldOrder extends SimState {
 
         // TODO: Add calls to clear the primary elements: system, globe, Bags/Sets, etc.
 //        allTheStates.clear();
-//        tiles.clear();
 //        territories.clear();
 
 
@@ -96,7 +95,6 @@ public class WorldOrder extends SimState {
             schedule.scheduleRepeating(t);
         }
 
-
     }
 
 
@@ -114,7 +112,8 @@ public class WorldOrder extends SimState {
             if(stepNo % 52 == 0) {
                 for (Territory t : territories) {
                     t.updateTotals();
-                    System.out.println("At step number " + stepNo + " the population of " + t.getName() + " is " + t.getPopulation());
+                    System.out.println("At step number " + stepNo + " the population of " + t.getName() + " is "
+                            + t.getPopulation());
                 }
             }
 
