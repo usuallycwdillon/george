@@ -121,7 +121,7 @@ public class WarProcess extends Process {
                 }
                 this.updateStatus();
                 break;
-            case 5:
+            case 5:                 // Start at fiat 'E' and log the process before the main loop kills it.
 
                 break;
             case 6:
@@ -130,19 +130,27 @@ public class WarProcess extends Process {
                 // A's wealth committments get spent, but their personnel get returned. They get concessions from B
                 processParticipantLinks.get(0).getCommitment().setTreasury(0.0);
                 break;
-            case 7:
+            case 7:                 // Start at fiat 'X' and log the process before the main loop kills it.
+
+                this.outcome = true;
                 break;
             case 8:
                 break;
-            case 9:
+            case 9:                 // Start at fiat 'W' and log the process before the main loop kills it.
+
+                this.outcome = true;
                 break;
             case 10:
                 break;
-            case 11:
+            case 11:                // Start at fiat 'Z' and log the process before the main loop kills it.
+
+                this.outcome = true;
                 break;
             case 14:
                 break;
-            case 15:
+            case 15:                // Start at fiat 'A' and lot the process before we attach a War and ignore the process.
+
+                this.outcome = true;
                 break;
         }
 
