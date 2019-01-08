@@ -78,7 +78,7 @@ public class State extends Polity implements Serializable {
 //    }
 
 //    private void updateResources() {
-//        myResources.setPopulation(territories.stream().mapToInt(t -> t.getPopulation()).sum());
+//        myResources.setPax(territories.stream().mapToInt(t -> t.getPax()).sum());
 //    }
 
 

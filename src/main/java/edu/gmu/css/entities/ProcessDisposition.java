@@ -1,6 +1,7 @@
 package edu.gmu.css.entities;
 
 import edu.gmu.css.agents.Process;
+import edu.gmu.css.worldOrder.Resources;
 import org.neo4j.ogm.annotation.*;
 import org.neo4j.register.Register;
 
@@ -27,6 +28,8 @@ public class ProcessDisposition {
     private boolean N;
     @Transient
     private boolean K;
+    @Transient
+    private Resources commitment;
 
 
     public ProcessDisposition() {
@@ -47,6 +50,10 @@ public class ProcessDisposition {
         this.owner = polity;
         this.process = process;
         this.from = from;
+    }
+
+    public void commit(Resources resources) {
+
     }
 
     public Long getId() {
@@ -97,6 +104,14 @@ public class ProcessDisposition {
         K = k;
     }
 
+    public Resources getCommitment() {
+        return commitment;
+    }
+
+    public void setCommitment(Resources commitment) {
+        this.commitment = commitment;
+    }
+
     public Long getOwnerId() {
         return owner.getId();
     }
@@ -104,6 +119,5 @@ public class ProcessDisposition {
     public Long getProcessId() {
         return process.getId();
     }
-
 
 }

@@ -37,6 +37,28 @@ public class WorldOrder extends SimState {
 
     public static Double EFFECT = 0.001;
 
+    // Some parameters for war strategy thresholds.
+    // RED is the opposing force size while BLUE is own force size
+    // THREAT is the opposing military expenditures while RISK is own military expenditures
+    // Goals for each conflict are PUNISH, COERCE, DEFEAT, or CONQUER
+    // A polity uses these coefficients to plan their offensive war strategies
+    public static double RED_PUNISH = 0.2;
+    public static double RED_COERCE = 0.33;
+    public static double RED_DEFEAT = 0.5;
+    public static double RED_CONQUER = 1.0;
+    public static double BLUE_PUNISH = 0.1;
+    public static double BLUE_COERCE = 0.1;
+    public static double BLUE_DEFEAT = 0.66;
+    public static double BLUE_CONQUER = 1.0;
+    public static double THREAT_PUNISH = 0.1;
+    public static double THREAT_COERCE = 0.2;
+    public static double THREAT_DEFEAT = 0.33;
+    public static double THREAT_CONQUER = 0.5;
+    public static double RISK_PUNIISH = 0.01;
+    public static double RISK_COERCE = 0.01;
+    public static double RISK_DEFEAT = 0.01;
+    public static double RISK_CONQUER = 0.01;
+
 
     /**
      * Select a year for baseline data and initialize the global environment with empirical descriptions of States,

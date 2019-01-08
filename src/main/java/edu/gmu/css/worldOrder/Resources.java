@@ -1,29 +1,25 @@
 package edu.gmu.css.worldOrder;
 
-import edu.gmu.css.agents.Tile;
-
-import java.util.HashSet;
-import java.util.Set;
-
 public class Resources {
     /**
      * Resources are some combination of the resource types (and values) a State government has at its disposal.
      */
-    private int population;
+    private int pax;
     private int products;
     private int natResources;
-    private double wealth;
+    private double treasury;
+
 
     public static class ResourceBuilder {
-        private int population;
-        private int products;
-        private int natResources;
-        private double wealth;
+        private int pax = 0;
+        private int products = 0;
+        private int natResources = 0;
+        private double treasury = 0.0;
 
         public ResourceBuilder() { }
 
-        public ResourceBuilder population(int population) {
-            this.population = population;
+        public ResourceBuilder pax(int pax) {
+            this.pax = pax;
             return this;
         }
 
@@ -37,8 +33,8 @@ public class Resources {
             return this;
         }
 
-        public ResourceBuilder wealth(double wealth) {
-            this.wealth = wealth;
+        public ResourceBuilder treasury(double treasury) {
+            this.treasury = treasury;
             return this;
         }
 
@@ -49,30 +45,66 @@ public class Resources {
     }
 
     private Resources(ResourceBuilder builder) {
-        this.population = builder.population;
+        this.pax = builder.pax;
         this.products = builder.products;
         this.natResources = builder.natResources;
-        this.wealth = builder.wealth;
+        this.treasury = builder.treasury;
     }
 
     private Resources() { }
 
-    public void add(Resources other) {
-        this.population += other.population;
+    // Methods to evaluate and manipulate Resources
+
+    public void increaseBy(Resources other) {
+        this.pax += other.pax;
         this.natResources += other.natResources;
         this.products += other.products;
-        this.wealth += other.wealth;
+        this.treasury += other.treasury;
     }
 
-    public void subtract(Resources other) {
-        this.population -= other.population;
+    public void reduceBy(Resources other) {
+        this.pax -= other.pax;
         this.natResources -= other.natResources;
         this.products -= other.products;
-        this.wealth -= other.wealth;
+        this.treasury -= other.treasury;
     }
 
-    public int getPopulation(){
-        return this.population;
+    public Resources multipliedBy(double val) {
+        return new ResourceBuilder()
+                .pax((int)(this.pax * val))
+                .natResources((int)(this.natResources * val))
+                .products((int)(this.products * val))
+                .treasury(this.treasury * val)
+                .build();
+    }
+
+    public Resources evaluativeSum(Resources other) {
+        return new ResourceBuilder()
+                .pax(this.pax + other.getPax())
+                .natResources(this.natResources + other.getNatResources())
+                .products(this.products + other.getProduct())
+                .treasury(this.treasury + other.getTreasury())
+                .build();
+    }
+
+    public Resources evaluativeAvailableDifference(Resources other) {
+        return new ResourceBuilder()
+                .pax(Math.min(this.pax, other.getPax()))
+                .natResources(Math.max((this.natResources - other.getNatResources()), 0))
+                .products(Math.max((this.products - other.getProduct()), 0))
+                .treasury(Math.max((this.treasury - other.getTreasury()), 0.0))
+                .build();
+    }
+
+    public boolean isSufficientFor(Resources other) {
+        return this.pax >= other.getPax()
+                && this.treasury >= other.getTreasury()
+                && this.natResources >= other.getNatResources()
+                && this.products >= other.getProduct();
+    }
+
+    public int getPax(){
+        return this.pax;
     }
 
     public int getProduct() {
@@ -83,12 +115,12 @@ public class Resources {
         return natResources;
     }
 
-    public double getWealth() {
-        return wealth;
+    public double getTreasury() {
+        return treasury;
     }
 
-    public void setPopulation(int population) {
-        this.population = population;
+    public void setPax(int pax) {
+        this.pax = pax;
     }
 
     public void setProducts(int products) {
@@ -99,8 +131,42 @@ public class Resources {
         this.natResources = natResources;
     }
 
-    public void setWealth(double wealth) {
-        this.wealth = wealth;
+    public void setTreasury(double treasury) {
+        this.treasury = treasury;
     }
+
+    public void addPax(int pax) {
+        this.pax += pax;
+    }
+
+    public void subtractPax(int pax) {
+        this.pax -= pax;
+    }
+
+    public void addTreasury(double funds) {
+        this.treasury += funds;
+    }
+
+    public void subtractTreasury(double funds) {
+        this.treasury -= funds;
+    }
+
+    public void addProducts(int production) {
+        this.products += production;
+    }
+
+    public void subtractProducts(int consumption) {
+        this.products -= consumption;
+    }
+
+    public void addNatResources(int discovery) {
+        this.natResources += discovery;
+    }
+
+    public void subtractNatResources(int reserves) {
+        this.natResources -= reserves;
+    }
+
+
 
 }
