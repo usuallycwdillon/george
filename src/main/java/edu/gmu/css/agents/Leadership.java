@@ -44,23 +44,12 @@ public class Leadership implements Steppable {
     }
 
     public void initiateWarProcess(Polity target) {
-        Resources force = warStrategy(target);
-        Process process = new WarProcess(polity, target, force);
+        SecurityObjective objective = chooseSecurityObjective();
+        Resources force = warStrategy(target, objective);
+        Process process = new WarProcess(polity, target, force, objective);
         worldOrder.schedule.scheduleRepeating(process);
     }
 
-    public void respondToThreat(ProcessDisposition disposition, Resources threat) {
-        // commit resources in response to threat upto twice the threat
-        Resources available = polity.getResources().evaluativeAvailableDifference(threat.multipliedBy(2.0));
-        disposition.commit(available);
-
-    }
-
-    public boolean willEscalate() {
-        double respond = worldOrder.random.nextGaussian();
-        // See Cioffi-Revilla (1998) Politics and Uncertainty, p 160. (P_B)
-        return respond > 0.50;
-    }
 
     void initiatePeaceProcess() {
 
@@ -86,14 +75,57 @@ public class Leadership implements Steppable {
 
     }
 
-    private int chooseSecurityObjective() {
-        // This method of arbitrarily selecting a strategic objective is a placeholder for some realistic logic
-        int goal = worldOrder.random.nextInt(4);
-        return goal;
+    void joinWarProcess() {
+
     }
 
-    private Resources warStrategy(Polity target) {
-        int goal = chooseSecurityObjective();
+    void joinPeaceProcess() {
+
+    }
+
+    void joinTradeProcess() {
+
+    }
+
+    void joinOrgProcess() {
+
+    }
+
+    void joinDiplomaticProcess() {
+
+    }
+
+    void joinAllianceProcess() {
+
+    }
+
+    void joinStatehoodProcess() {
+
+    }
+
+
+    private SecurityObjective chooseSecurityObjective() {
+        // This method of arbitrarily selecting a strategic objective is a placeholder for some realistic logic
+        int goal = worldOrder.random.nextInt(4) * 2;
+        SecurityObjective objective = SecurityObjective.given(goal);
+        return objective;
+    }
+
+    public Resources respondToThreat(ProcessDisposition disposition, Resources threat) {
+        // commit resources in response to threat upto twice the threat
+        Resources available = polity.getResources().evaluativeAvailableDifference(threat.multipliedBy(2.0));
+        return available;
+
+    }
+
+    public boolean shouldEscalate() {
+        double respond = worldOrder.random.nextGaussian();
+        // See Cioffi-Revilla (1998) Politics and Uncertainty, p 160. (P_B)
+        return respond < 0.50;
+    }
+
+    private Resources warStrategy(Polity target, SecurityObjective objective) {
+        int goal = objective.value;
         int red;
         int blue;
         double threat;

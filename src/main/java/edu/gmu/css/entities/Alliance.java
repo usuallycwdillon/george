@@ -1,8 +1,7 @@
-package edu.gmu.css.worldOrder;
+package edu.gmu.css.entities;
 
+import edu.gmu.css.agents.Process;
 import edu.gmu.css.data.AllianceType;
-import org.neo4j.ogm.annotation.GeneratedValue;
-import org.neo4j.ogm.annotation.Id;
 import org.neo4j.ogm.annotation.NodeEntity;
 import sim.engine.SimState;
 
@@ -12,6 +11,10 @@ public class Alliance extends Institution {
     private AllianceType allianceType;
 
     public Alliance() {
+
+    }
+
+    public Alliance(Process process) {
 
     }
 

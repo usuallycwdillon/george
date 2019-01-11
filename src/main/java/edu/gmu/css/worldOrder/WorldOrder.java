@@ -4,6 +4,7 @@ import com.uber.h3core.H3Core;
 import edu.gmu.css.App;
 //import edu.gmu.css.agents.PeaceProcess;
 //import edu.gmu.css.entities.State;
+import edu.gmu.css.agents.Process;
 import edu.gmu.css.agents.Tile;
 import edu.gmu.css.entities.*;
 import edu.gmu.css.queries.StateQueries;
@@ -17,6 +18,7 @@ import org.neo4j.ogm.session.Session;
 import org.neo4j.ogm.session.SessionFactory;
 import sim.engine.SimState;
 import sim.engine.Steppable;
+import sim.engine.Stoppable;
 
 
 import java.io.IOException;
@@ -59,6 +61,8 @@ public class WorldOrder extends SimState {
     public static double RISK_DEFEAT = 0.01;
     public static double RISK_CONQUER = 0.01;
 
+    public static Dataset modelRun;
+//    public static TerminalAgent terminalAgent = new TerminalAgent();
 
     /**
      * Select a year for baseline data and initialize the global environment with empirical descriptions of States,
@@ -79,6 +83,7 @@ public class WorldOrder extends SimState {
 
 
 
+
     // The stabilityDuration is the number of weeks with no change in globalWarLikelihood before the system is "stable"
     public int stabilityDuration;                             // 25  years
 //    public History globalHostility = new History(stabilityDuration);    // how far back to look for stability; not simulation Run time.
@@ -88,6 +93,8 @@ public class WorldOrder extends SimState {
 
     public void start() {
         super.start();
+        modelRun = new Dataset(seed());
+//        schedule.scheduleRepeating(terminalAgent);
         // Set initial parameters, at least for testing
         stabilityDuration = 25 * 52;
         warCostFactor = 0.10;
@@ -163,6 +170,31 @@ public class WorldOrder extends SimState {
     public int getStabilityDuration() {
         return this.stabilityDuration;
     }
+
+
+//    public static class TerminalAgent implements Steppable, Stoppable {
+//        public static Set<Steppable> dyingNextStep = new HashSet<>();
+//        private Stoppable stopper = null;
+//
+//        TerminalAgent() {
+//
+//        }
+//
+//        public void step(SimState simState) {
+//            for (Steppable s : dyingNextStep) {
+//
+//            }
+//        }
+//
+//        public void setStopper(Stoppable stopper)   {this.stopper = stopper;}
+//
+//        public void stop(){stopper.stop();}
+//
+//
+//        public void kill(Steppable s) {
+//            dyingNextStep.add(s);
+//        }
+//    }
 
 
 

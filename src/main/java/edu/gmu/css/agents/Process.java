@@ -1,27 +1,22 @@
 package edu.gmu.css.agents;
 
-import ec.util.MersenneTwisterFast;
 import edu.gmu.css.data.Domain;
-import edu.gmu.css.entities.Entity;
-import edu.gmu.css.entities.Organization;
-import edu.gmu.css.entities.Polity;
-import edu.gmu.css.entities.ProcessDisposition;
+import edu.gmu.css.entities.*;
+import edu.gmu.css.service.Neo4jSessionFactory;
 import edu.gmu.css.worldOrder.*;
-import lombok.Builder;
 import org.neo4j.ogm.annotation.*;
 import sim.engine.SimState;
 import sim.engine.Steppable;
-import sim.util.Bag;
+import sim.engine.Stoppable;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
+import java.util.Objects;
 
 
 @NodeEntity
-public abstract class Process extends Entity implements Steppable, Serializable {
+public abstract class Process extends Entity implements Steppable, Stoppable, Serializable {
     /** Binary version of Cioffi-Revilla `Canonical Process` Engine, dialectically
      *  The Omega digit reflects whether the outcome has been calculated
      *  The [SPC] digit reflects the external state
@@ -63,9 +58,9 @@ public abstract class Process extends Entity implements Steppable, Serializable 
     @Transient
     protected boolean K = true;
     @Transient
-    protected boolean equivalence = true; // is this fiat logically equivalent to an outcome? Initially equivalent to 'x'
+    protected boolean equivalence = true; // has this process been evaluated for but not yet reached the next fiat
     @Transient
-    protected boolean outcome = false; // does the process die at the next step; run it's course?
+    protected boolean outcome = false; // is there only one logical path remaining?
     @Property
     protected char fiat = 'x';
     @Property
@@ -82,7 +77,11 @@ public abstract class Process extends Entity implements Steppable, Serializable 
     protected int[] status = new int[]{0, 0, 0};
     @Property
     protected Domain domain;
+    @Transient
+    private Stoppable stopper = null;
 
+    @Relationship
+    protected Institution institution;
     @Relationship(direction = "INCOMING")
     protected List<ProcessDisposition> processParticipantLinks = new ArrayList<>();
 
@@ -128,6 +127,17 @@ public abstract class Process extends Entity implements Steppable, Serializable 
     }
     public double getCost() {
         return cost;
+    }
+    public long getBegan() {
+        return began;
+    }
+
+    public long getEnded() {
+        return ended;
+    }
+
+    public List<ProcessDisposition> getProcessDispositionList() {
+        return processParticipantLinks;
     }
     public Domain getDomain() {
         return domain;
@@ -197,6 +207,14 @@ public abstract class Process extends Entity implements Steppable, Serializable 
         this.status[2] = internal;
     }
 
+    public int sumStatus() {
+        int statusSum = 0;
+        for (int i : status) {
+            statusSum =+ i;
+        }
+        return statusSum;
+    }
+
     public void setFiat() {
         // This process is designed to "rachet", meaning that the process will advance to the next potential fiat, even
         // if the conditions for equivalence and the outcome have not been met; only that the limitations of theee
@@ -240,37 +258,75 @@ public abstract class Process extends Entity implements Steppable, Serializable 
     public void step(SimState simState) {
         worldOrder = (WorldOrder) simState;
         long stepNum = worldOrder.schedule.getSteps();
-        // TODO: stability is the sum of system-linked relationships with institutions
+        // TODO: stability is based on the sum of system-linked relationships with institutions
         // TODO: reduce the overall probability of war by their combined effect
         this.setFiat();
 
     }
 
-    public Institution createInstitution() {
-        Institution institution;
+    public Institution createInstitution(Long step) {
         switch (domain) {
             case WAR:
-                return institution = new War();
+                // Create a new war out of this process; mirrors WarMakingFact
+                institution = new War(this);
+                // Create an Institution Participation link out of each Process Disposition link
+                for (ProcessDisposition d : processParticipantLinks) {
+                    new InstitutionParticipation(d, institution, step);
+                }
+                return institution;
             case PEACE:
-                return institution = new Peace();
+                institution = new Peace(this);
+                for (ProcessDisposition d : processParticipantLinks) {
+                    new InstitutionParticipation(d, institution, worldOrder.getStepNumber());
+                }
+                return institution;
             case TRADE:
-                return institution = new Trade();
+                institution = new Trade(this);
+                for (ProcessDisposition d : processParticipantLinks) {
+                    new InstitutionParticipation(d, institution, worldOrder.getStepNumber());
+                }
+                return institution;
             case DIPLOMACY:
-                return institution = new Diplomacy();
+                institution = new Diplomacy(this);
+                for (ProcessDisposition d : processParticipantLinks) {
+                    new InstitutionParticipation(d, institution, worldOrder.getStepNumber());
+                }
+                return institution;
             case ALLIANCE:
-                return institution = new Alliance();
+                institution = new Alliance(this);
+                for (ProcessDisposition d : processParticipantLinks) {
+                    new InstitutionParticipation(d, institution, worldOrder.getStepNumber());
+                }
+                return institution;
             case STATEHOOD:
-                return institution = new Statehood();
+                institution = new Statehood(this);
+                for (ProcessDisposition d : processParticipantLinks) {
+                    new InstitutionParticipation(d, institution, worldOrder.getStepNumber());
+                }
+                return institution;
             default:
                 return institution = null;
         }
     }
 
-    public Organization createOrganization(Institution institution) {
-        Organization organization = new Organization(institution);
-        return organization;
+//    public Organization createOrganization(Institution institution) {
+//        Organization organization = new Organization(institution);
+//        return organization;
+//    }
+
+
+
+    public void setStopper(Stoppable stopper) {
+        this.stopper = stopper;
+    }
+
+    public void stop(){
+        stopper.stop();
     }
 
 
+    public void saveEntity(Object o) {
+        Neo4jSessionFactory.getInstance().getNeo4jSession().save(o, 1);
+    }
 
 }

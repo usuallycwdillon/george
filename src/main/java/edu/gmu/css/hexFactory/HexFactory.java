@@ -6,6 +6,7 @@ import com.uber.h3core.util.GeoCoord;
 import edu.gmu.css.agents.Tile;
 import edu.gmu.css.data.GeoDatasetData;
 import edu.gmu.css.entities.Dataset;
+import edu.gmu.css.entities.Entity;
 import edu.gmu.css.entities.Territory;
 import edu.gmu.css.service.Neo4jSessionFactory;
 import org.geojson.*;
@@ -44,7 +45,8 @@ public class HexFactory {
                     .map(feature -> new Territory(feature, y))
                     .collect(Collectors.toList()));
 
-            for (Territory t : d.getFacts()) {
+            for (Entity e : d.getFacts()) {
+                Territory t = (Territory) e;
                 Session session = Neo4jSessionFactory.getInstance().getNeo4jSession();
                 Transaction tx = session.beginTransaction();
                 session.save(t, 1);

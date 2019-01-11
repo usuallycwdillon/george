@@ -3,10 +3,12 @@ package edu.gmu.css.entities;
 import edu.gmu.css.service.DateConverter;
 import org.neo4j.ogm.annotation.GeneratedValue;
 import org.neo4j.ogm.annotation.Id;
+import org.neo4j.ogm.annotation.Property;
 import org.neo4j.ogm.annotation.Relationship;
 import org.neo4j.ogm.annotation.typeconversion.Convert;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
@@ -16,8 +18,11 @@ public class Dataset extends Entity {
 
     @Id @GeneratedValue
     Long id;
+    @Property
     String filename;
+    @Property
     String name;
+    @Property
     Double version;
     @Convert(DateConverter.class)
     LocalDate published;
@@ -25,10 +30,14 @@ public class Dataset extends Entity {
     LocalDate validFrom;
     @Convert(DateConverter.class)
     LocalDate validUntil;
+    @Property
+    long seed;
+    @Property
+    LocalDateTime dateTime;
 
 
     @Relationship(type="CONTRIBUTES")
-    private Set<Territory> facts = new HashSet<>();
+    private Set<Entity> facts = new HashSet<>();
 
     public Dataset() {
     }
@@ -38,6 +47,12 @@ public class Dataset extends Entity {
         this.name = name;
         this.version = version;
         this.facts = new HashSet<>();
+    }
+
+    public Dataset(long seed) {
+        this.name = "simulation_run";
+        this.dateTime = LocalDateTime.now();
+        this.filename = name + "_" + dateTime;
     }
 
     @Override
@@ -57,16 +72,16 @@ public class Dataset extends Entity {
         return version;
     }
 
-    public Set<Territory> getFacts() {
+    public Set<Entity> getFacts() {
         return facts;
     }
 
-    public void addFacts(Territory t) {
+    public void addFacts(Entity t) {
         this.facts.add(t);
     }
 
-    public void addAllFacts(Collection<Territory> theseTerritories) {
-        this.facts.addAll(theseTerritories);
+    public void addAllFacts(Collection<Entity> theseEntities) {
+        this.facts.addAll(theseEntities);
     }
 
     public LocalDate getPublished() {

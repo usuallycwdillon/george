@@ -1,18 +1,17 @@
 package edu.gmu.css.agents;
 
 import edu.gmu.css.data.Domain;
+import edu.gmu.css.data.SecurityObjective;
+import edu.gmu.css.entities.Dispute;
 import edu.gmu.css.entities.Polity;
 import edu.gmu.css.entities.ProcessDisposition;
-import edu.gmu.css.worldOrder.Institution;
 import edu.gmu.css.worldOrder.Resources;
-import edu.gmu.css.worldOrder.War;
 import edu.gmu.css.worldOrder.WorldOrder;
-import org.neo4j.ogm.annotation.Relationship;
 import sim.engine.SimState;
+import sim.engine.Stoppable;
+import sim.engine.WeakStep;
 
-import java.util.HashSet;
-import java.util.Set;
-import java.util.stream.IntStream;
+import static edu.gmu.css.worldOrder.WorldOrder.modelRun;
 
 public class WarProcess extends Process {
 
@@ -23,11 +22,15 @@ public class WarProcess extends Process {
     }
 
 
-    public WarProcess(Polity owner, Polity target, Resources force) {
+    public WarProcess(Polity owner, Polity target, Resources force, SecurityObjective objective) {
         began = worldOrder.getStepNumber();
         // owning state links to the process and sets a strategy; that strategy establishes initial process parameters
         ProcessDisposition pdo = new ProcessDisposition(owner, this, began);
+        pdo.setObjective(objective);
+        pdo.setN(true);
+        pdo.setU(true);
         pdo.setCommitment(force);
+        pdo.setObjective(objective);
         // We must commit the resources before adding the process disposition to the owner's list of processes
         owner.addProcess(pdo);
         processParticipantLinks.add(pdo);
@@ -57,61 +60,94 @@ public class WarProcess extends Process {
         /** Switch on the current status
          *
          */
+        worldOrder = (WorldOrder) simState;
         int count = 0;
-
-        int statusSum = 0;
-        for (int i : status) {
-            statusSum =+ i;
-        }
+        int statusSum = sumStatus();
 
         switch (statusSum) {
             case 2:
-                // initial state: a challenge exists
-                // Consider whether unresourced participants have committed resources. If not, does everybody at least
-                // feel the need?
-                for (ProcessDisposition p : processParticipantLinks) {
-                    if (p.getCommitment().getPax() > 0) {
-                        count += 1;
-                    } else {
-                        if (p.getOwner().getLeadership().willEscalate()) {
-                            count += 1;
-                        }
-                    }
-                }
-                if (count >= processParticipantLinks.size() ) {
-                    // This process is no longer equivalent to 'x' because participants all agree N
-                    this.N = true;
-                    this.equivalence = false;
-                } else {
-                    this.outcome = true;    // will evaluate to 'x'; consequences for target may or may not destroy it
-                }
-                this.updateStatus();
-                break;
-            case 3:
-                // TODO: A takes goal action on B; expends resources; regains PAX
-
-                this.updateStatus();
-                break;
-            case 4:
-                // target recognizes need but undertakes no action; owner does not attack
-                // Let Polity A take something from Polity B
-                count = 0;
-                for (ProcessDisposition p : processParticipantLinks) {
-                    if (p.getCommitment().getPax() > 0) {
-                        count += 1;
-                    } else {
-                        p.getOwner().getLeadership().respondToThreat(p, involvement);
-                        if (p.getCommitment().getPax() > 0) {
-                            count += 1;
-                        }
-                    }
-                }
-                if (count >= processParticipantLinks.size() ) {
-                    // This should produce the X fiat, though we're not necessarily finished
-                    this.U = true;
+                // outer if/then tests for equivalence
+                // inner loop tests for participants' N; +N = escalate, -N = outcome
+                if (equivalence) {
                     this.outcome = true;
                 } else {
-                    if (processParticipantLinks.get(0).getCommitment().getPax() > 0) {
+                    for (ProcessDisposition p : processParticipantLinks) {
+                        if (p.atN()) {
+                            count += 1;
+                        } else {
+                            if (p.getOwner().willEscalate()) {
+                                p.setN(true);
+                                count += 1;
+                            }
+                        }
+                    }
+                    if (count >= processParticipantLinks.size() ) {
+                        // This process is no longer equivalent to 'x' because participants all agree N; status = 4
+                        this.N = true;
+                        this.equivalence = false;
+                    } else {
+                        this.equivalence = true;    // Evaluate for 'x' next step
+                    }
+                }
+
+                this.updateStatus();        // Could stay at 2+equivalence, 3, or 4
+                break;
+            case 3:                         // evaluates to 'x'
+                // toss a coin: do(es) target(s)
+                if (worldOrder.random.nextGaussian() < 0.50) {
+                    for (ProcessDisposition p : processParticipantLinks.subList(1, processParticipantLinks.size())) {
+                        // TODO: target(s) lose something
+                    }
+                }
+                // return the instigator resources
+                ProcessDisposition pdo = processParticipantLinks.get(0);
+                Polity instigator = pdo.getOwner();
+                Resources returned = pdo.getCommitment();
+                instigator.getResources().increaseBy(returned);
+                // log this as a dispute
+                Dispute d = new Dispute(this);
+                WorldOrder.modelRun.addFacts(d);
+                saveEntity(d);
+                stop();
+                break;
+            case 4:
+                // target recognizes need; test for U, then for P
+                if (equivalence) { // N and ~U
+                    ProcessDisposition pd = processParticipantLinks.get(0);
+                    if (pd.getOwner().evaluateAttackSuccess(pd)) {
+                        this.P = true;
+                        this.outcome = true; // must result in 'X'. sums to 7 + equivalence
+                    } else {
+                        this.P = false;
+                        this.outcome = true; // must result in 'E', sums to 5 + equivalence
+                    }
+                } else { // test for U
+                    count = 0;
+                    for (ProcessDisposition p : processParticipantLinks) {
+                        if (p.atU()) {
+                            count += 1;
+                        } else {
+                            p.getOwner().getThreatResponse(p, involvement);
+                            if (p.atU()){
+                                count += 1;
+                            }
+                        }
+                    }
+                    if (count >= processParticipantLinks.size() ) {  //  U, sums to 8
+                        this.U = true;
+                    } else {                                         // ~U, still sums to 4; 4 + equivalence
+                        this.equivalence = true;
+                    }
+                }
+                this.updateStatus();
+                break;
+            case 5:                                                 // catch
+                if (equivalence) {
+                    outcome = true;
+                    stop();
+                } else {
+                    ProcessDisposition pd = processParticipantLinks.get(0);
+                    if (pd.getOwner().evaluateAttackSuccess(pd)) {
                         this.P = true;
                         this.equivalence = true;
                     } else {
@@ -121,49 +157,77 @@ public class WarProcess extends Process {
                 }
                 this.updateStatus();
                 break;
-            case 5:                 // Start at fiat 'E' and log the process before the main loop kills it.
-
-                break;
-            case 6:
+            case 6:                                             // catch
                 // A takes action without consequences
                 this.outcome = true;
-                // A's wealth committments get spent, but their personnel get returned. They get concessions from B
-                processParticipantLinks.get(0).getCommitment().setTreasury(0.0);
+                this.updateStatus();
                 break;
-            case 7:                 // Start at fiat 'X' and log the process before the main loop kills it.
-
+            case 7:
+                //                                              // catch
+                ProcessDisposition pd = processParticipantLinks.get(0);
+                pd.getCommitment().setTreasury(0.0);
+                pd.getOwner().getResources().addPax(pd.getCommitment().getPax());
                 this.outcome = true;
+                saveEntity(new Dispute(this));
+                stop();
                 break;
             case 8:
+                // Test for P. Evaluates to 9 or 10
+                ProcessDisposition pda = processParticipantLinks.get(0);
+                if (pda.getOwner().evaluateAttackSuccess(pda)) {  // P,, sums to 10
+                    this.P = true;
+                    this.equivalence = false;
+                } else {                                          // ~P, sums to 9
+                    this.P = false;
+                    this.equivalence = false;
+                    this.outcome = true;
+                }
+                this.updateStatus();
+                this.equivalence = false;
                 break;
-            case 9:                 // Start at fiat 'W' and log the process before the main loop kills it.
-
-                this.outcome = true;
+            case 9:
+                if (equivalence) {
+                    stop();
+                } else {
+                    this.equivalence = true;
+                }
+                // log nothing; just die next step
+                this.updateStatus();
+                stop();
                 break;
             case 10:
+                // Starting the war is successful or not
+                if (0.5 < simState.random.nextGaussian()) {
+                    this.S = true;
+                } else {
+                    this.equivalence = true;
+                }
+                this.updateStatus();
                 break;
-            case 11:                // Start at fiat 'Z' and log the process before the main loop kills it.
-
+            case 11:
+                if (outcome) {
+                    stop();
+                }
                 this.outcome = true;
+                this.updateStatus();
                 break;
             case 14:
+                if (outcome) {
+                    // log the process before the main loop kills it.
+                }
+                this.outcome = true;
+                this.updateStatus();
                 break;
             case 15:                // Start at fiat 'A' and lot the process before we attach a War and ignore the process.
-
                 this.outcome = true;
+                Long step = worldOrder.getStepNumber();
+                createInstitution(step);
+                stop();
                 break;
         }
 
         // if the process has an outcome (and is not a war) log it; the main loop will kill logged, outcome procs.
         // TODO: Main loop must kill logged procs with an outcome.
-    }
-
-
-
-
-    @Override
-    public Institution createInstitution() {
-        return new War();
     }
 
 

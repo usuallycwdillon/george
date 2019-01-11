@@ -2,8 +2,8 @@ package edu.gmu.css.agents;
 
 import edu.gmu.css.data.Domain;
 import edu.gmu.css.entities.Polity;
-import edu.gmu.css.worldOrder.Institution;
-import edu.gmu.css.worldOrder.Statehood;
+import edu.gmu.css.entities.Institution;
+import edu.gmu.css.entities.Statehood;
 import sim.engine.SimState;
 
 public class StatehoodProcess extends Process {
@@ -16,7 +16,7 @@ public class StatehoodProcess extends Process {
 
     }
 
-    @Override
+//    @Override
     public void setStatus() {
 
     }
@@ -57,7 +57,7 @@ public class StatehoodProcess extends Process {
         }
     }
 
-    @Override
+//    @Override
     public Institution createInstitution() {
         return new Statehood();
     }

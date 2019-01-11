@@ -1,11 +1,15 @@
-package edu.gmu.css.worldOrder;
+package edu.gmu.css.entities;
 
-import sim.display.SimApplet;
+import edu.gmu.css.agents.Process;
 import sim.engine.SimState;
 
 public class Statehood extends Institution {
 
     public Statehood() {
+
+    }
+
+    public Statehood(Process process) {
 
     }
 

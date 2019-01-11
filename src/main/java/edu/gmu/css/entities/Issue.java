@@ -1,4 +1,4 @@
-package edu.gmu.css.worldOrder;
+package edu.gmu.css.entities;
 
 import java.util.HashMap;
 import java.util.Map;

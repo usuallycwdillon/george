@@ -2,8 +2,7 @@ package edu.gmu.css.agents;
 
 import edu.gmu.css.data.Domain;
 import edu.gmu.css.entities.Polity;
-import edu.gmu.css.worldOrder.Alliance;
-import edu.gmu.css.worldOrder.Institution;
+import edu.gmu.css.worldOrder.WorldOrder;
 import sim.engine.SimState;
 
 public class AllianceProcess extends Process {
@@ -16,10 +15,10 @@ public class AllianceProcess extends Process {
 
     }
 
-    @Override
-    public void setStatus() {
-
-    }
+//    @Override
+//    public void setStatus() {
+//
+//    }
 
     @Override
     public void setFiat() {
@@ -28,37 +27,52 @@ public class AllianceProcess extends Process {
 
     @Override
     public void step(SimState simState) {
-        setFiat();
-        switch (fiat) {
-            case 'x':
-                // initial state; a challenge exists
-                // owner assigns resources and prepares to attack
+        worldOrder = (WorldOrder) simState;
+        int count = 0;
+
+        int statusSum = 0;
+        for (int i : status) {
+            statusSum = +i;
+        }
+
+        switch (statusSum) {
+            case 2:
+
                 return;
-            case 'E':
-                // target recognizes need but undertakes no action; owner does not attack
-                // owner assigns resources and prepares to attack
+            case 3:
+
                 return;
-            case 'X':
-                // initial state; a challenge exists
-                // owner assigns resources and prepares to attack
+            case 4:
+
                 return;
-            case 'W':
-                // initial state; a challenge exists
-                // owner assigns resources and prepares to attack
+            case 5:
+
                 return;
-            case 'Z':
-                // initial state; a challenge exists
-                // owner assigns resources and prepares to attack
+            case 6:
+
                 return;
-            case 'A':
-                // initial state; a challenge exists
-                // owner assigns resources and prepares to attack
+            case 7:
+
+                return;
+            case 8:
+
+                return;
+            case 9:
+
+                return;
+            case 10:
+
+                return;
+            case 11:
+
+                return;
+            case 14:
+
+                return;
+            case 15:
+
                 return;
         }
     }
 
-    @Override
-    public Institution createInstitution() {
-        return new Alliance();
-    }
 }

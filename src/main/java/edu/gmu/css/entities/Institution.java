@@ -1,5 +1,6 @@
-package edu.gmu.css.worldOrder;
+package edu.gmu.css.entities;
 
+import edu.gmu.css.agents.Process;
 import edu.gmu.css.entities.Organization;
 import edu.gmu.css.entities.Polity;
 import org.neo4j.ogm.annotation.*;
@@ -11,7 +12,7 @@ import java.time.Year;
 import java.util.List;
 
 @NodeEntity
-public abstract class Institution implements Steppable, Serializable {
+public abstract class Institution extends Entity implements Steppable, Serializable {
     /**
      *
      */
@@ -32,10 +33,14 @@ public abstract class Institution implements Steppable, Serializable {
     protected List<Polity> participants;
 
     @Relationship
+    protected Process process;
+    @Relationship
     protected Organization organization; // Only used if this institution spawned an organization
 
     public Institution() {
+    }
 
+    public Institution(Process process) {
     }
 
     public Institution(SimState simState) {

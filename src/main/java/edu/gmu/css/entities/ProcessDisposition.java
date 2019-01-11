@@ -1,6 +1,7 @@
 package edu.gmu.css.entities;
 
 import edu.gmu.css.agents.Process;
+import edu.gmu.css.data.SecurityObjective;
 import edu.gmu.css.worldOrder.Resources;
 import org.neo4j.ogm.annotation.*;
 import org.neo4j.register.Register;
@@ -30,6 +31,8 @@ public class ProcessDisposition {
     private boolean K;
     @Transient
     private Resources commitment;
+    @Transient
+    SecurityObjective objective;
 
 
     public ProcessDisposition() {
@@ -38,7 +41,7 @@ public class ProcessDisposition {
         this.K = true;      // default state is for K to be true (otherwise there would be no process or relation to it
     }
 
-    public ProcessDisposition(Polity polity, Process process, Integer year) {
+    public ProcessDisposition(Polity polity, Process process, int year) {
         this();
         this.owner = polity;
         this.process = process;
@@ -53,7 +56,8 @@ public class ProcessDisposition {
     }
 
     public void commit(Resources resources) {
-
+        commitment = resources;
+        this.U = true;
     }
 
     public Long getId() {
@@ -80,7 +84,7 @@ public class ProcessDisposition {
         this.until = until;
     }
 
-    public boolean isU() {
+    public boolean atU() {
         return U;
     }
 
@@ -88,7 +92,7 @@ public class ProcessDisposition {
         U = u;
     }
 
-    public boolean isN() {
+    public boolean atN() {
         return N;
     }
 
@@ -96,7 +100,7 @@ public class ProcessDisposition {
         N = n;
     }
 
-    public boolean isK() {
+    public boolean atK() {
         return K;
     }
 
@@ -120,4 +124,11 @@ public class ProcessDisposition {
         return process.getId();
     }
 
+    public SecurityObjective getObjective() {
+        return objective;
+    }
+
+    public void setObjective(SecurityObjective objective) {
+        this.objective = objective;
+    }
 }

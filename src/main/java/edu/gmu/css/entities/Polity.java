@@ -1,9 +1,9 @@
 package edu.gmu.css.entities;
 
+import ec.util.MersenneTwisterFast;
 import edu.gmu.css.agents.Leadership;
 import edu.gmu.css.agents.WarProcess;
 import edu.gmu.css.data.Domain;
-import edu.gmu.css.worldOrder.Institution;
 import edu.gmu.css.agents.Process;
 import edu.gmu.css.worldOrder.Resources;
 import edu.gmu.css.worldOrder.WorldOrder;
@@ -25,7 +25,7 @@ public class Polity implements Serializable {
     private Territory territory;
     @Relationship (direction = "INCOMING")
     private Leadership leadership;
-    @Relationship(type = "BORDERS_WITH")                                 // State's neighbors are mediated by territories they occupy
+    @Relationship(type = "BORDERS_WITH")                   // State's neighbors are mediated by territories they occupy
     private Set<Polity> bordersWith = new HashSet<>();
     @Relationship
     private List<ProcessDisposition> processList;
@@ -39,6 +39,8 @@ public class Polity implements Serializable {
     private EconomicPolicy economicPolicy;
     @Transient
     private Resources resources = new Resources.ResourceBuilder().build();
+    @Transient
+    public MersenneTwisterFast random = new MersenneTwisterFast();
 
 
     public Polity () {
@@ -117,9 +119,7 @@ public class Polity implements Serializable {
         Polity owner = disposition.getOwner();
         switch (domain) {
             case WAR:
-                if (owner.equals(this)) {
 
-                }
         }
 
     }
@@ -187,6 +187,14 @@ public class Polity implements Serializable {
 
     }
 
+    public boolean evaluateAttackSuccess(ProcessDisposition disposition) {
+        WarProcess war = (WarProcess) disposition.getProcess();
+        int commitment = disposition.getCommitment().getPax();
+        int magnitude = war.getInvolvement().getPax();
+        int extent = war.getProcessDispositionList().size();
+        return magnitude / extent < commitment;
+    }
+
     private Resources allocateResources(Resources request) {
         int force = Math.min(request.getPax(), resources.getPax());
         double funds = Math.min(request.getTreasury(), resources.getTreasury());
@@ -199,6 +207,19 @@ public class Polity implements Serializable {
         int force = Math.min(request.getPax(), resources.getPax());
         double funds = Math.min(request.getTreasury(), resources.getTreasury());
         return new Resources.ResourceBuilder().pax(force).treasury(funds).build();
+    }
+
+    public void getThreatResponse(ProcessDisposition disposition, Resources threat) {
+        // commit resources in response to threat upto twice the threat
+        Resources available = leadership.respondToThreat(disposition, threat);
+        disposition.commit(available);
+        if (available.getPax() > 0) {
+            disposition.setN(true);
+        }
+    }
+
+    public boolean willEscalate() {
+        return leadership.shouldEscalate();
     }
 
     class EconomicPolicy {
