@@ -1,10 +1,9 @@
 package edu.gmu.css.agents;
 
-import edu.gmu.css.data.ProcTypes;
 import edu.gmu.css.data.SecurityObjective;
 import edu.gmu.css.entities.Polity;
 import edu.gmu.css.entities.ProcessDisposition;
-import edu.gmu.css.worldOrder.Resources;
+import edu.gmu.css.entities.Resources;
 import edu.gmu.css.worldOrder.WorldOrder;
 import sim.engine.SimState;
 import sim.engine.Steppable;
@@ -115,7 +114,6 @@ public class Leadership implements Steppable {
         // commit resources in response to threat upto twice the threat
         Resources available = polity.getResources().evaluativeAvailableDifference(threat.multipliedBy(2.0));
         return available;
-
     }
 
     public boolean shouldEscalate() {
@@ -125,7 +123,12 @@ public class Leadership implements Steppable {
     }
 
     private Resources warStrategy(Polity target, SecurityObjective objective) {
-        int goal = objective.value;
+        int goal;
+        if (objective.value % 2 == 0) {
+            goal = objective.value / 2;
+        } else {
+            goal = ((objective.value - 1) / 2);
+        }
         int red;
         int blue;
         double threat;

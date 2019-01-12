@@ -1,7 +1,6 @@
 package edu.gmu.css.entities;
 
 
-import edu.gmu.css.worldOrder.Resources;
 import org.neo4j.ogm.annotation.*;
 
 @RelationshipEntity(type="PARTICIPANT_IN")

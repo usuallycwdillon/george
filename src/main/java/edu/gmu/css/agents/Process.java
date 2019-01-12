@@ -79,6 +79,8 @@ public abstract class Process extends Entity implements Steppable, Stoppable, Se
     protected Domain domain;
     @Transient
     private Stoppable stopper = null;
+    @Transient
+    private Entity issue; // the war, peace, trade, org, territory, etc.
 
     @Relationship
     protected Institution institution;

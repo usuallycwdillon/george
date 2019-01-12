@@ -2,9 +2,7 @@ package edu.gmu.css.entities;
 
 import edu.gmu.css.agents.Process;
 import edu.gmu.css.data.SecurityObjective;
-import edu.gmu.css.worldOrder.Resources;
 import org.neo4j.ogm.annotation.*;
-import org.neo4j.register.Register;
 
 
 @RelationshipEntity(type="DISPOSITION_IN")

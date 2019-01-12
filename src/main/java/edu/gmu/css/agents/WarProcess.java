@@ -5,13 +5,9 @@ import edu.gmu.css.data.SecurityObjective;
 import edu.gmu.css.entities.Dispute;
 import edu.gmu.css.entities.Polity;
 import edu.gmu.css.entities.ProcessDisposition;
-import edu.gmu.css.worldOrder.Resources;
+import edu.gmu.css.entities.Resources;
 import edu.gmu.css.worldOrder.WorldOrder;
 import sim.engine.SimState;
-import sim.engine.Stoppable;
-import sim.engine.WeakStep;
-
-import static edu.gmu.css.worldOrder.WorldOrder.modelRun;
 
 public class WarProcess extends Process {
 
@@ -21,6 +17,9 @@ public class WarProcess extends Process {
     public WarProcess() {
     }
 
+    public Resources getInvolvement() {
+        return this.involvement;
+    }
 
     public WarProcess(Polity owner, Polity target, Resources force, SecurityObjective objective) {
         began = worldOrder.getStepNumber();
@@ -41,23 +40,11 @@ public class WarProcess extends Process {
         involvement.increaseBy(force);
     }
 
-//    @Override
-//    public void setStatus() {
-//
-//    }
-//
-//    @Override
-//    public void setFiat() {
-//
-//    }
-
-    public Resources getInvolvement() {
-        return this.involvement;
-    }
-
     @Override
     public void step(SimState simState) {
         /** Switch on the current status
+         *  A process unfolds from the perspective of targets, not the instigator (or the environment). A successful
+         *  process averts the war while being prepared (N+U+P) to defend the state/polity.
          *
          */
         worldOrder = (WorldOrder) simState;
@@ -211,17 +198,26 @@ public class WarProcess extends Process {
                 this.outcome = true;
                 this.updateStatus();
                 break;
-            case 14:
-                if (outcome) {
-                    // log the process before the main loop kills it.
-                }
-                this.outcome = true;
-                this.updateStatus();
-                break;
-            case 15:                // Start at fiat 'A' and lot the process before we attach a War and ignore the process.
+            case 14:                // War breaks out.
                 this.outcome = true;
                 Long step = worldOrder.getStepNumber();
                 createInstitution(step);
+                stop();
+                break;
+            case 15:                // Start at fiat 'A' and lot the process before we attach a War and ignore the process.
+                if (outcome) {
+                    // Each participant get's their commitment back, minus (arbitrary) 10% of the cost if the war
+                    // can be averted.
+                    for (ProcessDisposition p : processParticipantLinks) {
+                        double t = (p.getCommitment().getTreasury() * 0.9);
+                        p.getCommitment().setTreasury(t);
+                        p.getOwner().getResources().increaseBy(p.getCommitment());
+                    }
+                    saveEntity(new Dispute(this));
+                    stop();
+                }
+                this.outcome = true;
+                this.updateStatus();
                 stop();
                 break;
         }

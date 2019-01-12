@@ -5,7 +5,6 @@ import edu.gmu.css.agents.Leadership;
 import edu.gmu.css.agents.WarProcess;
 import edu.gmu.css.data.Domain;
 import edu.gmu.css.agents.Process;
-import edu.gmu.css.worldOrder.Resources;
 import edu.gmu.css.worldOrder.WorldOrder;
 import org.neo4j.ogm.annotation.*;
 import sim.engine.SimState;
@@ -35,6 +34,8 @@ public class Polity implements Serializable {
     private List<Institution> institutionList;
     @Transient
     private Resources securityStrategy = new Resources.ResourceBuilder().build();
+    @Transient
+    private Resources foreignStrategy = new Resources.ResourceBuilder().build();
     @Transient
     private EconomicPolicy economicPolicy;
     @Transient
@@ -218,6 +219,11 @@ public class Polity implements Serializable {
         }
     }
 
+    public boolean willProbablyWin(Process process) {
+
+        return true;
+    }
+
     public boolean willEscalate() {
         return leadership.shouldEscalate();
     }
@@ -225,6 +231,21 @@ public class Polity implements Serializable {
     class EconomicPolicy {
 
     }
+
+    public boolean hasInsufficentResources(Process process) {
+
+        return true;
+    }
+
+    public boolean evaluateNeedForPeace() {
+
+        return true;
+    }
+
+    public void makeConcessionForPeace() {
+
+    }
+
 
     class WarStrategy {
         WarStrategy() {
