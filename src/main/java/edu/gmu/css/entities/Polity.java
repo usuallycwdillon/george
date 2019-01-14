@@ -39,7 +39,7 @@ public class Polity implements Serializable {
     @Transient
     private EconomicPolicy economicPolicy;
     @Transient
-    private Resources resources = new Resources.ResourceBuilder().build();
+    private Resources resources = new Resources.ResourceBuilder().treasury(10000).pax(10000).build();
     @Transient
     public MersenneTwisterFast random = new MersenneTwisterFast();
 
@@ -120,9 +120,7 @@ public class Polity implements Serializable {
         Polity owner = disposition.getOwner();
         switch (domain) {
             case WAR:
-
         }
-
     }
 
     public Resources getSecurityStrategy() {

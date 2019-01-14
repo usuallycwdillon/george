@@ -74,7 +74,7 @@ public class WorldOrder extends SimState {
     int startYear = 1816; // Choices are 1816, 1880, 1914, 1938, 1945, 1994
 
 
-    public Set<State> allTheStates = new HashSet<>();
+    public List<State> allTheStates = new ArrayList<>();
 //    public Set<War> allTheWars = new HashSet<>();
 //    public Set<PeaceProcess> allThePeaceProcs = new HashSet<>();
     public static Collection<Tile> tiles;
@@ -98,7 +98,7 @@ public class WorldOrder extends SimState {
         // Set initial parameters, at least for testing
         stabilityDuration = 25 * 52;
         warCostFactor = 0.10;
-        globalWarLikelihood = 0.00;
+        globalWarLikelihood = 0.100;
 
         // TODO: Add calls to clear the primary elements: system, globe, Bags/Sets, etc.
 //        allTheStates.clear();
@@ -116,7 +116,12 @@ public class WorldOrder extends SimState {
 
         // TODO: Setup the global system of states
         allTheStates = new StateQueries().getStates("Expanded State System", 1816);
-        System.out.println(allTheStates.size());
+        System.out.println("\n \t Loaded " + allTheStates.size());
+
+        for (Polity p : allTheStates) {
+            Territory t = p.getTerritory();
+            System.out.println(t.getLinkedTileIds().size() );
+        }
 
 
         // TODO: Add Steppables to the Schedule
@@ -124,37 +129,56 @@ public class WorldOrder extends SimState {
             schedule.scheduleRepeating(t);
         }
 
+        Steppable historysMarch = new Steppable() {
+            @Override
+            public void step(SimState simState) {
+                /**
+                 *
+                 */
+                // Record the global probability of war whether it's prescribed or calculated
+//            globalHostility.add(globalWarLikelihood);
+                long stepNo = getStepNumber();
+                if(stepNo % 52 == 0) {
+                    for (Polity p : allTheStates) {
+                        Territory t = p.getTerritory();
+                        t.updateTotals();
+                        System.out.println("At step number " + stepNo + " the population of " + t.getName() + " is "
+                                + t.getPopulation());
+                    }
+                }
+                double r = random.nextGaussian();
+                if (r <= globalWarLikelihood) {
+                    int numStates = allTheStates.size();
+                    int instigator = random.nextInt(numStates);
+                    int target = random.nextInt(numStates);
+                    if (target != instigator) {
+                        Polity p = allTheStates.get(instigator);
+                        p.getLeadership().initiateWarProcess(allTheStates.get(target));
+                    }
+                }
+
+
+                // End the simulation if the global probability of war is stagnate or stable at zero
+                if (globalWarLikelihood <= 0) {
+                    System.exit(0);
+                }
+//            if (globalHostility.average() == globalWarLikelihood) {
+//                System.exit(0);
+//            }
+            }
+        };
+
+        schedule.scheduleRepeating(historysMarch);
+
+
+
+
     }
 
 
 
     // Primary sequence of the simulation
-    Steppable historysMarch = new Steppable() {
-        @Override
-        public void step(SimState simState) {
-            /**
-             *
-             */
-            // Record the global probability of war whether it's prescribed or calculated
-//            globalHostility.add(globalWarLikelihood);
-            long stepNo = getStepNumber();
-            if(stepNo % 52 == 0) {
-                for (Territory t : territories) {
-                    t.updateTotals();
-                    System.out.println("At step number " + stepNo + " the population of " + t.getName() + " is "
-                            + t.getPopulation());
-                }
-            }
 
-            // End the simulation if the global probability of war is stagnate or stable at zero
-            if (globalWarLikelihood <= 0) {
-                System.exit(0);
-            }
-//            if (globalHostility.average() == globalWarLikelihood) {
-//                System.exit(0);
-//            }
-        }
-    };
 
 
     public WorldOrder getWorldOrderSimState() {
@@ -171,30 +195,6 @@ public class WorldOrder extends SimState {
         return this.stabilityDuration;
     }
 
-
-//    public static class TerminalAgent implements Steppable, Stoppable {
-//        public static Set<Steppable> dyingNextStep = new HashSet<>();
-//        private Stoppable stopper = null;
-//
-//        TerminalAgent() {
-//
-//        }
-//
-//        public void step(SimState simState) {
-//            for (Steppable s : dyingNextStep) {
-//
-//            }
-//        }
-//
-//        public void setStopper(Stoppable stopper)   {this.stopper = stopper;}
-//
-//        public void stop(){stopper.stop();}
-//
-//
-//        public void kill(Steppable s) {
-//            dyingNextStep.add(s);
-//        }
-//    }
 
 
 

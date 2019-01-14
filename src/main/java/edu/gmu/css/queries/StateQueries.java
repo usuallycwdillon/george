@@ -8,8 +8,8 @@ import java.util.*;
 
 public class StateQueries {
 
-    public Set<State> getStates(String system, int period) {
-        Set<State> states = new HashSet<>();
+    public List<State> getStates(String system, int period) {
+        List<State> states = new ArrayList<>();
 
         Map<String, Object> params = new HashMap<>();
         params.put("name", system); // system name

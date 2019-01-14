@@ -298,11 +298,13 @@ public class Territory extends Entity implements Serializable {
                             tiles.add(h.getTile());
                             pacer ++;
                         }
-                        System.out.println(mapKey + " has population " + pop + " and the distributed population is " + summedPopulation );
+                        System.out.println(mapKey + " has population " + pop + " and the distributed population is " + summedPopulation
+                        + ", which is " + summedPopulation/pop + " of the data.");
                     }
                 }
             }
         }
+
     }
 
     public void updateTotals() {
