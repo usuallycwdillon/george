@@ -6,9 +6,11 @@ import ec.util.MersenneTwisterFast;
 import edu.gmu.css.agents.Tile;
 import edu.gmu.css.hexFactory.*;
 
+import edu.gmu.css.queries.StateQueries;
 import edu.gmu.css.service.NameIdStrategy;
 import edu.gmu.css.service.Neo4jSessionFactory;
 import edu.gmu.css.util.MTFApache;
+import edu.gmu.css.worldOrder.WorldOrder;
 import org.apache.commons.math3.distribution.ZipfDistribution;
 import org.geojson.*;
 import org.jetbrains.annotations.NotNull;
@@ -32,7 +34,7 @@ public class Territory extends Entity implements Serializable {
     @Property
     String name;
     @Property
-    String cowcode;
+    String cowcode = "NA";
     @Property
     Long creationStep;
     @Property
@@ -50,6 +52,9 @@ public class Territory extends Entity implements Serializable {
 
     @Property
     Set<Long> linkedTileIds;
+
+    @Relationship(direction = "INCOMING", type="OCCUPIED")
+    OccupiedRelation government;
 
     @Relationship(type="INCLUDES")
     Set<Inclusion> tileLinks;
@@ -70,7 +75,7 @@ public class Territory extends Entity implements Serializable {
     public Territory(String name, String abbr, Double area, int year, int resolution) {
         this();
         this.year = year;
-        this.creationStep = (year - 1815) * 52L;
+        this.creationStep = (year - 1816) * 52L;
         this.tileLinks = new HashSet<>();
         this.name = name;
         this.abbr = abbr;
@@ -81,7 +86,7 @@ public class Territory extends Entity implements Serializable {
     public Territory(String name, String abbr, Double area, int year, int resolution, Feature feature) {
         this();
         this.year = year;
-        this.creationStep = (year - 1815) * 52L;
+        this.creationStep = (year - 1816) * 52L;
         this.tileLinks = new HashSet<>();
         this.name = name;
         this.abbr = abbr;
@@ -177,6 +182,25 @@ public class Territory extends Entity implements Serializable {
 
     public Set<Long> getLinkedTileIds() { return linkedTileIds; }
 
+    public Polity getGovernment(long step) {
+        if (government==null) {
+            try {
+                State g = StateQueries.getStateFromDatabase(this);
+                government = new OccupiedRelation(g, this, step);
+                return g;
+            } catch (NullPointerException n) {
+                government = null;
+            }
+            return null;
+        } else {
+            return government.getPolity();
+        }
+    }
+
+    public void setGovernment(Polity government) {
+        this.government.setPolity(government);
+    }
+
     public void addHex(Tile hex) {
         Inclusion o = new Inclusion(this, hex, year);
         this.tileLinks.add(o);
@@ -268,7 +292,7 @@ public class Territory extends Entity implements Serializable {
     }
 
     public void loadBaselinePopulation() {
-        if (cowcode != null && !cowcode.equals("")) {
+        if (cowcode != "NA") {
             Map<String, Object> params = new HashMap<>();
             params.put("cowcode", cowcode);
             String popQuery = "MATCH (t:Territory)-[o]-(s:State{cowcode:$cowcode})-[:POPULATION]-(f:Fact)-[:DURING]-(y:Year) " +
@@ -279,7 +303,12 @@ public class Territory extends Entity implements Serializable {
             while (it.hasNext()) {
                 Map<String, Map.Entry<String, Object>> values = (Map) it.next();
                 for (Map.Entry e : values.entrySet()) {
-                    Long pop = (Long) e.getValue() * 1000;
+                    Long pop;
+                    if (e==null) {
+                        pop = tileLinks.size() * 100L;
+                    } else {
+                        pop = (Long) e.getValue() * 1000;
+                    }
                     int num = tileLinks.size();
                     MersenneTwisterFast random = new MersenneTwisterFast();
                     ZipfDistribution distribution = new ZipfDistribution(new MTFApache(random), num, 2.5);
@@ -287,7 +316,7 @@ public class Territory extends Entity implements Serializable {
                     int distSum = IntStream.of(levels).sum();
                     int proportion = pop.intValue() / distSum;
                     if (num > 0) {
-                        List<Tile> tiles = new ArrayList<>();
+//                        List<Tile> tiles = new ArrayList<>();
                         int pacer = 0;
                         int summedPopulation = 0;
                         for (Inclusion h : tileLinks) {
@@ -295,17 +324,31 @@ public class Territory extends Entity implements Serializable {
                             int thisPop = proportion * levels[pacer];
                             t.setPopulation(thisPop);
                             summedPopulation += thisPop;
-                            tiles.add(h.getTile());
+//                            h.setTile(t);
+                            WorldOrder.getTiles().add(t);
                             pacer ++;
                         }
-                        System.out.println(mapKey + " has population " + pop + " and the distributed population is " + summedPopulation
-                        + ", which is " + summedPopulation/pop + " of the data.");
+                        double near = (Double) (summedPopulation * 1.0) / pop;
+//                        System.out.println(mapKey + " has population " + pop + " and the distributed population is " + summedPopulation
+//                        + ", which is " + near + " of the data.");
+                        population = summedPopulation;
                     }
                 }
             }
+        } else {
+            int summedPopulation = 0;
+            for (Inclusion i : tileLinks) {
+                Tile t = i.getTile();
+                t.setPopulation(100);
+                summedPopulation += 100;
+                WorldOrder.getTiles().add(t);
+            }
+            population = summedPopulation;
+            System.out.println(mapKey + " has a contrived population of 100 pax / tile, or " + summedPopulation);
         }
-
     }
+
+
 
     public void updateTotals() {
         population = tileLinks.stream().mapToInt(Inclusion::getTilePopulation).sum();

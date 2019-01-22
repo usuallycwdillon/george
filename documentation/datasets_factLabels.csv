@@ -1,0 +1,30 @@
+﻿labels(f),d.name
+"[Fact,MembershipFact]",Great Power System
+"[Fact,WarmakingFact]",Great Power Wars Participation
+"[Fact,WarFact]",Great Power Wars
+"[Fact,MembershipFact]",States 2016
+"[Fact,MembershipFact]",Majors 2016
+"[Fact,ImportFromFact]",Dyadic Trade
+"[Fact,ExportsFact]",National Trade
+"[Fact,ImportsFact]",National Trade
+"[Fact,DipExFact]",Diplomatic Exchange Data
+[Fact],MID Disputes Data
+"[Fact,DisputeFact]",MID Disputes Data
+"[Fact,DisputeParticipationFact]",MID Participants Data
+"[Fact,WarFact]",Modified Expanded Interstate Wars Data
+"[Fact,WarmakingFact]",Modified Expanded Interstate Wars Participants Data
+"[Fact,WarFact]",Modified Expanded Civil Wars Data
+"[Fact,WarmakingFact]","Modified Expanded Civil Wars Participants Data, reformatted for easy import into Neo4j"
+"[Fact,CINCFact]",NMC Supplemental
+"[Fact,UrbanPopulationFact]",NMC Supplemental
+"[Fact,PopulationFact]",NMC Supplemental
+"[Fact,EnergyConsumptionFact]",NMC Supplemental
+"[Fact,ProductionFact]",NMC Supplemental
+"[Fact,MilPerFact]",NMC Supplemental
+"[Fact,MilExFact]",NMC Supplemental
+"[Fact,MembershipFact]",List of Independent States
+"[Fact,MembershipFact]",List of Microstates
+[Fact],WRP National Data
+"[Fact,ReligiousPopulationFact]",WRP National Data
+"[Fact,AllianceFact]",Alliances by Member
+"[Fact,DiscretePolityFact]",Polity IV Discrete

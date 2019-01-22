@@ -42,11 +42,11 @@ public class Leadership implements Steppable {
 
     }
 
-    public void initiateWarProcess(Polity target) {
+    public void initiateWarProcess(Polity target, SimState simState) {
         SecurityObjective objective = chooseSecurityObjective();
         Resources force = warStrategy(target, objective);
         Process process = new WarProcess(polity, target, force, objective);
-        worldOrder.schedule.scheduleRepeating(process);
+        simState.schedule.scheduleRepeating(process);
     }
 
 

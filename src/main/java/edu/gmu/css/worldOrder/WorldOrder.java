@@ -4,12 +4,13 @@ import com.uber.h3core.H3Core;
 import edu.gmu.css.App;
 //import edu.gmu.css.agents.PeaceProcess;
 //import edu.gmu.css.entities.State;
+import edu.gmu.css.agents.*;
 import edu.gmu.css.agents.Process;
-import edu.gmu.css.agents.Tile;
 import edu.gmu.css.entities.*;
 import edu.gmu.css.queries.StateQueries;
 import edu.gmu.css.service.Neo4jSessionFactory;
 import edu.gmu.css.service.TerritoryServiceImpl;
+import lombok.ToString;
 import org.neo4j.ogm.config.Configuration;
 import org.neo4j.ogm.cypher.ComparisonOperator;
 import org.neo4j.ogm.cypher.Filter;
@@ -71,56 +72,58 @@ public class WorldOrder extends SimState {
      * Tiles contain a population, natural resources, economic production;
      *
      */
-    int startYear = 1816; // Choices are 1816, 1880, 1914, 1938, 1945, 1994
-
-
-    public List<State> allTheStates = new ArrayList<>();
-//    public Set<War> allTheWars = new HashSet<>();
-//    public Set<PeaceProcess> allThePeaceProcs = new HashSet<>();
-    public static Collection<Tile> tiles;
-    public static Collection<Territory> territories;
-    public static Dataset spatialDataset;
-
-
-
+    private static int startYear = 1816; // Choices are 1816, 1880, 1914, 1938, 1945, 1994
+    public static int getStartYear() {return startYear;}
 
     // The stabilityDuration is the number of weeks with no change in globalWarLikelihood before the system is "stable"
-    public int stabilityDuration;                             // 25  years
-//    public History globalHostility = new History(stabilityDuration);    // how far back to look for stability; not simulation Run time.
-    public double warCostFactor;                                 // The maximum % GDP that any one war can cost
+    public int stabilityDuration;
+    public History globalHostility = new History(stabilityDuration);    // how far back to look for stability; not simulation Run time.
+    public double warCostFactor;                                        // The maximum % GDP that any one war can cost
     public double globalWarLikelihood;
 
+    public static List<State> allTheStates = new ArrayList<>();
+    public static Set<War> allTheWars = new HashSet<>();
+    public static Set<PeaceProcess> allThePeaceProcs = new HashSet<>();
+    public static Set<WarProcess> allTheWarProcs = new HashSet<>();
+    public static List<Tile> tiles = new ArrayList<>();
+    public static List<Territory> territories = new ArrayList<>();
+    public static Dataset spatialDataset;
 
     public void start() {
         super.start();
         modelRun = new Dataset(seed());
-//        schedule.scheduleRepeating(terminalAgent);
         // Set initial parameters, at least for testing
         stabilityDuration = 25 * 52;
         warCostFactor = 0.10;
         globalWarLikelihood = 0.100;
 
         // TODO: Add calls to clear the primary elements: system, globe, Bags/Sets, etc.
-//        allTheStates.clear();
-//        territories.clear();
+        allTheStates.clear();
+        territories.clear();
 
 
         // TODO: Make sure the graphdb is presesnt and has tiles, wars and other COW-like things.
         String datasetQuery = "MATCH (d:Dataset{name:\"world 1816\"}) RETURN d";
 
-        tiles = Neo4jSessionFactory.getInstance().getNeo4jSession().loadAll(Tile.class, 0);
-
         Filter popFilter = new Filter("year", ComparisonOperator.EQUALS, startYear);
-        territories = Neo4jSessionFactory.getInstance().getNeo4jSession().loadAll(Territory.class, popFilter);
+        territories.addAll(Neo4jSessionFactory.getInstance().getNeo4jSession().loadAll(Territory.class, popFilter, 1));
         territories.forEach(Territory::loadBaselinePopulation);
 
-        // TODO: Setup the global system of states
-        allTheStates = new StateQueries().getStates("Expanded State System", 1816);
-        System.out.println("\n \t Loaded " + allTheStates.size());
+        for (Territory t : territories) {
+            if (t.getGovernment(getStepNumber())==null) {
+                System.out.println(t.getMapKey() + " doesn't have a government.");
+            } else {
+                State s = (State) t.getGovernment(getStepNumber());
+                s.setTerritory(t);
+                allTheStates.add(s);
+            }
+        }
 
-        for (Polity p : allTheStates) {
-            Territory t = p.getTerritory();
-            System.out.println(t.getLinkedTileIds().size() );
+        for (State s : allTheStates) {
+            Leadership l = new Leadership();
+            schedule.scheduleRepeating(l);
+            s.setLeadership(l);
+            s.setResources(StateQueries.getMilResources(s, startYear));
         }
 
 
@@ -136,7 +139,7 @@ public class WorldOrder extends SimState {
                  *
                  */
                 // Record the global probability of war whether it's prescribed or calculated
-//            globalHostility.add(globalWarLikelihood);
+//              globalHostility.add(globalWarLikelihood);
                 long stepNo = getStepNumber();
                 if(stepNo % 52 == 0) {
                     for (Polity p : allTheStates) {
@@ -153,7 +156,7 @@ public class WorldOrder extends SimState {
                     int target = random.nextInt(numStates);
                     if (target != instigator) {
                         Polity p = allTheStates.get(instigator);
-                        p.getLeadership().initiateWarProcess(allTheStates.get(target));
+                        p.getLeadership().initiateWarProcess(allTheStates.get(target), simState);
                     }
                 }
 
@@ -162,24 +165,16 @@ public class WorldOrder extends SimState {
                 if (globalWarLikelihood <= 0) {
                     System.exit(0);
                 }
-//            if (globalHostility.average() == globalWarLikelihood) {
-//                System.exit(0);
-//            }
+                if (globalHostility.average() == globalWarLikelihood) {
+                    System.exit(0);
+                }
             }
         };
-
         schedule.scheduleRepeating(historysMarch);
-
-
-
 
     }
 
-
-
     // Primary sequence of the simulation
-
-
 
     public WorldOrder getWorldOrderSimState() {
         return this;
@@ -195,7 +190,47 @@ public class WorldOrder extends SimState {
         return this.stabilityDuration;
     }
 
+    public static Dataset getModelRun() {
+        return modelRun;
+    }
 
+    public History getGlobalHostility() {
+        return globalHostility;
+    }
 
+    public double getWarCostFactor() {
+        return warCostFactor;
+    }
 
+    public double getGlobalWarLikelihood() {
+        return globalWarLikelihood;
+    }
+
+    public static List<State> getAllTheStates() {
+        return allTheStates;
+    }
+
+    public static Set<War> getAllTheWars() {
+        return allTheWars;
+    }
+
+    public static Set<PeaceProcess> getAllThePeaceProcs() {
+        return allThePeaceProcs;
+    }
+
+    public static Set<WarProcess> getAllTheWarProcs() {
+        return allTheWarProcs;
+    }
+
+    public static List<Tile> getTiles() {
+        return tiles;
+    }
+
+    public static List<Territory> getTerritories() {
+        return territories;
+    }
+
+    public static Dataset getSpatialDataset() {
+        return spatialDataset;
+    }
 }

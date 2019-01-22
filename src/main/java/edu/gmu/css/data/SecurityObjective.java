@@ -34,7 +34,7 @@ public enum SecurityObjective {
 
     public static SecurityObjective given(int val) {
         for (Map.Entry<SecurityObjective, Integer> entry : _map.entrySet()) {
-            if (Objects.equals(entry, val)) {
+            if (entry.getValue() == val) {
                 return entry.getKey();
             }
         }

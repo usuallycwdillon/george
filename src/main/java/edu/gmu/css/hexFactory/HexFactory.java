@@ -85,6 +85,7 @@ public class HexFactory {
 
 
         new HexFactory().makeStateBorders();
+        new HexFactory().isolateOccupationEdges();
 
         System.exit(0);
     }
@@ -170,10 +171,12 @@ public class HexFactory {
     private static void makeCowRelations(int year) {
         System.out.println("Linking territory data to war data by COW ccode for " + year + " at: " + LocalTime.now());
         String query = "MATCH (t:Territory{year:{year}}), (s:State)-[m:MEMBER]-(f:MembershipFact)\n" +
-                "WHERE f.from.year <={year} AND f.until.year >= {year} AND s.cowcode = t.cowcode \n" +
+                "WHERE f.from.year <= {year} AND f.until.year >= {year} AND s.cowcode = t.cowcode \n" +
                 "MERGE (s)-[h:OCCUPIED]->(t)";
         Neo4jSessionFactory.getInstance().getNeo4jSession().query(query, MapUtil.map("year", year));
     }
+
+    //MATCH (t:Territory{year:1816}), (s:State)-[:MEMBER]-(f:MembershipFact) WHERE t.cowcode = s.cowcode AND f.from.year < 1880 MERGE (s)-[:OCCUPIED]->(t)
 
     private static Feature makeFeatures(Territory t) {
         Set<Long> hexList = new HashSet<>(t.getLinkedTileIds());
@@ -216,6 +219,11 @@ public class HexFactory {
         String query = "MATCH (s:State)-[:OCCUPIED]-(t:Territory)-[b:BORDERS]-(tt:Territory)-[:OCCUPIED]-(ss:State) \n" +
                 "WHERE s<>ss AND t<>tt AND t.year=tt.year=b.during\n" +
                 "MERGE (s)-[:BORDERS_WITH{during:b.during}]->(ss)";
+        Neo4jSessionFactory.getInstance().getNeo4jSession().query(query, MapUtil.map());
+    }
+
+    private void isolateOccupationEdges() {
+        String query = "MATCH (s:State)-[o:OCCUPIED]-(t:Territory) SET o.during = t.year";
         Neo4jSessionFactory.getInstance().getNeo4jSession().query(query, MapUtil.map());
     }
 

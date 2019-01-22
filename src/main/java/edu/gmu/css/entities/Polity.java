@@ -5,51 +5,53 @@ import edu.gmu.css.agents.Leadership;
 import edu.gmu.css.agents.WarProcess;
 import edu.gmu.css.data.Domain;
 import edu.gmu.css.agents.Process;
+import edu.gmu.css.service.Neo4jSessionFactory;
 import edu.gmu.css.worldOrder.WorldOrder;
 import org.neo4j.ogm.annotation.*;
 import sim.engine.SimState;
 
 import java.io.Serializable;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 
 @NodeEntity
-public class Polity implements Serializable {
+public class Polity extends Entity implements Serializable {
 
     @Id @GeneratedValue
     private Long id;
-    @Relationship (direction = "INCOMING", type = "OCCUPIED")
-    private Territory territory;
+    @Relationship (type = "OCCUPIED")
+    protected Set<OccupiedRelation> allTerritories;
+    //@Relationship (type = "OCCUPIED")
+    @Transient
+    protected Territory territory;
     @Relationship (direction = "INCOMING")
-    private Leadership leadership;
+    protected Leadership leadership;
     @Relationship(type = "BORDERS_WITH")                   // State's neighbors are mediated by territories they occupy
-    private Set<Polity> bordersWith = new HashSet<>();
+    protected Set<Polity> bordersWith = new HashSet<>();
     @Relationship
-    private List<ProcessDisposition> processList;
+    protected List<ProcessDisposition> processList;
     @Transient
-    private Set<Polity> suzereinSet;
+    protected Set<Polity> suzereinSet;
     @Transient
-    private List<Institution> institutionList;
+    protected List<Institution> institutionList;
     @Transient
-    private Resources securityStrategy = new Resources.ResourceBuilder().build();
+    protected Resources securityStrategy = new Resources.ResourceBuilder().build();
     @Transient
-    private Resources foreignStrategy = new Resources.ResourceBuilder().build();
+    protected Resources foreignStrategy = new Resources.ResourceBuilder().build();
     @Transient
-    private EconomicPolicy economicPolicy;
+    protected EconomicPolicy economicPolicy;
     @Transient
-    private Resources resources = new Resources.ResourceBuilder().treasury(10000).pax(10000).build();
+    protected Resources resources = new Resources.ResourceBuilder().treasury(10000).pax(10000).build();
     @Transient
-    public MersenneTwisterFast random = new MersenneTwisterFast();
+    protected MersenneTwisterFast random = new MersenneTwisterFast();
 
 
     public Polity () {
+
     }
 
     public Polity (SimState simState) {
         WorldOrder worldOrder = (WorldOrder) simState;
-
     }
 
 
@@ -71,6 +73,19 @@ public class Polity implements Serializable {
 
     public void setTerritory(Territory territory) {
         this.territory = territory;
+    }
+
+    public Set<OccupiedRelation> getAllTerritories() {
+        return this.allTerritories;
+    }
+
+    public Set<OccupiedRelation> setAllTerritories(Set<OccupiedRelation> newTerritories) {
+        return this.allTerritories = newTerritories;
+    }
+
+    public void addTerritory(Territory newTerritory, Long step) {
+        OccupiedRelation occupation = new OccupiedRelation(this, newTerritory, step);
+        this.allTerritories.add(occupation);
     }
 
     public Leadership getLeadership() {
@@ -174,7 +189,7 @@ public class Polity implements Serializable {
         return resources.getPax();
     }
 
-    private void recruit() {
+    protected void recruit() {
 
     }
 
@@ -194,7 +209,7 @@ public class Polity implements Serializable {
         return magnitude / extent < commitment;
     }
 
-    private Resources allocateResources(Resources request) {
+    public Resources allocateResources(Resources request) {
         int force = Math.min(request.getPax(), resources.getPax());
         double funds = Math.min(request.getTreasury(), resources.getTreasury());
         resources.subtractPax(force);
@@ -202,7 +217,7 @@ public class Polity implements Serializable {
         return new Resources.ResourceBuilder().pax(force).treasury(funds).build();
     }
 
-    private Resources evaluateResources(Resources request) {
+    public Resources evaluateResources(Resources request) {
         int force = Math.min(request.getPax(), resources.getPax());
         double funds = Math.min(request.getTreasury(), resources.getTreasury());
         return new Resources.ResourceBuilder().pax(force).treasury(funds).build();
@@ -242,6 +257,17 @@ public class Polity implements Serializable {
 
     public void makeConcessionForPeace() {
 
+    }
+
+    public void setCurrentTerritory() {
+        Map<String, Object> params = new HashMap<>();
+        params.put("id", this.id);
+        params.put("year", WorldOrder.getStartYear());
+        String territoryQuery = "MATCH (p:Polity)-[:OCCUPIED]-(t:Territory{year:$year})" +
+                "WHERE id(p)=$id RETURN t LIMIT 1";
+        Territory t = Neo4jSessionFactory.getInstance().getNeo4jSession()
+                .queryForObject(Territory.class, territoryQuery, params);
+        territory = t;
     }
 
 

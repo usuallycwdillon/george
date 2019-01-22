@@ -1,0 +1,9 @@
+---
+- hosts: nodes
+  tasks:
+  - copy: src=/home/cw/Code/george/target/george-0.1.0-SNAPSHOT.jar dest=/home/cw/Code/george/startup/hazelcast1/george/lib/george-0.1.0-SNAPSHOT.jar
+  - copy: src=/home/cw/Code/george/target/george-0.1.0-SNAPSHOT.jar dest=/home/cw/Code/george/startup/hazelcast2/george/lib/george-0.1.0-SNAPSHOT.jar
+  - copy: src=/home/cw/Code/george/target/george-0.1.0-SNAPSHOT.jar dest=/home/cw/Code/george/startup/hazelcast3/george/lib/george-0.1.0-SNAPSHOT.jar
+  - copy: src=/home/cw/Code/george/target/george-0.1.0-SNAPSHOT.jar dest=/home/cw/Code/george/startup/hazelcast4/george/lib/george-0.1.0-SNAPSHOT.jar
+  - copy: src=/home/cw/Code/george/target/george-0.1.0-SNAPSHOT.jar dest=/home/cw/Code/george/startup/hazelcast5/george/lib/george-0.1.0-SNAPSHOT.jar
+  - copy: src=/home/cw/Code/george/target/george-0.1.0-SNAPSHOT.jar dest=/home/cw/Code/george/startup/hazelcast6/george/lib/george-0.1.0-SNAPSHOT.jar
