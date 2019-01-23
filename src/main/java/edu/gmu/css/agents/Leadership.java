@@ -15,7 +15,9 @@ public class Leadership implements Steppable {
     private Polity polity;
     public WorldOrder worldOrder;
 
-    public Leadership() {   }
+    public Leadership() {
+
+    }
 
     public Leadership(SimState simState) {
         worldOrder = (WorldOrder) simState;
@@ -26,6 +28,27 @@ public class Leadership implements Steppable {
         updateEconomicPolicy();
         updateSecurityStrategy();
 
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+
+    public int getType() {
+        return type;
+    }
+
+    public void setType(int type) {
+        this.type = type;
+    }
+
+    public Polity getPolity() {
+        return polity;
+    }
+
+    public void setPolity(Polity polity) {
+        this.polity = polity;
     }
 
     private void updateSecurityStrategy() {
@@ -45,7 +68,7 @@ public class Leadership implements Steppable {
     public void initiateWarProcess(Polity target, SimState simState) {
         SecurityObjective objective = chooseSecurityObjective();
         Resources force = warStrategy(target, objective);
-        Process process = new WarProcess(polity, target, force, objective);
+        Process process = new WarProcess(polity, target, force, objective, worldOrder);
         simState.schedule.scheduleRepeating(process);
     }
 

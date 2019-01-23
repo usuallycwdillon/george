@@ -29,7 +29,7 @@ public class Polity extends Entity implements Serializable {
     @Relationship(type = "BORDERS_WITH")                   // State's neighbors are mediated by territories they occupy
     protected Set<Polity> bordersWith = new HashSet<>();
     @Relationship
-    protected List<ProcessDisposition> processList;
+    protected List<ProcessDisposition> processList = new ArrayList<>();
     @Transient
     protected Set<Polity> suzereinSet;
     @Transient
@@ -130,12 +130,12 @@ public class Polity extends Entity implements Serializable {
 
     public void addProcess(ProcessDisposition disposition) {
         processList.add(disposition);
-//        Process process = disposition.getProcess();
-        Domain domain = disposition.getProcess().getDomain();
+        Process process = disposition.getProcess();
+        Domain domain = process.getDomain();
         Polity owner = disposition.getOwner();
-        switch (domain) {
-            case WAR:
-        }
+//        switch (domain) {
+//            case WAR:
+//        }
     }
 
     public Resources getSecurityStrategy() {

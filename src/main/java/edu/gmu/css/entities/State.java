@@ -77,15 +77,15 @@ public class State extends Polity implements Serializable {
 
     }
 
-    public void setCurrentTerritory() {
-        Map<String, Object> params = new HashMap<>();
-        params.put("cowcode", this.cowCode);
-        params.put("year", WorldOrder.getStartYear());
-        String territoryQuery = "MATCH (p:State{cowcode:$cowcode})-[:OCCUPIED]-(t:Territory{year:$year}) RETURN t";
-        Territory t = Neo4jSessionFactory.getInstance().getNeo4jSession()
-                .queryForObject(Territory.class, territoryQuery, params);
-        territory = t;
-    }
+//    public void setCurrentTerritory() {
+//        Map<String, Object> params = new HashMap<>();
+//        params.put("cowcode", this.cowCode);
+//        params.put("year", WorldOrder.getStartYear());
+//        String territoryQuery = "MATCH (p:State{cowcode:$cowcode})-[:OCCUPIED]-(t:Territory{year:$year}) RETURN t";
+//        Territory t = Neo4jSessionFactory.getInstance().getNeo4jSession()
+//                .queryForObject(Territory.class, territoryQuery, params);
+//        territory = t;
+//    }
 
     @Override
     public Long getId() {

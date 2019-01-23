@@ -133,7 +133,6 @@ public abstract class Process extends Entity implements Steppable, Stoppable, Se
     public long getBegan() {
         return began;
     }
-
     public long getEnded() {
         return ended;
     }
@@ -144,7 +143,9 @@ public abstract class Process extends Entity implements Steppable, Stoppable, Se
     public Domain getDomain() {
         return domain;
     }
-
+    public void setWorldOrder(SimState simState) {
+        this.worldOrder = (WorldOrder) simState;
+    }
     public void setC(boolean challenge) {
         this.C = challenge;
     }

@@ -190,8 +190,8 @@ public class Territory extends Entity implements Serializable {
                 return g;
             } catch (NullPointerException n) {
                 government = null;
+                return null;
             }
-            return null;
         } else {
             return government.getPolity();
         }

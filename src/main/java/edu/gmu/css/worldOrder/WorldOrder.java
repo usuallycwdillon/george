@@ -101,15 +101,15 @@ public class WorldOrder extends SimState {
         allTheStates.clear();
         territories.clear();
 
-
         // TODO: Make sure the graphdb is presesnt and has tiles, wars and other COW-like things.
-        String datasetQuery = "MATCH (d:Dataset{name:\"world 1816\"}) RETURN d";
+        String datasetQuery = "MATCH (d:Dataset{name:\"world " + startYear + "\"}) RETURN d";
 
         Filter popFilter = new Filter("year", ComparisonOperator.EQUALS, startYear);
         territories.addAll(Neo4jSessionFactory.getInstance().getNeo4jSession().loadAll(Territory.class, popFilter, 1));
         territories.forEach(Territory::loadBaselinePopulation);
 
         for (Territory t : territories) {
+            // if there isnt' a government assigned, double-check whether there should be one
             if (t.getGovernment(getStepNumber())==null) {
                 System.out.println(t.getMapKey() + " doesn't have a government.");
             } else {
@@ -120,10 +120,16 @@ public class WorldOrder extends SimState {
         }
 
         for (State s : allTheStates) {
-            Leadership l = new Leadership();
+            Leadership l = new Leadership(this);
             schedule.scheduleRepeating(l);
             s.setLeadership(l);
+            l.setPolity(s);
+            // update military resources or invent some if there aren't any
             s.setResources(StateQueries.getMilResources(s, startYear));
+            if (s.getResources()==null) {
+                // make something up
+                s.setResources(new Resources.ResourceBuilder().pax(10000).treasury(10000.0).build());
+            }
         }
 
 
@@ -156,7 +162,8 @@ public class WorldOrder extends SimState {
                     int target = random.nextInt(numStates);
                     if (target != instigator) {
                         Polity p = allTheStates.get(instigator);
-                        p.getLeadership().initiateWarProcess(allTheStates.get(target), simState);
+                        Polity t = allTheStates.get(target);
+                        p.getLeadership().initiateWarProcess(t, simState);
                     }
                 }
 

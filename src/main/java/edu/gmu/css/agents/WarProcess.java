@@ -12,7 +12,7 @@ import sim.engine.SimState;
 public class WarProcess extends Process {
 
     private Domain domain = Domain.WAR;
-    private Resources involvement;
+    private Resources involvement = new Resources.ResourceBuilder().build();
 
     public WarProcess() {
     }
@@ -21,7 +21,9 @@ public class WarProcess extends Process {
         return this.involvement;
     }
 
-    public WarProcess(Polity owner, Polity target, Resources force, SecurityObjective objective) {
+    public WarProcess(Polity owner, Polity target, Resources force, SecurityObjective objective, SimState simState) {
+        worldOrder = (WorldOrder) simState;
+        // TODO: decide whether 'began' is a year or the step
         began = worldOrder.getStepNumber();
         // owning state links to the process and sets a strategy; that strategy establishes initial process parameters
         ProcessDisposition pdo = new ProcessDisposition(owner, this, began);
