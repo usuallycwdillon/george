@@ -50,6 +50,8 @@ public class PeaceProcess extends Process {
         int numParticipants = processParticipantLinks.size();
 
         switch (statusSum) {
+            case 1:
+                updateStatus();
             case 2:
                 // A war or conflict is ongoing, then at least one party initiates a peace overture.
                 // Pole the participating polities: do they need peace?
@@ -186,7 +188,7 @@ public class PeaceProcess extends Process {
                 break;
             case 15:
                 this.outcome = true;
-                Long step = worldOrder.getStepNumber();
+                Long step = worldOrder.schedule.getSteps();
                 createInstitution(step);
                 stop();
                 break;
