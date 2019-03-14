@@ -5,13 +5,16 @@ import edu.gmu.css.agents.Leadership;
 import edu.gmu.css.agents.WarProcess;
 import edu.gmu.css.data.Domain;
 import edu.gmu.css.agents.Process;
+import edu.gmu.css.relations.*;
 import edu.gmu.css.service.Neo4jSessionFactory;
 import edu.gmu.css.worldOrder.WorldOrder;
 import org.neo4j.ogm.annotation.*;
+import org.neo4j.ogm.model.Result;
 import sim.engine.SimState;
 
 import java.io.Serializable;
 import java.util.*;
+import java.util.function.BiPredicate;
 
 
 @NodeEntity
@@ -21,19 +24,20 @@ public class Polity extends Entity implements Serializable {
     private Long id;
     @Relationship (type = "OCCUPIED")
     protected Set<OccupiedRelation> allTerritories;
-    //@Relationship (type = "OCCUPIED")
     @Transient
     protected Territory territory;
     @Relationship (direction = "INCOMING")
     protected Leadership leadership;
-    @Relationship(type = "BORDERS_WITH")                   // State's neighbors are mediated by territories they occupy
-    protected Set<Polity> bordersWith = new HashSet<>();
+    @Relationship(type = "SHARES_BORDER")
+    protected Set<BorderAgreement> bordersWith = new HashSet<>();
     @Relationship
     protected List<ProcessDisposition> processList = new ArrayList<>();
+    @Relationship(type = "REPRESENTATION")
+    protected Set<DiplomaticRepresentation> representedAt = new HashSet<>();
+    @Relationship(type = "ALLIANCE_PARTICIPATION")
+    protected Set<AllianceParticipation> alliances = new HashSet<>();
     @Transient
-    protected Set<Polity> suzereinSet;
-    @Transient
-    protected List<Institution> institutionList;
+    protected List<InstitutionParticipation> institutionList = new ArrayList<>();
     @Transient
     protected Resources securityStrategy = new Resources.ResourceBuilder().build();
     @Transient
@@ -47,11 +51,9 @@ public class Polity extends Entity implements Serializable {
 
 
     public Polity () {
-
     }
 
-    public Polity (SimState simState) {
-        WorldOrder worldOrder = (WorldOrder) simState;
+    public Polity (int startYear) {
     }
 
 
@@ -96,36 +98,20 @@ public class Polity extends Entity implements Serializable {
         this.leadership = leadership;
     }
 
-    public Set<Polity> getSuzereinSet() {
-        return suzereinSet;
-    }
-
-    public void setSuzereinSet(Set<Polity> suzereinSet) {
-        this.suzereinSet = suzereinSet;
-    }
-
-    public void addSuzerein(Polity suzereign) {
-        suzereinSet.add(suzereign);
-    }
-
-    public List<Institution> getInstitutionList() {
+    public List<InstitutionParticipation> getInstitutionList() {
         return institutionList;
     }
 
-    public void setInstitutionList(List<Institution> institutionList) {
+    public void setInstitutionList(List<InstitutionParticipation> institutionList) {
         this.institutionList = institutionList;
     }
 
-    public void addInstitution(Institution i) {
+    public void addInstitution(InstitutionParticipation i) {
         institutionList.add(i);
     }
 
     public List<ProcessDisposition> getProcessList() {
         return processList;
-    }
-
-    public void setProcessList(List<ProcessDisposition> processList) {
-        this.processList = processList;
     }
 
     public void addProcess(ProcessDisposition disposition) {
@@ -268,6 +254,53 @@ public class Polity extends Entity implements Serializable {
         Territory t = Neo4jSessionFactory.getInstance().getNeo4jSession()
                 .queryForObject(Territory.class, territoryQuery, params);
         territory = t;
+    }
+
+    public void loadInstitutionData(int year) {
+        Map<String, Object> params = new HashMap<>();
+        params.put("year", year);
+        params.put("name", "" + year);
+        params.put("id", this.getId());
+        // borders
+        String borderQuery = "MATCH (p:Polity)-[sb:SHARES_BORDER]-(b:Border)-[d:DURING]-(y:Year{name:{name}}) " +
+                "WHERE id(p) = {id} RETURN p, sb, b";
+        Iterable<BorderAgreement> borders = Neo4jSessionFactory.getInstance().getNeo4jSession()
+                .query(BorderAgreement.class, borderQuery, params);
+        for (BorderAgreement b : borders) {
+            bordersWith.add(b);
+            institutionList.add(b);
+        }
+        // dipEx
+        String dipQuery = "MATCH (p:Polity)-[r:REPRESENTATION]-(d:DiplomaticExchange)-[:DURING]-(y:Year{name:{name}}) " +
+                "WHERE id(p) = {id} RETURN r";
+        Iterable<DiplomaticRepresentation> dipEx = Neo4jSessionFactory.getInstance().getNeo4jSession()
+                .query(DiplomaticRepresentation.class, dipQuery, params);
+        for (DiplomaticRepresentation d : dipEx) {
+            representedAt.add(d);
+            institutionList.add(d);
+        }
+        // alliances
+        String allianceQuery = "MATCH (p:Polity)-[e:ENTERED]-(af:AllianceParticipationFact)-[:ENTERED_INTO]-(a:Alliance) " +
+                "WHERE id(p) = {id} AND e.from.year <= {year} AND e.until.year > {year} RETURN p, af, a";
+        Result result = Neo4jSessionFactory.getInstance().getNeo4jSession()
+                .query(allianceQuery, params, true);
+        Iterator it = result.iterator();
+        while (it.hasNext()) {
+            Map<String, Object> item = (Map<String, Object>) it.next();
+            Polity p = (Polity) item.get("p");
+            Alliance a = (Alliance) item.get("a");
+            Fact af = (Fact) item.get("af");
+            AllianceParticipation ap = new AllianceParticipation(p, a);
+            ap.setFrom(af.getFrom());
+//            Neo4jSessionFactory.getInstance().getNeo4jSession().save(ap);
+            alliances.add(ap);
+            institutionList.add(ap);
+//            Neo4jSessionFactory.getInstance().getNeo4jSession().save(ap);
+        }
+        // trade
+//        String tradeQuery = "";
+        // igos
+//        String igoQuery = "";
     }
 
 

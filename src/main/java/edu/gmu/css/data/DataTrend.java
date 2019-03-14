@@ -1,13 +1,13 @@
-package edu.gmu.css.worldOrder;
+package edu.gmu.css.data;
 
 
 import java.util.ArrayList;
 
-public class History<T> extends ArrayList<T> {
+public class DataTrend<T> extends ArrayList<T> {
 
     private int duration;
 
-    public History(int size) {
+    public DataTrend(int size) {
         this.duration = size;
     }
 

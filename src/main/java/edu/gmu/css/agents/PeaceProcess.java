@@ -3,7 +3,9 @@ package edu.gmu.css.agents;
 import edu.gmu.css.data.Domain;
 import edu.gmu.css.entities.Institution;
 import edu.gmu.css.entities.Peace;
-import edu.gmu.css.entities.ProcessDisposition;
+import edu.gmu.css.relations.InstitutionParticipation;
+import edu.gmu.css.relations.Participation;
+import edu.gmu.css.relations.ProcessDisposition;
 import edu.gmu.css.worldOrder.WorldOrder;
 import sim.engine.SimState;
 
@@ -14,16 +16,14 @@ public class PeaceProcess extends Process {
     public PeaceProcess() {
     }
 
-
-
-    public void setStatus() {
-
+    public PeaceProcess(Institution i, Long from) {
+        began = from;
+        institution = i;
+        for (InstitutionParticipation ip : i.getParticipation()) {
+            ProcessDisposition pd = new ProcessDisposition(ip.getParticipant(), this, began);
+        }
     }
 
-
-    public void setFiat() {
-
-    }
 
     @Override
     public void step(SimState simState) {
@@ -55,20 +55,17 @@ public class PeaceProcess extends Process {
                 // Pole the participating polities: do they need peace?
                 // If everybody agrees peace is needed, N=true, 4; else outcome=true because it's determinable
                 count = 0;
-                if (equivalence) { // 2 + equivalence leads to the outcome, 3
-                    this.outcome = true;
-                } else {
-                    for (ProcessDisposition p : processParticipantLinks) {
-                        if (p.atN()) {
+                for (ProcessDisposition p : processParticipantLinks) {
+                    if (p.atN()) {
+                        count += 1;
+                    } else {
+                        if (p.getOwner().hasInsufficentResources(this)) {
+                            p.setN(true);
                             count += 1;
-                        } else {
-                            if (p.getOwner().hasInsufficentResources(this)) {
-                                p.setN(true);
-                                count += 1;
-                            }
                         }
                     }
                 }
+
                 if (count >= numParticipants) {
                     this.N = true;
                     this.equivalence = false;

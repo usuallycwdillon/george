@@ -7,17 +7,16 @@ import edu.gmu.css.agents.Tile;
 import edu.gmu.css.hexFactory.*;
 
 import edu.gmu.css.queries.StateQueries;
-import edu.gmu.css.service.NameIdStrategy;
-import edu.gmu.css.service.Neo4jSessionFactory;
+import edu.gmu.css.relations.BorderRelation;
+import edu.gmu.css.relations.Inclusion;
+import edu.gmu.css.relations.OccupiedRelation;
+import edu.gmu.css.service.*;
 import edu.gmu.css.util.MTFApache;
 import edu.gmu.css.worldOrder.WorldOrder;
 import org.apache.commons.math3.distribution.ZipfDistribution;
 import org.geojson.*;
 import org.jetbrains.annotations.NotNull;
 import org.neo4j.ogm.annotation.*;
-
-import org.neo4j.ogm.model.Result;
-import sim.engine.SimState;
 
 
 import java.io.Serializable;
@@ -27,6 +26,7 @@ import java.util.stream.IntStream;
 @NodeEntity
 public class Territory extends Entity implements Serializable {
 
+    @Transient
     Map<Long, Tile> globalHexes = HexFactory.globalHexes;
 
     @Id @GeneratedValue (strategy = NameIdStrategy.class)
@@ -48,19 +48,21 @@ public class Territory extends Entity implements Serializable {
     @Transient
     Integer population;
     @Transient
+    Integer urbanPopulation;
+    @Transient
     Double wealth;
 
     @Property
     Set<Long> linkedTileIds;
 
-    @Relationship(direction = "INCOMING", type="OCCUPIED")
+    @Relationship(type="OCCUPIED", direction = Relationship.INCOMING)
     OccupiedRelation government;
 
     @Relationship(type="INCLUDES")
     Set<Inclusion> tileLinks;
 
-    @Relationship(type="BORDERS")
-    Set<Territory> neighbors;
+    @Relationship(type="BORDERS", direction = Relationship.UNDIRECTED)
+    Set<BorderRelation> borderRelations;
 
 
     public Territory() {
@@ -115,8 +117,6 @@ public class Territory extends Entity implements Serializable {
         buildTerritory(input);
     }
 
-    public Territory(SimState simState) {
-    }
 
     //------------------------------------------------------------------------------------------------------------------
 
@@ -182,32 +182,28 @@ public class Territory extends Entity implements Serializable {
 
     public Set<Long> getLinkedTileIds() { return linkedTileIds; }
 
-    public Polity getGovernment(long step) {
+    public Polity getGovernment() {
         if (government==null) {
-            try {
-                State g = StateQueries.getStateFromDatabase(this);
-                government = new OccupiedRelation(g, this, step);
-                return g;
-            } catch (NullPointerException n) {
-                government = null;
-                return null;
-            }
+            return null;
         } else {
             return government.getPolity();
         }
     }
 
-    public void setGovernment(Polity government) {
-        this.government.setPolity(government);
+    public void setGovernment(Polity government, Long step) {
+        this.government = new OccupiedRelation(government, this, step);
     }
 
     public void addHex(Tile hex) {
         Inclusion o = new Inclusion(this, hex, year);
         this.tileLinks.add(o);
+        if (!WorldOrder.tiles.containsKey(hex.getH3Id())) {
+            WorldOrder.tiles.put(hex.getH3Id(), hex);
+        }
     }
 
-    public Set<Territory> getNeighbors() {
-        return neighbors;
+    public Set<BorderRelation> getBorderRelations() {
+        return borderRelations;
     }
 
     public void buildTerritory(Feature inputFeature) {
@@ -293,61 +289,128 @@ public class Territory extends Entity implements Serializable {
 
     public void loadBaselinePopulation() {
         if (cowcode != "NA") {
+            Long pop;
+            Long upop;
+            int num = tileLinks.size();
+
             Map<String, Object> params = new HashMap<>();
             params.put("cowcode", cowcode);
-            String popQuery = "MATCH (t:Territory)-[o]-(s:State{cowcode:$cowcode})-[:POPULATION]-(f:Fact)-[:DURING]-(y:Year) " +
-                    "WHERE (:Dataset{name:'NMC Supplemental'})-[:CONTRIBUTES]-(f) AND 1815 < y.began.year < 1870 " +
-                    "RETURN f.value LIMIT 1";
-            Result popVal = Neo4jSessionFactory.getInstance().getNeo4jSession().query(popQuery, params);
-            Iterator it = popVal.iterator();
-            while (it.hasNext()) {
-                Map<String, Map.Entry<String, Object>> values = (Map) it.next();
-                for (Map.Entry e : values.entrySet()) {
-                    Long pop;
-                    if (e==null) {
-                        pop = tileLinks.size() * 100L;
-                    } else {
-                        pop = (Long) e.getValue() * 1000;
-                    }
-                    int num = tileLinks.size();
-                    MersenneTwisterFast random = new MersenneTwisterFast();
-                    ZipfDistribution distribution = new ZipfDistribution(new MTFApache(random), num, 2.5);
-                    int [] levels = distribution.sample(num);
-                    int distSum = IntStream.of(levels).sum();
-                    int proportion = pop.intValue() / distSum;
-                    if (num > 0) {
-//                        List<Tile> tiles = new ArrayList<>();
-                        int pacer = 0;
-                        int summedPopulation = 0;
-                        for (Inclusion h : tileLinks) {
-                            Tile t = h.getTile();
-                            int thisPop = proportion * levels[pacer];
-                            t.setPopulation(thisPop);
-                            summedPopulation += thisPop;
-//                            h.setTile(t);
-                            WorldOrder.getTiles().add(t);
-                            pacer ++;
-                        }
-                        double near = (Double) (summedPopulation * 1.0) / pop;
-//                        System.out.println(mapKey + " has population " + pop + " and the distributed population is " + summedPopulation
-//                        + ", which is " + near + " of the data.");
-                        population = summedPopulation;
-                    }
+            params.put("startYear", WorldOrder.getStartYear());
+            params.put("untilYear", WorldOrder.getUntilYear());
+
+            String popQuery = "MATCH (t:Territory)-[o]-(s:State{cowcode:$cowcode})-[:POPULATION]-(pf:PopulationFact)-[:DURING]-(y:Year)," +
+                    "(d:Dataset{name:'NMC Supplemental'})" +
+                    "WHERE (d)-[:CONTRIBUTES]-(pf) AND (d)-[:CONTRIBUTES]-(pf) AND $startYear < y.began.year < $untilYear " +
+                    "WITH pf, y ORDER BY y.began.year " +
+                    "RETURN pf LIMIT 1";
+            Fact popFact = Neo4jSessionFactory.getInstance().getNeo4jSession().queryForObject(Fact.class, popQuery, params);
+
+            if (popFact == null) {
+                pop = num * 1000L;
+            } else {
+                pop = (Long) popFact.getValue() * 1000;
+            }
+
+            String uPopQuery = "MATCH (t:Territory)-[o]-(s:State{cowcode:$cowcode})-[:URBAN_POPULATION]-(uf:UrbanPopulationFact)-[:DURING]-(y:Year)," +
+                    "(d:Dataset{name:'NMC Supplemental'})" +
+                    "WHERE (d)-[:CONTRIBUTES]-(uf) AND (d)-[:CONTRIBUTES]-(uf) AND $startYear < y.began.year < $untilYear " +
+                    "WITH uf, y ORDER BY y.began.year " +
+                    "RETURN uf LIMIT 1";
+            Fact uPopFact = Neo4jSessionFactory.getInstance().getNeo4jSession().queryForObject(Fact.class, uPopQuery, params);
+
+            if (uPopFact == null) {
+                upop = num * 50L;
+            } else {
+                upop = (Long) uPopFact.getValue() * 1000L;
+            }
+
+            System.out.println(mapKey + " has " + num + " tiles. ");
+            MersenneTwisterFast random = new MersenneTwisterFast();
+            ZipfDistribution distribution = new ZipfDistribution(new MTFApache(random), num, 2.0);
+
+            int[] levels = distribution.sample(num);
+            int distSum = IntStream.of(levels).sum();
+            int uProportion = upop.intValue() / distSum;
+            int pProportion = pop.intValue() / distSum;
+            if (num > 0) {
+                int pacer = 0;
+                int summedPopulation = 0;
+                int summedUrban = 0;
+                for (Inclusion h : tileLinks) {
+                    Tile t = h.getTile();
+                    int thisPop = pProportion * levels[pacer];
+                    int thisUrb = uProportion * levels[pacer];
+                    t.setPopulation(thisPop);
+                    t.setUrbanization(thisUrb);
+                    Neo4jSessionFactory.getInstance().getNeo4jSession().save(t, 0);
+                    summedPopulation += thisPop;
+                    summedUrban += thisUrb;
+                    WorldOrder.getTiles().put(t.getH3Id(), t);
+                    pacer++;
                 }
+                double near = (Double) (summedPopulation * 1.0) / pop;
+                double unear = (Double) (summedUrban * 1.0) / upop;
+                System.out.println(mapKey + " has population " + pop + " and the distributed population is "
+                        + summedPopulation + ", which is " + near + " of the data." + "\n The urban population is "
+                        + summedUrban + " compared to " + upop + " in the data, or " + unear);
+                population = summedPopulation;
+                urbanPopulation = summedUrban;
+            } else {
+                int summedPopulation = 0;
+                for (Inclusion i : tileLinks) {
+                    Tile t = i.getTile();
+                    t.setPopulation(1000);
+                    summedPopulation += 1000;
+                    WorldOrder.getTiles().put(t.getH3Id(), t);
+                }
+                population = summedPopulation;
+                System.out.println(mapKey + " has a contrived population of 100 pax / tile, or " + summedPopulation);
             }
-        } else {
-            int summedPopulation = 0;
-            for (Inclusion i : tileLinks) {
-                Tile t = i.getTile();
-                t.setPopulation(100);
-                summedPopulation += 100;
-                WorldOrder.getTiles().add(t);
-            }
-            population = summedPopulation;
-            System.out.println(mapKey + " has a contrived population of 100 pax / tile, or " + summedPopulation);
         }
     }
 
+    public void loadIncludedTiles() {
+        Map<String, Object> params = new HashMap<>();
+        params.put("mapKey", mapKey);
+        String query = "MATCH (t:Territory{mapKey:$mapKey})-[:INCLUDES]-(ti:Tile) RETURN ti";
+        Iterable<Tile> result = Neo4jSessionFactory.getInstance().getNeo4jSession().query(Tile.class, query, params);
+        Iterator it = result.iterator();
+        while (it.hasNext()) {
+            result.forEach(tile -> addHex(tile));
+        }
+    }
+
+    public void loadGovernment() {
+        String name = WorldOrder.getStartYear() + "";
+        Map<String, Object> params = new HashMap<>();
+        params.put("mapKey", mapKey);
+        params.put("name", name);
+        String query = "MATCH (t:Territory{mapKey:$mapKey})-[:OCCUPIED]-(s:State)-[:DURING]-(:Year{name:$name}) RETURN s";
+        State n = Neo4jSessionFactory.getInstance().getNeo4jSession().queryForObject(State.class, query, params);
+        if (n != null) {
+            government.setPolity(n);
+        } else {
+            government = null;
+        }
+    }
+
+    public void loadBorders() {
+        Map<String, Object> params = new HashMap<>();
+        params.put("mapKey", mapKey);
+        String query = "MATCH (t:Territory{mapKey:$mapKey})-[:BORDERS]->(b:Border) b";
+        Iterable<BorderRelation> result = Neo4jSessionFactory.getInstance().getNeo4jSession().query(BorderRelation.class, query, params);
+        Iterator it = result.iterator();
+        while (it.hasNext()) {
+            result.forEach(t -> borderRelations.add(t));
+        }
+    }
+
+    public void loadRelations() {
+        this.loadIncludedTiles();
+        this.loadGovernment();
+        this.loadBorders();
+
+    }
 
 
     public void updateTotals() {
@@ -355,5 +418,6 @@ public class Territory extends Entity implements Serializable {
     }
 
     // TODO: Add equals method, toString method,
+
 
 }

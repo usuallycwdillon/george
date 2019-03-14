@@ -24,16 +24,14 @@ public class Dataset extends Entity {
     String name;
     @Property
     Double version;
-    @Convert(DateConverter.class)
-    LocalDate published;
-    @Convert(DateConverter.class)
-    LocalDate validFrom;
-    @Convert(DateConverter.class)
-    LocalDate validUntil;
+//    @Convert(DateConverter.class)
+//    Long published = 0L;
+//    @Convert(DateConverter.class)
+//    Long validFrom = 0L;
+//    @Convert(DateConverter.class)
+//    Long validUntil = 0L;
     @Property
     long seed;
-    @Property
-    LocalDateTime dateTime;
 
 
     @Relationship(type="CONTRIBUTES")
@@ -46,13 +44,12 @@ public class Dataset extends Entity {
         this.filename = filename;
         this.name = name;
         this.version = version;
-        this.facts = new HashSet<>();
     }
 
     public Dataset(long seed) {
         this.name = "simulation_run";
-        this.dateTime = LocalDateTime.now();
-        this.filename = name + "_" + dateTime;
+        this.seed = seed;
+        this.filename = name + "_" + seed;
     }
 
     @Override
@@ -80,20 +77,24 @@ public class Dataset extends Entity {
         this.facts.add(t);
     }
 
+    public void removeFact(Entity t){
+        this.facts.remove(t);
+    }
+
     public void addAllFacts(Collection<Entity> theseEntities) {
         this.facts.addAll(theseEntities);
     }
 
-    public LocalDate getPublished() {
-        return published;
-    }
-
-    public LocalDate getValidFrom() {
-        return validFrom;
-    }
-
-    public LocalDate getValidUntil() {
-        return validUntil;
-    }
+//    public Long getPublished() {
+//        return published;
+//    }
+//
+//    public Long getValidFrom() {
+//        return validFrom;
+//    }
+//
+//    public Long getValidUntil() {
+//        return validUntil;
+//    }
 }
 

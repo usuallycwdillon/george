@@ -8,5 +8,6 @@ public enum Domain {
     DIPLOMACY,
     CULTURE,
     SOCIETY,
-    STATEHOOD
+    STATEHOOD,
+    GEOGRAPHY
 }

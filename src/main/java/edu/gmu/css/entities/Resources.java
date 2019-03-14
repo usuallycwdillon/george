@@ -39,7 +39,7 @@ public class Resources {
         }
 
         public Resources build() {
-            Resources resources = new Resources();
+            Resources resources = new Resources(this);
             return resources;
         }
     }

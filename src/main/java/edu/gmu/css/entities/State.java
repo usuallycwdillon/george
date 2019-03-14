@@ -22,7 +22,7 @@ public class State extends Polity implements Serializable {
      */
     @Id
     @GeneratedValue
-    private long id;
+    private Long id;
     @Property
     private String cowCode;
     @Property
@@ -34,58 +34,13 @@ public class State extends Polity implements Serializable {
     private double urbanPortion = 0.20;
     @Transient
     private double treasury = 1000;
+    @Transient
+    protected Set<Polity> suzereinSet;
 
-//    @Transient
-//    private Resources myResources = new Resources.ResourceBuilder()
-//            .population(population)
-//            .wealth(wealth)
-//            .build();
 
-//    @Relationship(type = "OCCUPIED")                                // State can (should) occupy territories
-//    private Territory territory;
-//
-//    @Relationship(type = "BORDERS_WITH")                                 // State's neighbors are mediated by territories they occupy
-//    private Set<State> bordersWith = new HashSet<>();
-
-//    @Relationship(type = "PARTICIPATE_IN")                          // States may have wars
-//    private Set<War> myWars = new HashSet<>();HashSet
-
-//    @Relationship(type = "CONFLICT_OVER")                           // States wars are mediated by their conflicts
-//    private Set<WarProcess> myWarProcs = new HashSet<>();
-//
-//    @Relationship(type = "MAKE_PEACE")                              // States can (should) have peace
-//    private Set<PeaceProcess> myPeaceProcs = new HashSet<>();
-//
-//    @Relationship(type = "ENJOY")                                   // States
-//    private Set<Peace> myPeace = new HashSet<>();
-//
-//    @Relationship(type = "BUILD_RELATION")                          // States
-//    private Set<DiplomacyProcess> myDipProcs = new HashSet<>();
-//
-//    @Relationship(type = "MAINTAIN_RELATION")                       // States
-//    private Set<Diplomacy> myDiplomacy = new HashSet<>();
-//
-//    @Relationship(type = "ESTABLISH_TRADE")                         // States
-//    private Set<TradeProcess> myTradeProcs = new HashSet<>();
-
-//    @Relationship(type = "DO_TRADE")                                // States
-//    private Set<Trade> myTrade = new HashSet<>();
-
-    // Neo4j OGM requires a no-argument constructor
     public State() {
-//        this.resources = StateQueries.getMilResources(this, WorldOrder.getStartYear());
-
     }
 
-//    public void setCurrentTerritory() {
-//        Map<String, Object> params = new HashMap<>();
-//        params.put("cowcode", this.cowCode);
-//        params.put("year", WorldOrder.getStartYear());
-//        String territoryQuery = "MATCH (p:State{cowcode:$cowcode})-[:OCCUPIED]-(t:Territory{year:$year}) RETURN t";
-//        Territory t = Neo4jSessionFactory.getInstance().getNeo4jSession()
-//                .queryForObject(Territory.class, territoryQuery, params);
-//        territory = t;
-//    }
 
     @Override
     public Long getId() {
@@ -108,21 +63,15 @@ public class State extends Polity implements Serializable {
         return urbanPortion;
     }
 
-    @Override
-    public double getTreasury() {
-        return treasury;
+    public Set<Polity> getSuzereinSet() {
+        return suzereinSet;
     }
-    //    private void updateLiabilities() {
-//        this.liability = myWars.stream().mapToDouble(w -> w.getCostliness()).sum();
-//    }
 
-//    private void updateResources() {
-//        myResources.setPax(territories.stream().mapToInt(t -> t.getPax()).sum());
-//    }
+    public void setSuzereinSet(Set<Polity> suzereinSet) {
+        this.suzereinSet = suzereinSet;
+    }
 
-
-
-
-
-
+    public void addSuzerein(Polity suzereign) {
+        suzereinSet.add(suzereign);
+    }
 }

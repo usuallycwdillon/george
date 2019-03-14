@@ -2,7 +2,7 @@ package edu.gmu.css.agents;
 
 import edu.gmu.css.data.SecurityObjective;
 import edu.gmu.css.entities.Polity;
-import edu.gmu.css.entities.ProcessDisposition;
+import edu.gmu.css.relations.ProcessDisposition;
 import edu.gmu.css.entities.Resources;
 import edu.gmu.css.worldOrder.WorldOrder;
 import sim.engine.SimState;
@@ -65,11 +65,11 @@ public class Leadership implements Steppable {
 
     }
 
-    public void initiateWarProcess(Polity target, SimState simState) {
+    public WarProcess initiateWarProcess(Polity target) {
         SecurityObjective objective = chooseSecurityObjective();
         Resources force = warStrategy(target, objective);
-        Process process = new WarProcess(polity, target, force, objective, worldOrder);
-        simState.schedule.scheduleRepeating(process);
+        WarProcess p = new WarProcess(polity, target, force, objective, worldOrder.getStepNumber());
+        return p;
     }
 
 
@@ -129,7 +129,7 @@ public class Leadership implements Steppable {
     private SecurityObjective chooseSecurityObjective() {
         // This method of arbitrarily selecting a strategic objective is a placeholder for some realistic logic
         int goal = worldOrder.random.nextInt(4) * 2;
-        SecurityObjective objective = SecurityObjective.given(goal);
+        SecurityObjective objective = SecurityObjective.name(goal);
         return objective;
     }
 
@@ -141,8 +141,8 @@ public class Leadership implements Steppable {
 
     public boolean shouldEscalate() {
         double respond = worldOrder.random.nextGaussian();
-        // See Cioffi-Revilla (1998) Politics and Uncertainty, p 160. (P_B)
-        return respond < 0.50;
+        // Ref Cioffi-Revilla (1998) Politics and Uncertainty, p 160. (P_B), there is some probability that...
+        return respond < 0.80;
     }
 
     private Resources warStrategy(Polity target, SecurityObjective objective) {
@@ -162,7 +162,7 @@ public class Leadership implements Steppable {
                 red = (int) (target.getForces() * WorldOrder.RED_PUNISH);
                 blue = (int) (polity.getForces() * (worldOrder.random.nextDouble() * WorldOrder.BLUE_PUNISH) );
                 threat = (target.getTreasury() * WorldOrder.THREAT_PUNISH);
-                risk = (polity.getTreasury() * WorldOrder.RISK_PUNIISH);
+                risk = (polity.getTreasury() * WorldOrder.RISK_PUNISH);
                 strategy = new Resources.ResourceBuilder().pax(Math.min(red, blue)).treasury(Math.min(threat, risk)).build();
                 return strategy;
             case 1: // Coerce

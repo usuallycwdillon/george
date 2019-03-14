@@ -1,6 +1,7 @@
-package edu.gmu.css.entities;
+package edu.gmu.css.relations;
 
 import edu.gmu.css.agents.Tile;
+import edu.gmu.css.entities.Territory;
 import org.neo4j.ogm.annotation.*;
 
 @RelationshipEntity(type="INCLUDES")
@@ -48,7 +49,7 @@ public class Inclusion {
         this.tile = tile;
     }
 
-    public Long getTileH3Id() {
+    public Long getTileId() {
         return this.tile.getH3Id();
     }
 

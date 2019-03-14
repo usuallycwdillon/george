@@ -1,15 +1,22 @@
 package edu.gmu.css.entities;
 
+import ec.util.MersenneTwisterFast;
 import edu.gmu.css.agents.Process;
+import edu.gmu.css.data.Domain;
 import edu.gmu.css.entities.Organization;
 import edu.gmu.css.entities.Polity;
+import edu.gmu.css.relations.InstitutionParticipation;
+import edu.gmu.css.relations.Participation;
+import edu.gmu.css.util.MTFApache;
 import org.neo4j.ogm.annotation.*;
 import sim.engine.SimState;
 import sim.engine.Steppable;
 
 import java.io.Serializable;
-import java.time.Year;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @NodeEntity
 public abstract class Institution extends Entity implements Steppable, Serializable {
@@ -17,23 +24,29 @@ public abstract class Institution extends Entity implements Steppable, Serializa
      *
      */
     @Id @GeneratedValue
-    protected long id;
+    protected Long id;
     @Property
-    protected long from;        // from or began
+    protected Long from;        // from or began
     @Property
-    protected long until;       // until or ended
+    protected Long until;       // until or ended
     @Property
     protected double value;     // magnitude, etc. a cumulative/total measure; may be overridden to int
     @Property
-    protected int numberParticipants;
+    protected int size;         // number of participants
     @Property
-    protected Year year;        // not always used
-
+    protected int year;        // not always used
+    @Property
+    protected Domain domain;
     @Transient
-    protected List<Polity> participants;
+    protected Resources maintenance;
+    @Transient
+    protected MersenneTwisterFast random;
+
+    @Relationship(direction=Relationship.INCOMING)
+    protected List<InstitutionParticipation> participation = new ArrayList<>();
 
     @Relationship
-    protected Process process;
+    protected Process process;          // Countervailing process,  not the one that created it
     @Relationship
     protected Organization organization; // Only used if this institution spawned an organization
 
@@ -43,13 +56,95 @@ public abstract class Institution extends Entity implements Steppable, Serializa
     public Institution(Process process) {
     }
 
-    public Institution(SimState simState) {
+    public void step(SimState simState) {
 
+    }
+
+    @Override
+    public Long getId() {
+        return id;
+    }
+
+    public Long getFrom() {
+        return from;
+    }
+
+    public void setFrom(long from) {
+        this.from = from;
+    }
+
+    public Long getUntil() {
+        return until;
+    }
+
+    public void setUntil(long until) {
+        this.until = until;
+    }
+
+    public double getValue() {
+        return value;
+    }
+
+    public void setValue(double value) {
+        this.value = value;
+    }
+
+    public int getSize() {
+        return size;
+    }
+
+    public void setSize(int size) {
+        this.size = size;
+    }
+
+    public int getYear() {
+        return year;
+    }
+
+    public void setYear(int year) {
+        this.year = year;
+    }
+
+    public List<InstitutionParticipation> getParticipation() {
+        return participation;
+    }
+
+    public void setParticipation(List<InstitutionParticipation> participation) {
+        this.participation = participation;
+    }
+
+    public void addParticipation(InstitutionParticipation participation) {
+        this.participation.add(participation);
+    }
+
+    public Set<Polity> getParticipants() {
+        Set<Polity> participants = new HashSet<>();
+        for (InstitutionParticipation p : participation) {
+            participants.add(p.getParticipant());
+        }
+        return participants;
+    }
+
+    public Process getProcess() {
+        return process;
+    }
+
+    public void setProcess(Process process) {
+        this.process = process;
+    }
+
+    public Organization getOrganization() {
+        return organization;
+    }
+
+    public void setOrganization(Organization organization) {
+        this.organization = organization;
     }
 
     public void collectCosts() {
 
     }
+
 
 
 }

@@ -1,11 +1,11 @@
 package edu.gmu.css.agents;
 
 import com.uber.h3core.H3Core;
-import com.uber.h3core.util.GeoCoord;
 
 import edu.gmu.css.entities.Entity;
+import edu.gmu.css.relations.Inclusion;
 import edu.gmu.css.service.H3IdStrategy;
-import edu.gmu.css.worldOrder.History;
+import edu.gmu.css.data.DataTrend;
 
 import one.util.streamex.DoubleStreamEx;
 import org.neo4j.ogm.annotation.*;
@@ -41,24 +41,27 @@ public class Tile extends Entity implements Serializable, Steppable {
     @Transient
     private double wealthLastStep;
     @Transient
-    private double productivity = 1.03;
+    private double productivity = 1.01;
     @Transient
     private double[] economicPolicy = {0.5, 0.5};
     @Transient
-    private History memory = new History(52 * 4); // Four year history
+    private DataTrend memory = new DataTrend(52 * 4); // Four year history
     @Property
     private List<Long>neighborIds = new ArrayList<>();
     @Relationship(type="ABUTS", direction = Relationship.UNDIRECTED)
     private List<Tile> neighbors = new ArrayList<>();
+    @Relationship(type="INCLUDES", direction = "INCOMING")
+    private List<Inclusion> linkedTerritories = new ArrayList<>();
 
 
     public Tile() {
     }
 
-    public Tile(Long h3Id) {
-        this.h3Id = h3Id;
+    public Tile(Long id) {
+        this.h3Id = id;
         learnNeighborhood();
     }
+
 
     // There are some private functions to a tile that happen inside the tile. Right now, these are
     // * growPopulation()
@@ -174,5 +177,27 @@ public class Tile extends Entity implements Serializable, Steppable {
         this.naturalResources = naturalResources;
     }
 
+    public List<Inclusion> getLinkedTerritories() {
+        return linkedTerritories;
+    }
 
+    public void setLinkedTerritories(List<Inclusion> territories) {
+        this.linkedTerritories = territories;
+    }
+
+    public void addLinkedTerritory(Inclusion link) {
+        this.linkedTerritories.add(link);
+    }
+
+    public double getUrbanization() {
+        return urbanization;
+    }
+
+    public void setUrbanization(int uPop) {
+        if (uPop != 0 && population != 0) {
+            urbanization = (double)uPop / (double)population ;
+        } else {
+            urbanization = 0.0;
+        }
+    }
 }

@@ -26,23 +26,23 @@ public class TileCacheService {
     }
 
     public void addTile(Tile tile) {
-        globalHexes.put(tile.getH3Id(), tile);
+        globalHexes.put(tile.getId(), tile);
     }
 
     public void addTiles(Collection<Tile> tileCollection) {
         Map<Long, Tile> localTiles = new HashMap<>();
         for (Tile tile : tileCollection) {
-            localTiles.put(tile.getH3Id(), tile);
+            localTiles.put(tile.getId(), tile);
         }
         globalHexes.putAll(localTiles);
     }
 
     public void updateTile(Tile tile) {
-        globalHexes.set(tile.getH3Id(), tile);
+        globalHexes.set(tile.getId(), tile);
     }
 
     public void deleteTile(Tile tile) {
-        globalHexes.delete(tile.getH3Id());
+        globalHexes.delete(tile.getId());
     }
 
 }

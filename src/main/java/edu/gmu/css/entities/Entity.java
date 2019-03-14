@@ -19,8 +19,8 @@ public abstract class Entity {
         if (o == null || id == null || this.getClass() != o.getClass()) return false;
 
         Entity entity = (Entity) o;
-        if (!id.equals(entity.id)) return false;
-
-        return true;
+        return id.equals(entity.id);
     }
+
+
 }

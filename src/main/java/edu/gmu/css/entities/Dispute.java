@@ -3,6 +3,7 @@ package edu.gmu.css.entities;
 
 import edu.gmu.css.agents.Process;
 import edu.gmu.css.data.SecurityObjective;
+import edu.gmu.css.relations.ProcessDisposition;
 import org.neo4j.ogm.annotation.*;
 
 import java.util.HashSet;
@@ -54,7 +55,7 @@ public class Dispute extends Entity {
             }
         }
 
-        return SecurityObjective.given(highest);
+        return SecurityObjective.name(highest);
     }
 
     public long getUntil() {

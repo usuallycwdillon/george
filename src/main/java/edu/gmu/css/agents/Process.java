@@ -2,6 +2,9 @@ package edu.gmu.css.agents;
 
 import edu.gmu.css.data.Domain;
 import edu.gmu.css.entities.*;
+import edu.gmu.css.entities.Fact.FactBuilder;
+import edu.gmu.css.relations.Participation;
+import edu.gmu.css.relations.ProcessDisposition;
 import edu.gmu.css.service.Neo4jSessionFactory;
 import edu.gmu.css.worldOrder.*;
 import org.neo4j.ogm.annotation.*;
@@ -11,8 +14,8 @@ import sim.engine.Stoppable;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 
 
 @NodeEntity
@@ -66,7 +69,7 @@ public abstract class Process extends Entity implements Steppable, Stoppable, Se
     @Property
     protected int age = 0;
     @Transient
-    protected double effect = WorldOrder.EFFECT;
+    protected double effect = WorldOrder.peaceTreatyEffect;
     @Property
     protected Long began;
     @Property
@@ -81,6 +84,8 @@ public abstract class Process extends Entity implements Steppable, Stoppable, Se
     private Stoppable stopper = null;
     @Transient
     private Entity issue; // the war, peace, trade, org, territory, etc.
+    @Transient
+    protected String name;
 
     @Relationship
     protected Institution institution;
@@ -136,6 +141,9 @@ public abstract class Process extends Entity implements Steppable, Stoppable, Se
     public long getEnded() {
         return ended;
     }
+    public String getName() {
+        return name;
+    }
 
     public List<ProcessDisposition> getProcessDispositionList() {
         return processParticipantLinks;
@@ -173,6 +181,9 @@ public abstract class Process extends Entity implements Steppable, Stoppable, Se
     public void setCost(double cost) {
         this.cost = cost;
     }
+    public WorldOrder getWorldOrder() {
+        return this.worldOrder;
+    }
 
 
 
@@ -208,13 +219,12 @@ public abstract class Process extends Entity implements Steppable, Stoppable, Se
 
         this.status[1] = external;
         this.status[2] = internal;
+        setFiat();
     }
 
     public int sumStatus() {
         int statusSum = 0;
-        for (int i : status) {
-            statusSum =+ i;
-        }
+        statusSum = Arrays.stream(status).sum();
         return statusSum;
     }
 
@@ -274,37 +284,37 @@ public abstract class Process extends Entity implements Steppable, Stoppable, Se
                 institution = new War(this);
                 // Create an Institution Participation link out of each Process Disposition link
                 for (ProcessDisposition d : processParticipantLinks) {
-                    new InstitutionParticipation(d, institution, step);
+                    institution.addParticipation(new Participation(d, institution, worldOrder.getStepNumber()));
                 }
                 return institution;
             case PEACE:
                 institution = new Peace(this);
                 for (ProcessDisposition d : processParticipantLinks) {
-                    new InstitutionParticipation(d, institution, worldOrder.getStepNumber());
+                    institution.addParticipation(new Participation(d, institution, worldOrder.getStepNumber()));
                 }
                 return institution;
             case TRADE:
                 institution = new Trade(this);
                 for (ProcessDisposition d : processParticipantLinks) {
-                    new InstitutionParticipation(d, institution, worldOrder.getStepNumber());
+                    institution.addParticipation(new Participation(d, institution, worldOrder.getStepNumber()));
                 }
                 return institution;
             case DIPLOMACY:
-                institution = new Diplomacy(this);
+                institution = new DiplomaticExchange(this);
                 for (ProcessDisposition d : processParticipantLinks) {
-                    new InstitutionParticipation(d, institution, worldOrder.getStepNumber());
+                    institution.addParticipation(new Participation(d, institution, worldOrder.getStepNumber()));
                 }
                 return institution;
             case ALLIANCE:
                 institution = new Alliance(this);
                 for (ProcessDisposition d : processParticipantLinks) {
-                    new InstitutionParticipation(d, institution, worldOrder.getStepNumber());
+                    institution.addParticipation(new Participation(d, institution, worldOrder.getStepNumber()));
                 }
                 return institution;
             case STATEHOOD:
                 institution = new Statehood(this);
                 for (ProcessDisposition d : processParticipantLinks) {
-                    new InstitutionParticipation(d, institution, worldOrder.getStepNumber());
+                    institution.addParticipation(new Participation(d, institution, worldOrder.getStepNumber()));
                 }
                 return institution;
             default:
@@ -324,12 +334,20 @@ public abstract class Process extends Entity implements Steppable, Stoppable, Se
     }
 
     public void stop(){
-        stopper.stop();
+        setStopper(this);
     }
 
 
-    public void saveEntity(Object o) {
-        Neo4jSessionFactory.getInstance().getNeo4jSession().save(o, 1);
+    public void saveNearEntity(Object o) {
+        /**
+         *  Saves this Process to the database following the same pattern as data imports.
+         *
+         */
+        Dataset d = WorldOrder.getModelRun();
+        Fact f = new FactBuilder().name(this.name).from(began).until(worldOrder.getStepNumber())
+                .subject(d.getFilename()).build();
+        d.addFacts(f);
+//        Neo4jSessionFactory.getInstance().getNeo4jSession().save(o, 1);
     }
 
 }

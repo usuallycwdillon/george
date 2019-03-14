@@ -17,9 +17,17 @@ public abstract class GenericService<T extends Entity> implements Service<T> {
         return session.loadAll(getEntityType(), DEPTH_LIST);
     }
 
+    public Iterable<T> findAll(int d) {
+        return session.loadAll(getEntityType(), d);
+    }
+
     @Override
     public T find(Long id) {
-        return session.load(getEntityType(), DEPTH_ENTITY);
+        return session.load(getEntityType(), id, DEPTH_ENTITY);
+    }
+
+    public T find(Long id, int d) {
+        return session.load(getEntityType(), id, d);
     }
 
     @Override

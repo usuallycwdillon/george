@@ -28,11 +28,11 @@ public enum SecurityObjective {
             _map.put(objective, objective.value);
     }
 
-    public static int from(SecurityObjective objective) {
+    public static int valueOf(SecurityObjective objective) {
         return _map.get(objective);
     }
 
-    public static SecurityObjective given(int val) {
+    public static SecurityObjective name(int val) {
         for (Map.Entry<SecurityObjective, Integer> entry : _map.entrySet()) {
             if (entry.getValue() == val) {
                 return entry.getKey();

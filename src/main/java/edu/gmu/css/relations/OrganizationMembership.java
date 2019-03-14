@@ -1,8 +1,10 @@
-package edu.gmu.css.entities;
+package edu.gmu.css.relations;
 
 
 import com.fasterxml.jackson.databind.annotation.JsonAppend;
 import edu.gmu.css.data.MembershipLevel;
+import edu.gmu.css.entities.Organization;
+import edu.gmu.css.entities.Polity;
 import org.neo4j.ogm.annotation.EndNode;
 import org.neo4j.ogm.annotation.Property;
 import org.neo4j.ogm.annotation.RelationshipEntity;

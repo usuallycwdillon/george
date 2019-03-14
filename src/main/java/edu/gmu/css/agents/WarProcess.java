@@ -1,17 +1,18 @@
 package edu.gmu.css.agents;
 
+import com.sun.xml.internal.bind.annotation.OverrideAnnotationOf;
 import edu.gmu.css.data.Domain;
 import edu.gmu.css.data.SecurityObjective;
 import edu.gmu.css.entities.Dispute;
+import edu.gmu.css.entities.Institution;
 import edu.gmu.css.entities.Polity;
-import edu.gmu.css.entities.ProcessDisposition;
+import edu.gmu.css.relations.ProcessDisposition;
 import edu.gmu.css.entities.Resources;
 import edu.gmu.css.worldOrder.WorldOrder;
 import sim.engine.SimState;
 
 public class WarProcess extends Process {
 
-    private Domain domain = Domain.WAR;
     private Resources involvement = new Resources.ResourceBuilder().build();
 
     public WarProcess() {
@@ -20,11 +21,14 @@ public class WarProcess extends Process {
     public Resources getInvolvement() {
         return this.involvement;
     }
+    public Domain getDomain() { return this.domain;}
+    public String getName() {return this.name;}
 
-    public WarProcess(Polity owner, Polity target, Resources force, SecurityObjective objective, SimState simState) {
-        worldOrder = (WorldOrder) simState;
+    public WarProcess(Polity owner, Polity target, Resources force, SecurityObjective objective, Long step) {
         // TODO: decide whether 'began' is a year or the step
-        began = worldOrder.getStepNumber();
+        domain = Domain.WAR;
+        name = "Dispute";
+        began = step;
         // owning state links to the process and sets a strategy; that strategy establishes initial process parameters
         ProcessDisposition pdo = new ProcessDisposition(owner, this, began);
         pdo.setObjective(objective);
@@ -40,6 +44,7 @@ public class WarProcess extends Process {
         target.addProcess(pdt);
         processParticipantLinks.add(pdt);
         involvement.increaseBy(force);
+        this.updateStatus();
     }
 
     @Override
@@ -52,38 +57,38 @@ public class WarProcess extends Process {
         worldOrder = (WorldOrder) simState;
         int count = 0;
         int statusSum = sumStatus();
+        System.out.println("This proc now at " + fiat);
 
         switch (statusSum) {
+            case 1:
+                this.updateStatus();
             case 2:
+                System.out.println("New War Process at " + fiat);
                 // outer if/then tests for equivalence
                 // inner loop tests for participants' N; +N = escalate, -N = outcome
-                if (equivalence) {
-                    this.outcome = true;
-                } else {
-                    for (ProcessDisposition p : processParticipantLinks) {
-                        if (p.atN()) {
+                for (ProcessDisposition p : processParticipantLinks) {
+                    if (p.atN()) {
+                        count += 1;
+                    } else {
+                        if (p.getOwner().willEscalate()) {
+                            p.setN(true);
                             count += 1;
-                        } else {
-                            if (p.getOwner().willEscalate()) {
-                                p.setN(true);
-                                count += 1;
-                            }
                         }
                     }
-                    if (count >= processParticipantLinks.size() ) {
-                        // This process is no longer equivalent to 'x' because participants all agree N; status = 4
-                        this.N = true;
-                        this.equivalence = false;
-                    } else {
-                        this.equivalence = true;    // Evaluate for 'x' next step
-                    }
+                }
+                if (count >= processParticipantLinks.size() ) {
+                    // This process is no longer equivalent to 'x' because participants all agree N; status = 4
+                    this.N = true;
+                    this.equivalence = false;
+                } else {
+                    this.equivalence = true;    // Evaluate for 'x' next step
                 }
 
-                this.updateStatus();        // Could stay at 2+equivalence, 3, or 4
+                this.updateStatus();        // Could move to 3- or 4
                 break;
             case 3:                         // evaluates to 'x'
                 // toss a coin: do(es) target(s)
-                if (worldOrder.random.nextGaussian() < 0.50) {
+                if (worldOrder.random.nextGaussian() < 0.80) {
                     for (ProcessDisposition p : processParticipantLinks.subList(1, processParticipantLinks.size())) {
                         // TODO: target(s) lose something
                     }
@@ -94,9 +99,10 @@ public class WarProcess extends Process {
                 Resources returned = pdo.getCommitment();
                 instigator.getResources().increaseBy(returned);
                 // log this as a dispute
+                ended = worldOrder.getStepNumber();
                 Dispute d = new Dispute(this);
                 WorldOrder.modelRun.addFacts(d);
-                saveEntity(d);
+                saveNearEntity(d);
                 stop();
                 break;
             case 4:
@@ -157,7 +163,7 @@ public class WarProcess extends Process {
                 pd.getCommitment().setTreasury(0.0);
                 pd.getOwner().getResources().addPax(pd.getCommitment().getPax());
                 this.outcome = true;
-                saveEntity(new Dispute(this));
+                saveNearEntity(new Dispute(this));
                 stop();
                 break;
             case 8:
@@ -203,7 +209,7 @@ public class WarProcess extends Process {
             case 14:                // War breaks out.
                 this.outcome = true;
                 Long step = worldOrder.getStepNumber();
-                createInstitution(step);
+                worldOrder.schedule.scheduleRepeating(createInstitution(step));
                 stop();
                 break;
             case 15:                // Start at fiat 'A' and lot the process before we attach a War and ignore the process.
@@ -215,7 +221,7 @@ public class WarProcess extends Process {
                         p.getCommitment().setTreasury(t);
                         p.getOwner().getResources().increaseBy(p.getCommitment());
                     }
-                    saveEntity(new Dispute(this));
+                    saveNearEntity(new Dispute(this));
                     stop();
                 }
                 this.outcome = true;

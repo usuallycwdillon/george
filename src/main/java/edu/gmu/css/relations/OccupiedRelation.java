@@ -1,5 +1,7 @@
-package edu.gmu.css.entities;
+package edu.gmu.css.relations;
 
+import edu.gmu.css.entities.Polity;
+import edu.gmu.css.entities.Territory;
 import org.neo4j.ogm.annotation.*;
 
 @RelationshipEntity (type="OCCUPIED")

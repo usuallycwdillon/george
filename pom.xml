@@ -29,12 +29,12 @@
     <dependency>
       <groupId>com.uber</groupId>
       <artifactId>h3</artifactId>
-      <version>3.2.0</version>
+      <version>3.4.0</version>
     </dependency>
     <dependency>
       <groupId>org.neo4j</groupId>
       <artifactId>neo4j</artifactId>
-      <version>3.4.9</version>
+      <version>3.5.2</version>
     </dependency>
     <dependency>
       <groupId>org.neo4j</groupId>
@@ -53,20 +53,20 @@
       <version>3.1.6</version>
       <scope>runtime</scope>
     </dependency>
-    <!-- https://mvnrepository.com/artifact/org.neo4j/neo4j-ogm-embedded-driver -->
-    <!--<dependency>-->
-      <!--<groupId>org.neo4j</groupId>-->
-      <!--<artifactId>neo4j-ogm-embedded-driver</artifactId>-->
-      <!--<version>3.1.4</version>-->
-    <!--</dependency>-->
-    <!--<dependency>-->
-      <!--<groupId>org.neo4j</groupId>-->
-      <!--<artifactId>neo4j-</artifactId>-->
-    <!--</dependency>-->
     <dependency>
       <groupId>org.neo4j.driver</groupId>
       <artifactId>neo4j-java-driver</artifactId>
       <version>1.7.1</version>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-simple</artifactId>
+      <version>1.7.25</version>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>1.7.25</version>
     </dependency>
     <dependency>
       <groupId>org.projectlombok</groupId>
@@ -132,6 +132,11 @@
       <version>RELEASE</version>
       <scope>compile</scope>
     </dependency>
+    <!--<dependency>-->
+      <!--<groupId>ca.umontreal.iro.simul</groupId>-->
+      <!--<artifactId>ssj</artifactId>-->
+      <!--<version>3.3.1</version>-->
+    <!--</dependency>-->
   </dependencies>
 
   <repositories>
@@ -213,7 +218,8 @@
               </filters>
               <transformers>
                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                  <mainClass>edu.gmu.css.App</mainClass>
+                  <mainClass>edu.gmu.css.worldOrder.WorldOrder</mainClass>
+                  <mainClass>edu.gmu.css.worldOrder.WorldOrderWithUI</mainClass>
                 </transformer>
               </transformers>
             </configuration>

@@ -13,8 +13,10 @@ public class NodeList extends Entity {
     Long id;
     @Property
     String name;
+    @Property
+    String type;
 
-    @Relationship
+    @Relationship(type="IS_ONE", direction="INCOMING")
     List<Entity> entities = new ArrayList<>();
 
     @Override
@@ -25,6 +27,8 @@ public class NodeList extends Entity {
     public String getName() {
         return name;
     }
+
+    public String getType() { return type; }
 
     public List<Entity> getEntities() {
         return entities;
