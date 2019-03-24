@@ -3,6 +3,7 @@ package edu.gmu.css.agents;
 import edu.gmu.css.data.Domain;
 import edu.gmu.css.entities.DiplomaticExchange;
 import edu.gmu.css.entities.Institution;
+import edu.gmu.css.relations.ProcessDisposition;
 import edu.gmu.css.worldOrder.WorldOrder;
 import sim.engine.SimState;
 
@@ -16,6 +17,13 @@ public class DiplomacyProcess extends Process {
 
     public void setStatus() {
 
+    }
+
+    public void stop() {
+        for (ProcessDisposition p : processParticipantLinks) {
+            p.getOwner().getProcessList().remove(this);
+        }
+        processParticipantLinks = null;
     }
 
     @Override

@@ -4,6 +4,7 @@ import edu.gmu.css.data.Domain;
 import edu.gmu.css.entities.Polity;
 import edu.gmu.css.entities.Institution;
 import edu.gmu.css.entities.Statehood;
+import edu.gmu.css.relations.ProcessDisposition;
 import sim.engine.SimState;
 
 public class StatehoodProcess extends Process {
@@ -24,6 +25,14 @@ public class StatehoodProcess extends Process {
     @Override
     public void setFiat() {
 
+    }
+
+    public void stop() {
+//        worldOrder.allTheState.remove(this);
+        for (ProcessDisposition p : processParticipantLinks) {
+            p.getOwner().getProcessList().remove(this);
+        }
+        processParticipantLinks = null;
     }
 
     @Override

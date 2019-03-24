@@ -11,6 +11,7 @@ import edu.gmu.css.queries.TerritoryQueries;
 import edu.gmu.css.service.Neo4jSessionFactory;
 import sim.engine.SimState;
 import sim.engine.Steppable;
+import sim.engine.Stoppable;
 import sim.util.distribution.Poisson;
 
 import java.awt.*;
@@ -218,7 +219,8 @@ public class WorldOrder extends SimState {
                             Polity t = allTheStates.get(target);
                             WarProcess proc = p.getLeadership().initiateWarProcess(t);
                             allTheWarProcs.add(proc);
-                            worldOrder.schedule.scheduleRepeating(proc);
+                            Stoppable stoppable = worldOrder.schedule.scheduleRepeating(proc);
+                            proc.setStopper(stoppable);
                         }
                     }
                 }

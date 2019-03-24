@@ -8,6 +8,7 @@ import edu.gmu.css.data.GeoDatasetData;
 import edu.gmu.css.entities.Dataset;
 import edu.gmu.css.entities.Entity;
 import edu.gmu.css.entities.Territory;
+import edu.gmu.css.relations.Inclusion;
 import edu.gmu.css.service.Neo4jSessionFactory;
 import org.geojson.*;
 import org.neo4j.helpers.collection.MapUtil;
@@ -50,7 +51,7 @@ public class HexFactory {
             String filename = "cowWorld_" + y + ".geojson";
 
             // Checking that the dataset will save before doing any work; fail early, please.
-            Neo4jSessionFactory.getInstance().getNeo4jSession().save(d,0);
+//            Neo4jSessionFactory.getInstance().getNeo4jSession().save(d,0);
 
             List<Feature> features = geoJsonProcessor(filename);
             d.addAllFacts(features.stream()
@@ -73,25 +74,25 @@ public class HexFactory {
             // Save the territories into the database
             for (Entity e : d.getFacts()) {
                 Territory t = (Territory) e;
-                Neo4jSessionFactory.getInstance().getNeo4jSession().save(t, 1);
+//                Neo4jSessionFactory.getInstance().getNeo4jSession().save(t, 1);
                 if(DEBUG) {System.out.println("Saved " + t.getMapKey() + " to the database at " + LocalTime.now());}
                 territories.put(t.getMapKey(), t);
             }
 
-            Neo4jSessionFactory.getInstance().getNeo4jSession().save(d, 1);
+//            Neo4jSessionFactory.getInstance().getNeo4jSession().save(d, 1);
             if(DEBUG) {System.out.println("Completed " + y + " at " + LocalTime.now());}
         }
 
         // Hex Tiles get joined globally, because their arrangement is fixed, regardless of which tiles are in which
         // territory in any given year.
-        new HexFactory().joinHexes();
+//        new HexFactory().joinHexes();
 
         // Territory neighbors and munging territories with COW State facts are both dependent on the year, so we can
         // operate on both functions together.
-        for (int year : geodatasets.keySet()) {
-            new HexFactory().findTerritoryNeighbors(year);
-            new HexFactory().makeCowRelations(year);
-        }
+//        for (int year : geodatasets.keySet()) {
+//            new HexFactory().findTerritoryNeighbors(year);
+//            new HexFactory().makeCowRelations(year);
+//        }
 
 
         // Finally, we dump the hex-shaped multi-polygons into files for observation and visual validation (do these
@@ -102,8 +103,8 @@ public class HexFactory {
                 .collect(Collectors.toList());
         makeFeatureCollection(territoryStream);
 
-        new HexFactory().isolateOccupationEdges();
-        new HexFactory().makeStateBorders();
+//        new HexFactory().isolateOccupationEdges();
+//        new HexFactory().makeStateBorders();
 
         System.exit(0);
     }
@@ -166,14 +167,24 @@ public class HexFactory {
 
     private static void makeFeatureCollection(Collection<Territory> territories) {
         for (Territory t : territories) {
+            t.loadBaselinePopulation();
             FeatureCollection featureCollection = new FeatureCollection();
             String key = t.getMapKey();
-            String filepath = "src/main/resources/historicalHexMaps/" + t.getYear() + "/" + key + ".geojson";
-            Feature territoryFeature = makeFeatures(t);
-            featureCollection.add(territoryFeature);
+            String filepath = "src/main/resources/historicalHexMaps/" + t.getYear() + "/" + key + "_poly.geojson";
+//            Feature territoryFeature = makeFeatures(t);
+//            featureCollection.add(territoryFeature);
+            featureCollection = makeFeatureCollectionPoly(t);
             ObjectMapper geoFeature = new ObjectMapper();
             try {
                 geoFeature.writeValue(new File(filepath), featureCollection);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            filepath = "src/main/resources/historicalHexMaps/" + t.getYear() + "/" + key + "_point.geojson";
+            featureCollection = makeFeatureCollectionPoint(t);
+            ObjectMapper pointFeature = new ObjectMapper();
+            try {
+                pointFeature.writeValue(new File(filepath), featureCollection);
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -206,6 +217,7 @@ public class HexFactory {
                 for (GeoCoord gc : outerPolyCoords) {
                     lngLatAlts.add(lngLatAlt(gc));
                 }
+                lngLatAlts.add(lngLatAlt(outerPolyCoords.get(0)));
                 poly.setExteriorRing(lngLatAlts);
                 multiPolyTerritory.add(poly);
             }
@@ -220,6 +232,64 @@ public class HexFactory {
 
         return territoryFeature;
     }
+
+    private static FeatureCollection makeFeatureCollectionPoly(Territory t) {
+        Set<Inclusion> hexList = new HashSet<>(t.getTileLinks());
+        FeatureCollection fc = new FeatureCollection();
+        for(Inclusion i : hexList) {
+            Tile h = i.getTile();
+            int upop = (int)(h.getPopulation() * h.getUrbanization());
+            Feature border = new Feature();
+            border.setId(h.getAddress());
+            border.setProperty("H3ID", h.getH3Id());
+            border.setProperty("POPULATION", h.getPopulation());
+            border.setProperty("URBAN_POP", upop);
+            border.setProperty("H3Address", h.getAddress());
+            Polygon poly = new Polygon();
+            try {
+                H3Core h3 = H3Core.newInstance();
+                List<GeoCoord> outerPolyCoords = h3.h3ToGeoBoundary(h.getH3Id());
+                List<LngLatAlt> lngLatAlts = new ArrayList<>();
+                for (GeoCoord gc : outerPolyCoords) {
+                    lngLatAlts.add(lngLatAlt(gc));
+                }
+                lngLatAlts.add(lngLatAlt(outerPolyCoords.get(0)));
+                poly.setExteriorRing(lngLatAlts);
+                border.setGeometry(poly);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            fc.add(border);
+        }
+        return fc;
+    }
+
+    private static FeatureCollection makeFeatureCollectionPoint(Territory t) {
+        Set<Inclusion> hexList = new HashSet<>(t.getTileLinks());
+        FeatureCollection fc = new FeatureCollection();
+        for(Inclusion i : hexList) {
+            Tile h = i.getTile();
+            int upop = (int)(h.getPopulation() * h.getUrbanization());
+            Feature tileFeature = new Feature();
+            tileFeature.setId(h.getAddress());
+            tileFeature.setProperty("H3ID", h.getH3Id());
+            tileFeature.setProperty("POPULATION", h.getPopulation());
+            tileFeature.setProperty("URBAN_POP", upop);
+            tileFeature.setProperty("H3Address", h.getAddress());
+            Point point = new Point();
+            try {
+                H3Core h3 = H3Core.newInstance();
+                GeoCoord center = h3.h3ToGeo(h.getH3Id());
+                point.setCoordinates(lngLatAlt(center));
+                tileFeature.setGeometry(point);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            fc.add(tileFeature);
+        }
+        return fc;
+    }
+
 
     static private LngLatAlt lngLatAlt(GeoCoord coordinates) {
         LngLatAlt lla = new LngLatAlt();

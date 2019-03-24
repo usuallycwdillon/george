@@ -2,11 +2,15 @@ package edu.gmu.css.agents;
 
 import edu.gmu.css.data.SecurityObjective;
 import edu.gmu.css.entities.Polity;
+import edu.gmu.css.entities.War;
+import edu.gmu.css.relations.InstitutionParticipation;
+import edu.gmu.css.relations.Participation;
 import edu.gmu.css.relations.ProcessDisposition;
 import edu.gmu.css.entities.Resources;
 import edu.gmu.css.worldOrder.WorldOrder;
 import sim.engine.SimState;
 import sim.engine.Steppable;
+import sim.engine.Stoppable;
 
 public class Leadership implements Steppable {
 
@@ -69,7 +73,25 @@ public class Leadership implements Steppable {
         SecurityObjective objective = chooseSecurityObjective();
         Resources force = warStrategy(target, objective);
         WarProcess p = new WarProcess(polity, target, force, objective, worldOrder.getStepNumber());
+        // TODO: Draft and tax for this war
         return p;
+    }
+
+    public PeaceProcess considerPeace(War war) {
+        Long step = worldOrder.getStepNumber();
+        PeaceProcess pp = new PeaceProcess(polity, war, step);
+        WorldOrder.getAllThePeaceProcs().add(pp);
+        Stoppable stopper = worldOrder.schedule.scheduleRepeating(pp);
+        pp.setStopper(stopper);
+        return pp;
+    }
+
+    public boolean reconsiderPeace() {
+        boolean decision = false;
+        if (worldOrder.random.nextDouble() < 0.50) {
+            decision = true;
+        }
+        return decision;
     }
 
 

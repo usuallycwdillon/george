@@ -2,6 +2,7 @@ package edu.gmu.css.agents;
 
 import edu.gmu.css.data.Domain;
 import edu.gmu.css.entities.Polity;
+import edu.gmu.css.relations.ProcessDisposition;
 import edu.gmu.css.worldOrder.WorldOrder;
 import sim.engine.SimState;
 
@@ -15,10 +16,13 @@ public class AllianceProcess extends Process {
 
     }
 
-//    @Override
-//    public void setStatus() {
-//
-//    }
+
+    public void stop() {
+        for (ProcessDisposition p : processParticipantLinks) {
+            p.getOwner().getProcessList().remove(this);
+        }
+        processParticipantLinks = null;
+    }
 
     @Override
     public void setFiat() {

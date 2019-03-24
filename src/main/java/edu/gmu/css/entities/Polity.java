@@ -231,18 +231,19 @@ public class Polity extends Entity implements Serializable {
 
     }
 
-    public boolean hasInsufficentResources(Process process) {
+    public boolean hasInsuficentResources(Institution war) {
 
         return true;
     }
 
     public boolean evaluateNeedForPeace() {
-
-        return true;
+        return leadership.reconsiderPeace();
     }
 
-    public void makeConcessionForPeace() {
-
+    public void makeConcessionForPeace(ProcessDisposition p) {
+        if (random.nextDouble() < 0.50) {
+            p.setU(true);
+        }
     }
 
     public void setCurrentTerritory() {

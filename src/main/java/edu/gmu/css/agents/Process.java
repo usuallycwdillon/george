@@ -19,7 +19,7 @@ import java.util.List;
 
 
 @NodeEntity
-public abstract class Process extends Entity implements Steppable, Stoppable, Serializable {
+public abstract class Process extends Entity implements Steppable, Serializable {
     /** Binary version of Cioffi-Revilla `Canonical Process` Engine, dialectically
      *  The Omega digit reflects whether the outcome has been calculated
      *  The [SPC] digit reflects the external state
@@ -81,11 +81,13 @@ public abstract class Process extends Entity implements Steppable, Stoppable, Se
     @Property
     protected Domain domain;
     @Transient
-    private Stoppable stopper = null;
+    protected Stoppable stopper = null;
     @Transient
     private Entity issue; // the war, peace, trade, org, territory, etc.
     @Transient
     protected String name;
+    @Transient
+    boolean stopped;
 
     @Relationship
     protected Institution institution;
@@ -181,10 +183,12 @@ public abstract class Process extends Entity implements Steppable, Stoppable, Se
     public void setCost(double cost) {
         this.cost = cost;
     }
+    public void setInstitution(Institution i) {
+        institution = i;
+    }
     public WorldOrder getWorldOrder() {
         return this.worldOrder;
     }
-
 
 
 
@@ -328,15 +332,9 @@ public abstract class Process extends Entity implements Steppable, Stoppable, Se
 //    }
 
 
+    public void setStopper(Stoppable stopper)   {this.stopper = stopper;}
 
-    public void setStopper(Stoppable stopper) {
-        this.stopper = stopper;
-    }
-
-    public void stop(){
-        setStopper(this);
-    }
-
+    public void stop(){stopper.stop();}
 
     public void saveNearEntity(Object o) {
         /**
@@ -349,5 +347,7 @@ public abstract class Process extends Entity implements Steppable, Stoppable, Se
         d.addFacts(f);
 //        Neo4jSessionFactory.getInstance().getNeo4jSession().save(o, 1);
     }
+
+
 
 }

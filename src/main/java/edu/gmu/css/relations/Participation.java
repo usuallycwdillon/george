@@ -4,7 +4,10 @@ package edu.gmu.css.relations;
 import edu.gmu.css.entities.Institution;
 import edu.gmu.css.entities.Polity;
 import edu.gmu.css.entities.Resources;
+import edu.gmu.css.entities.War;
 import org.neo4j.ogm.annotation.*;
+
+import java.util.List;
 
 
 @RelationshipEntity(type="PARTICIPATION")
@@ -17,7 +20,7 @@ public class Participation extends InstitutionParticipation {
     @EndNode
     Institution institution;
     @Property
-    private int magnitude;
+    private Resources magnitude;          // losses, not participation
     @Property
     private int side;
     @Transient
@@ -31,7 +34,7 @@ public class Participation extends InstitutionParticipation {
         this.participant = disposition.getOwner();
         this.commitment = disposition.getCommitment();
         this.from = step;
-        this.magnitude = disposition.getCommitment().getPax();
+        this.magnitude = new Resources.ResourceBuilder().build();
     }
 
     public Long getId() {
@@ -66,13 +69,8 @@ public class Participation extends InstitutionParticipation {
         this.during = during;
     }
 
-    public int getMagnitude() {
+    public Resources getMagnitude() {
         return magnitude;
-    }
-
-    public void updateMagnitude(Resources resources) {
-        int force = resources.getPax();
-        this.magnitude = Math.max(magnitude, force);
     }
 
     public void setSide(int s) {
@@ -90,4 +88,21 @@ public class Participation extends InstitutionParticipation {
     public void setCommitment(Resources commitment) {
         this.commitment = commitment;
     }
+
+    public void tallyLosses(int pax) {
+        commitment.subtractPax(pax);
+        magnitude.addPax(pax);
+        ProcessDisposition pd = participant.getProcessList().stream()
+                .filter(d -> institution.equals(d.getSubject()))
+                .findAny().orElse(null);
+        if (pax * 3 > commitment.getPax()) {
+            if (pd == null) {
+                participant.getLeadership().considerPeace((War) institution);
+            } else {
+                pd.setN(true);
+            }
+        }
+    }
+
+
 }

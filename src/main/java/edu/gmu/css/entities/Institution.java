@@ -11,6 +11,7 @@ import edu.gmu.css.util.MTFApache;
 import org.neo4j.ogm.annotation.*;
 import sim.engine.SimState;
 import sim.engine.Steppable;
+import sim.engine.Stoppable;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -19,7 +20,7 @@ import java.util.List;
 import java.util.Set;
 
 @NodeEntity
-public abstract class Institution extends Entity implements Steppable, Serializable {
+public abstract class Institution extends Entity implements Steppable, Stoppable {
     /**
      *
      */
@@ -37,14 +38,17 @@ public abstract class Institution extends Entity implements Steppable, Serializa
     protected int year;        // not always used
     @Property
     protected Domain domain;
+    @Property
+    protected boolean active = false;
     @Transient
     protected Resources maintenance;
     @Transient
     protected MersenneTwisterFast random;
+    @Transient
+    protected Stoppable stopper = null;
 
     @Relationship(direction=Relationship.INCOMING)
     protected List<InstitutionParticipation> participation = new ArrayList<>();
-
     @Relationship
     protected Process process;          // Countervailing process,  not the one that created it
     @Relationship
@@ -133,6 +137,14 @@ public abstract class Institution extends Entity implements Steppable, Serializa
         this.process = process;
     }
 
+    public boolean isActive() {
+        return active;
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
+    }
+
     public Organization getOrganization() {
         return organization;
     }
@@ -145,6 +157,17 @@ public abstract class Institution extends Entity implements Steppable, Serializa
 
     }
 
+//    public void setStopper(Stoppable stopper) {
+//        this.stopper = stopper;
+//    }
+//
+//    public void stop(){
+//        setStopper(this);
+//    }
+
+    public void setStopper(Stoppable stopper)   {this.stopper = stopper;}
+
+    public void stop(){stopper.stop();}
 
 
 }

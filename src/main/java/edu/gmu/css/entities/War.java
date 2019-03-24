@@ -27,11 +27,9 @@ public class War extends Institution {
     @Property
     private int size;
     @Property
-    private double warCost;
+    private double warCost = 0.0;
     @Property
-    private int magnitude;
-
-
+    private int magnitude = 0;
 
     @Relationship (type = "PARTICIPATE_IN", direction = Relationship.INCOMING)
     private Set<Polity> participants = new HashSet<>();
@@ -42,8 +40,6 @@ public class War extends Institution {
     public War(Process proc) {
         from = proc.getWorldOrder().getStepNumber();
         cost = new Resources.ResourceBuilder().build();
-        process = new PeaceProcess(this, from);
-
     }
 
     @Override
@@ -80,24 +76,25 @@ public class War extends Institution {
     private void battle() {
         // Take a part of the total force as a loss; split the loss between the participants
         // 1. How big was the battle? between [0, 0.5) of the current total commitment
-        double battleSize = random.nextDouble() * 0.5;
-        int battleMagnitude = (int) battleSize * involvement.getPax();
+        Double battleSize = random.nextDouble() * 0.5;
+        Double m = (involvement.getPax() * battleSize);
+        int battleMagnitude = m.intValue(); 
         // 2. How to divide the losses?
         double divvy = 1.0;
         double [] portions = new double [size];
         for (int i=0; i< size - 1; i++) {
             double share = random.nextDouble();
-            divvy =+ share;
+            divvy -= share;
             portions[i] = share;
         }
         portions[size-1] = divvy;
-        // 3. Move each participant's share of the battle magnitude from their participation to cost
+        // 3. Move each participant's share of the battle magnitude from their participation to cost/magnitude
         for (int i=0; i<size;i++) {
             Participation p = (Participation) participation.get(i);
-            double decr = portions[i];
-            int pax = (int) decr * battleMagnitude;
-            p.getCommitment().subtractPax(pax);
-            cost.addPax(pax);
+            Double decr = portions[i];
+            Double pax = decr * battleMagnitude;
+            p.tallyLosses(pax.intValue());
+            cost.addPax(pax.intValue());
         }
     }
 

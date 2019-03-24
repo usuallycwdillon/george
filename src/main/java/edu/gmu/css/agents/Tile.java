@@ -1,5 +1,6 @@
 package edu.gmu.css.agents;
 
+import com.sun.javafx.geom.Vec2d;
 import com.uber.h3core.H3Core;
 
 import edu.gmu.css.entities.Entity;
@@ -200,4 +201,5 @@ public class Tile extends Entity implements Serializable, Steppable {
             urbanization = 0.0;
         }
     }
+
 }
