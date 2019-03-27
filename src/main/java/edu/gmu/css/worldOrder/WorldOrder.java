@@ -66,8 +66,8 @@ public class WorldOrder extends SimState {
      * Set the debugging flag to true to print out comments about what the setup is doing.
      *
      */
-    public boolean DEBUG = true;
-    public boolean NEW_BASELINE = false;
+    public static boolean DEBUG = true;
+    public static boolean NEW_BASELINE = true;
 
     private static int startYear = 1816; // Choices are 1816, 1880, 1914, 1938, 1945, 1994
     private static int untilYear = 1820; // Depending on how sloppy you're willing to be, can be just below next year
@@ -132,7 +132,7 @@ public class WorldOrder extends SimState {
         Neo4jSessionFactory.getInstance().getNeo4jSession().save(modelRun, 0);
 
         // set model parameters
-        stabilityDuration = 50 * 52;
+        stabilityDuration = 80 * 52;
         warCostFactor = 0.25;
         globalWarLikelihood = 0.01088;
         globalHostility = new DataTrend(stabilityDuration);

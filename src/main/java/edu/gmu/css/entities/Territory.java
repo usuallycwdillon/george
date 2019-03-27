@@ -6,11 +6,11 @@ import ec.util.MersenneTwisterFast;
 import edu.gmu.css.agents.Tile;
 import edu.gmu.css.hexFactory.*;
 
-import edu.gmu.css.queries.StateQueries;
 import edu.gmu.css.relations.BorderRelation;
 import edu.gmu.css.relations.Inclusion;
 import edu.gmu.css.relations.OccupiedRelation;
 import edu.gmu.css.service.*;
+import edu.gmu.css.util.IndexReverseSorter;
 import edu.gmu.css.util.MTFApache;
 import edu.gmu.css.worldOrder.WorldOrder;
 import org.apache.commons.math3.distribution.ZipfDistribution;
@@ -292,6 +292,19 @@ public class Territory extends Entity implements Serializable {
             Long pop;
             Long upop;
             int num = tileLinks.size();
+            int unum;
+
+            if (WorldOrder.DEBUG) {
+                System.out.println(mapKey + " has " + num + " tiles. ");
+            }
+
+            MersenneTwisterFast random = new MersenneTwisterFast();
+            ZipfDistribution distribution;
+            ZipfDistribution urbanDistrib;
+            int[] uLevels = {0};
+            int[] urbanizedIndexes = {0};
+            int uProportion = 1;
+            Integer[] sortedULevIdx = {0};
 
             Map<String, Object> params = new HashMap<>();
             params.put("cowcode", cowcode);
@@ -303,7 +316,16 @@ public class Territory extends Entity implements Serializable {
                     "WHERE (d)-[:CONTRIBUTES]-(pf) AND (d)-[:CONTRIBUTES]-(pf) AND $startYear < y.began.year < $untilYear " +
                     "WITH pf, y ORDER BY y.began.year " +
                     "RETURN pf LIMIT 1";
-            Fact popFact = Neo4jSessionFactory.getInstance().getNeo4jSession().queryForObject(Fact.class, popQuery, params);
+            Fact popFact = Neo4jSessionFactory.getInstance().getNeo4jSession()
+                    .queryForObject(Fact.class, popQuery, params);
+
+            String uPopQuery = "MATCH (t:Territory)-[o]-(s:State{cowcode:$cowcode})-[:URBAN_POPULATION]-(uf:UrbanPopulationFact)-[:DURING]-(y:Year)," +
+                    "(d:Dataset{name:'NMC Supplemental'})" +
+                    "WHERE (d)-[:CONTRIBUTES]-(uf) AND (d)-[:CONTRIBUTES]-(uf) AND $startYear < y.began.year < $untilYear " +
+                    "WITH uf, y ORDER BY y.began.year " +
+                    "RETURN uf LIMIT 1";
+            Fact uPopFact = Neo4jSessionFactory.getInstance().getNeo4jSession()
+                    .queryForObject(Fact.class, uPopQuery, params);
 
             if (popFact == null) {
                 pop = num * 1000L;
@@ -311,69 +333,121 @@ public class Territory extends Entity implements Serializable {
                 pop = (Long) popFact.getValue() * 1000;
             }
 
-            String uPopQuery = "MATCH (t:Territory)-[o]-(s:State{cowcode:$cowcode})-[:URBAN_POPULATION]-(uf:UrbanPopulationFact)-[:DURING]-(y:Year)," +
-                    "(d:Dataset{name:'NMC Supplemental'})" +
-                    "WHERE (d)-[:CONTRIBUTES]-(uf) AND (d)-[:CONTRIBUTES]-(uf) AND $startYear < y.began.year < $untilYear " +
-                    "WITH uf, y ORDER BY y.began.year " +
-                    "RETURN uf LIMIT 1";
-            Fact uPopFact = Neo4jSessionFactory.getInstance().getNeo4jSession().queryForObject(Fact.class, uPopQuery, params);
-
+            // must get the length of the urbanized tile array before we can build it
             if (uPopFact == null) {
-                upop = num * 50L;
+                upop = 0L;
+                unum = 0;
             } else {
                 upop = (Long) uPopFact.getValue() * 1000L;
+                int urbanTiles = (int)(upop / 50000);
+                if (urbanTiles % 2 == 0) {
+                    unum = urbanTiles / 2;
+                } else {
+                    unum = (urbanTiles + 1) / 2;
+                }
+                unum = Math.min(unum, num);
             }
 
-            System.out.println(mapKey + " has " + num + " tiles. ");
-            MersenneTwisterFast random = new MersenneTwisterFast();
-            ZipfDistribution distribution = new ZipfDistribution(new MTFApache(random), num, 2.0);
+            distribution = new ZipfDistribution(new MTFApache(random), num, 1.7);
 
             int[] levels = distribution.sample(num);
             int distSum = IntStream.of(levels).sum();
-            int uProportion = upop.intValue() / distSum;
             int pProportion = pop.intValue() / distSum;
+
+            if (unum > 1) {
+                // Get a sorted index of the population levels (levels are sorted, index describes the sort order)
+                IndexReverseSorter sorter = new IndexReverseSorter(levels);
+                final Integer[] sortedLevelsIdx = sorter.createIndexArray();
+                Arrays.sort(sortedLevelsIdx, sorter);
+                // Indices of urbanized populations (highest levels) limited to number of values above 50k
+                urbanizedIndexes = IntStream.range(0, unum).map(i -> sortedLevelsIdx[i]).toArray();
+                // new zeta-distribution for urbanized population values (array of dividend)
+                urbanDistrib = new ZipfDistribution(new MTFApache(random), unum, 1.6);
+                uLevels = urbanDistrib.sample(unum);
+                // get proportion divisor and fraction 1/divisor
+                int urbSum = IntStream.of(uLevels).sum();
+                uProportion = upop.intValue() / urbSum;
+                // get a sorted index of the
+                IndexReverseSorter uSorter = new IndexReverseSorter(uLevels);
+                sortedULevIdx = uSorter.createIndexArray();
+                Arrays.sort(sortedULevIdx, uSorter);
+            }
+
             if (num > 0) {
                 int pacer = 0;
+                int uPacer = 0;
                 int summedPopulation = 0;
-                int summedUrban = 0;
+                int summedUrbanPop = 0;
                 for (Inclusion h : tileLinks) {
                     Tile t = h.getTile();
+                    // Applying the population proportion to this tile is simple: multiply the level from the samples
+                    // array to the proportion of the population represented by each portion of the total
                     int thisPop = pProportion * levels[pacer];
-                    int thisUrb = uProportion * levels[pacer];
-                    t.setPopulation(thisPop);
-                    t.setUrbanization(thisUrb);
-                    Neo4jSessionFactory.getInstance().getNeo4jSession().save(t, 0);
                     summedPopulation += thisPop;
-                    summedUrban += thisUrb;
+                    t.setPopulation(thisPop);
+                    // Applying the urban population proportion to this tile is much more involved. If there is 1 or 0
+                    // tiles with an urban population, apply the total urban population (maybe 0). If there are more
+                    // than 2 tiles with an urban population, get the rank from the main population from the sorted
+                    // array of indexes, match with the same-ranked index of urban population levels, then multiply
+                    // that value to the proportion of the urban population represented by the levels.
+                    int thisUpop = 0;
+                    if (unum < 2) {
+                        thisUpop = upop.intValue();
+                        summedUrbanPop += thisUpop;
+                        t.setUrbanization(thisUpop);
+                    } else {
+                        if (uPacer < unum) {
+                            for (int i=0; i<unum; i++) {
+                                if (pacer == urbanizedIndexes[i]) {
+                                    int uIndex = sortedULevIdx[i];
+                                    int uLevel = uLevels[uIndex];
+                                    thisUpop = uLevel * uProportion;
+                                    summedUrbanPop += thisUpop;
+                                    t.setUrbanization(thisUpop);
+                                    uPacer++;
+                                }
+                            }
+                        } else {
+                            summedUrbanPop += thisUpop;
+                            t.setUrbanization(thisUpop);
+                        }
+                    }
+                    Neo4jSessionFactory.getInstance().getNeo4jSession().save(t, 0);
                     WorldOrder.getTiles().put(t.getH3Id(), t);
                     pacer++;
                 }
-                double near = (Double) (summedPopulation * 1.0) / pop;
-                double unear = (Double) (summedUrban * 1.0) / upop;
-                System.out.println(mapKey + " has population " + pop + " and the distributed population is "
-                        + summedPopulation + ", which is " + near + " of the data." + "\n The urban population is "
-                        + summedUrban + " compared to " + upop + " in the data, or " + unear);
+                double near = (summedPopulation * 1.0) / (pop + 1); // prevent zero division errors
+                double nearU = (summedUrbanPop * 1.0) / (upop + 1); // still returns 0.
+                if (WorldOrder.DEBUG) {
+                    System.out.println(mapKey + " has population " + pop + " and the distributed population is "
+                            + summedPopulation + ", which is " + near + " of the data. \n The simulated urban population is "
+                            + summedUrbanPop + " which is " + nearU + " of the data: " + upop);
+                }
                 population = summedPopulation;
-                urbanPopulation = summedUrban;
+                urbanPopulation = summedUrbanPop;
             } else {
                 int summedPopulation = 0;
                 for (Inclusion i : tileLinks) {
                     Tile t = i.getTile();
-                    t.setPopulation(1000);
-                    summedPopulation += 1000;
+                    t.setPopulation(100);
+                    summedPopulation += 100;
                     WorldOrder.getTiles().put(t.getH3Id(), t);
                 }
                 population = summedPopulation;
-                System.out.println(mapKey + " has a contrived population of 100 pax / tile, or " + summedPopulation);
+                if (WorldOrder.DEBUG) {
+                    System.out.println(mapKey + " has a contrived population of 100 pax / tile, or " + summedPopulation);
+                }
             }
         }
+        Neo4jSessionFactory.getInstance().getNeo4jSession().save(this, 0);
     }
 
     public void loadIncludedTiles() {
         Map<String, Object> params = new HashMap<>();
         params.put("mapKey", mapKey);
         String query = "MATCH (t:Territory{mapKey:$mapKey})-[:INCLUDES]-(ti:Tile) RETURN ti";
-        Iterable<Tile> result = Neo4jSessionFactory.getInstance().getNeo4jSession().query(Tile.class, query, params);
+        Iterable<Tile> result = Neo4jSessionFactory.getInstance()
+                .getNeo4jSession().query(Tile.class, query, params);
         Iterator it = result.iterator();
         while (it.hasNext()) {
             result.forEach(tile -> addHex(tile));
@@ -386,7 +460,8 @@ public class Territory extends Entity implements Serializable {
         params.put("mapKey", mapKey);
         params.put("name", name);
         String query = "MATCH (t:Territory{mapKey:$mapKey})-[:OCCUPIED]-(s:State)-[:DURING]-(:Year{name:$name}) RETURN s";
-        State n = Neo4jSessionFactory.getInstance().getNeo4jSession().queryForObject(State.class, query, params);
+        State n = Neo4jSessionFactory.getInstance().getNeo4jSession()
+                .queryForObject(State.class, query, params);
         if (n != null) {
             government.setPolity(n);
         } else {
@@ -398,7 +473,8 @@ public class Territory extends Entity implements Serializable {
         Map<String, Object> params = new HashMap<>();
         params.put("mapKey", mapKey);
         String query = "MATCH (t:Territory{mapKey:$mapKey})-[:BORDERS]->(b:Border) b";
-        Iterable<BorderRelation> result = Neo4jSessionFactory.getInstance().getNeo4jSession().query(BorderRelation.class, query, params);
+        Iterable<BorderRelation> result = Neo4jSessionFactory.getInstance()
+                .getNeo4jSession().query(BorderRelation.class, query, params);
         Iterator it = result.iterator();
         while (it.hasNext()) {
             result.forEach(t -> borderRelations.add(t));
@@ -409,7 +485,6 @@ public class Territory extends Entity implements Serializable {
         this.loadIncludedTiles();
         this.loadGovernment();
         this.loadBorders();
-
     }
 
 
