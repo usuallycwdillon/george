@@ -16,7 +16,7 @@ import java.util.Map;
 import java.util.Set;
 
 @NodeEntity
-public class State extends Polity implements Serializable {
+public class State extends Polity implements Steppable {
     /**
      *
      */
@@ -39,6 +39,10 @@ public class State extends Polity implements Serializable {
 
 
     public State() {
+    }
+
+    public void step(SimState simState) {
+        collectTax();
     }
 
 
@@ -74,4 +78,10 @@ public class State extends Polity implements Serializable {
     public void addSuzerein(Polity suzereign) {
         suzereinSet.add(suzereign);
     }
+
+    @Override
+    protected void collectTax() {
+
+    }
+
 }

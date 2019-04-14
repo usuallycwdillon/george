@@ -5,7 +5,6 @@ import edu.gmu.css.entities.*;
 import edu.gmu.css.entities.Fact.FactBuilder;
 import edu.gmu.css.relations.Participation;
 import edu.gmu.css.relations.ProcessDisposition;
-import edu.gmu.css.service.Neo4jSessionFactory;
 import edu.gmu.css.worldOrder.*;
 import org.neo4j.ogm.annotation.*;
 import sim.engine.SimState;
@@ -69,7 +68,7 @@ public abstract class Process extends Entity implements Steppable, Serializable 
     @Property
     protected int age = 0;
     @Transient
-    protected double effect = WorldOrder.peaceTreatyEffect;
+    protected double effect = WorldOrder.institutionInfluence;
     @Property
     protected Long began;
     @Property
@@ -83,13 +82,13 @@ public abstract class Process extends Entity implements Steppable, Serializable 
     @Transient
     protected Stoppable stopper = null;
     @Transient
-    private Entity issue; // the war, peace, trade, org, territory, etc.
+    protected Entity issue; // the war, peace, trade, org, territory, etc.
     @Transient
     protected String name;
     @Transient
     boolean stopped;
 
-    @Relationship
+    @Transient
     protected Institution institution;
     @Relationship(direction = "INCOMING")
     protected List<ProcessDisposition> processParticipantLinks = new ArrayList<>();
@@ -290,12 +289,14 @@ public abstract class Process extends Entity implements Steppable, Serializable 
                 for (ProcessDisposition d : processParticipantLinks) {
                     institution.addParticipation(new Participation(d, institution, worldOrder.getStepNumber()));
                 }
+                worldOrder.setGlobalWarLikelihood(processParticipantLinks.size() * WorldOrder.getInstitutionInfluence());
                 return institution;
             case PEACE:
                 institution = new Peace(this);
                 for (ProcessDisposition d : processParticipantLinks) {
                     institution.addParticipation(new Participation(d, institution, worldOrder.getStepNumber()));
                 }
+                worldOrder.setGlobalWarLikelihood(processParticipantLinks.size() * WorldOrder.getInstitutionInfluence() * -1);
                 return institution;
             case TRADE:
                 institution = new Trade(this);
@@ -326,12 +327,6 @@ public abstract class Process extends Entity implements Steppable, Serializable 
         }
     }
 
-//    public Organization createOrganization(Institution institution) {
-//        Organization organization = new Organization(institution);
-//        return organization;
-//    }
-
-
     public void setStopper(Stoppable stopper)   {this.stopper = stopper;}
 
     public void stop(){stopper.stop();}
@@ -345,7 +340,14 @@ public abstract class Process extends Entity implements Steppable, Serializable 
         Fact f = new FactBuilder().name(this.name).from(began).until(worldOrder.getStepNumber())
                 .subject(d.getFilename()).build();
         d.addFacts(f);
+        conclude();
 //        Neo4jSessionFactory.getInstance().getNeo4jSession().save(o, 1);
+    }
+
+    protected void conclude() {
+        stopper.stop();
+        stopped = true;
+        WorldOrder.getAllTheProcs().remove(this);
     }
 
 

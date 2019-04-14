@@ -3,11 +3,13 @@ package edu.gmu.css.agents;
 import com.sun.javafx.geom.Vec2d;
 import com.uber.h3core.H3Core;
 
+import edu.gmu.css.data.EconomicPolicy;
 import edu.gmu.css.entities.Entity;
 import edu.gmu.css.relations.Inclusion;
 import edu.gmu.css.service.H3IdStrategy;
 import edu.gmu.css.data.DataTrend;
 
+import edu.gmu.css.worldOrder.WorldOrder;
 import one.util.streamex.DoubleStreamEx;
 import org.neo4j.ogm.annotation.*;
 import sim.engine.SimState;
@@ -44,9 +46,11 @@ public class Tile extends Entity implements Serializable, Steppable {
     @Transient
     private double productivity = 1.01;
     @Transient
-    private double[] economicPolicy = {0.5, 0.5};
+    private EconomicPolicy economicPolicy = new EconomicPolicy(0.5, 0.5);
     @Transient
-    private DataTrend memory = new DataTrend(52 * 4); // Four year history
+    private double taxRate = 0.00;
+    @Transient
+    private DataTrend memory = new DataTrend(52 * 7); // Seven year history
     @Property
     private List<Long>neighborIds = new ArrayList<>();
     @Relationship(type="ABUTS", direction = Relationship.UNDIRECTED)
@@ -61,6 +65,13 @@ public class Tile extends Entity implements Serializable, Steppable {
     public Tile(Long id) {
         this.h3Id = id;
         learnNeighborhood();
+    }
+
+    public void step(SimState simState) {
+        memory.add(this.wealth);     // Wealth gets recorded before any increase from current production
+        updateProductivity();
+        produce();
+        growPopulation();
     }
 
 
@@ -90,16 +101,20 @@ public class Tile extends Entity implements Serializable, Steppable {
 
     private void produce() {
         // Crude Cobb-Douglass production function using urban/rural percentages as beta/alpha and population/wealth for
-        // capital and labor. The constant is ~ 1.0 +- normal random 10%
+        // capital and labor. The constant is ~ 1.0
+        double agLabor = (1 - urbanization) * 0.8;
+        double kpLabor = 1 - agLabor;
         double production = (productivity * (
-                Math.pow(population, (1 - urbanization)) * Math.pow(wealth, urbanization)));
-        this.products += this.products + ((int) (production * economicPolicy[0]));
-        this.wealth += this.wealth + (production * economicPolicy[1]);
+                Math.pow(population, agLabor) * Math.pow(wealth, kpLabor)));
+        // the Economic policy determines how much money becomes wealth and how much gets consumed as product
+        this.products += this.products + ((int) (production * economicPolicy.getCapital()));
+        this.wealth += this.wealth + (production * economicPolicy.getLabor());
     }
 
     // External (State) agents demand taxes and draft soldiers.
-    public double payTaxes(double rate) {
-        double amount = rate * this.wealth;
+    public double payTaxes() {
+        double weeklyTaxRate = taxRate / WorldOrder.annum.getWeeksThisYear();
+        double amount = weeklyTaxRate * this.wealth;
         this.wealth =- amount;
         return amount;
     }
@@ -108,12 +123,6 @@ public class Tile extends Entity implements Serializable, Steppable {
         int numSoldiers = (int) portion * this.population;
         this.population =- numSoldiers;
         return numSoldiers;
-    }
-
-    public void step(SimState simState) {
-        memory.add(this.wealth);     // Wealth gets recorded before any increase from current production
-        produce();
-        growPopulation();
     }
 
     public String getAddress() {
@@ -202,4 +211,23 @@ public class Tile extends Entity implements Serializable, Steppable {
         }
     }
 
+    public double getProductivity() {
+        return productivity;
+    }
+
+    public void setProductivity(double productivity) {
+        this.productivity = productivity;
+    }
+
+    private void updateProductivity() {
+        double trend = productivity / (memory.average());
+    }
+
+    public double getTaxRate() {
+        return taxRate;
+    }
+
+    public void setTaxRate(double taxRate) {
+        this.taxRate = taxRate;
+    }
 }

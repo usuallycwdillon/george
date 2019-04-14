@@ -2,23 +2,24 @@ package edu.gmu.css.entities;
 
 import ec.util.MersenneTwisterFast;
 import edu.gmu.css.agents.Leadership;
+import edu.gmu.css.agents.Tile;
 import edu.gmu.css.agents.WarProcess;
 import edu.gmu.css.data.Domain;
 import edu.gmu.css.agents.Process;
+import edu.gmu.css.data.EconomicPolicy;
 import edu.gmu.css.relations.*;
 import edu.gmu.css.service.Neo4jSessionFactory;
 import edu.gmu.css.worldOrder.WorldOrder;
 import org.neo4j.ogm.annotation.*;
 import org.neo4j.ogm.model.Result;
 import sim.engine.SimState;
+import sim.engine.Steppable;
 
-import java.io.Serializable;
 import java.util.*;
-import java.util.function.BiPredicate;
 
 
 @NodeEntity
-public class Polity extends Entity implements Serializable {
+public class Polity extends Entity implements Steppable {
 
     @Id @GeneratedValue
     private Long id;
@@ -54,6 +55,12 @@ public class Polity extends Entity implements Serializable {
     }
 
     public Polity (int startYear) {
+    }
+
+    public void step(SimState simState) {
+        Long step = simState.schedule.getSteps();
+        weeklyExpense(step);
+        collectTax();
     }
 
 
@@ -119,9 +126,6 @@ public class Polity extends Entity implements Serializable {
         Process process = disposition.getProcess();
         Domain domain = process.getDomain();
         Polity owner = disposition.getOwner();
-//        switch (domain) {
-//            case WAR:
-//        }
     }
 
     public Resources getSecurityStrategy() {
@@ -144,13 +148,12 @@ public class Polity extends Entity implements Serializable {
 
     }
 
-    private Resources requestNewStratgy(Resources proposed) {
+    protected Resources requestNewStratgy(Resources proposed) {
         if (resources.isSufficientFor(securityStrategy.evaluativeSum(proposed))) {
             securityStrategy.increaseBy(proposed);
             return proposed;
         } else {
             Resources available = resources.evaluativeAvailableDifference(proposed);
-
             return available;
         }
     }
@@ -175,15 +178,43 @@ public class Polity extends Entity implements Serializable {
         return resources.getPax();
     }
 
-    protected void recruit() {
+    public Set<BorderAgreement> getBordersWith() {
+        return bordersWith;
+    }
+
+    public Set<DiplomaticRepresentation> getRepresentedAt() {
+        return representedAt;
+    }
+
+    public Set<AllianceParticipation> getAlliances() {
+        return alliances;
+    }
+
+    protected void recruit(int cohort) {
+        Resources draft = new Resources.ResourceBuilder().build();
 
     }
 
-    private void collectTax() {
-
+    protected void collectTax() {
+        Resources revenue = new Resources.ResourceBuilder().build();
+        for (Inclusion i : territory.getTileLinks()) {
+            revenue.addTreasury(i.getTile().payTaxes());
+        }
+        // if the weekly revenue is greater than 1.07 x a week's worth of budget, decrease the tax
+        if ((revenue.getTreasury() * 1.07) > (resources.getTreasury() / (WorldOrder.annum.getWeeksThisYear() - 1))) {
+            for (Inclusion i : territory.getTileLinks()) {
+                i.getTile().setTaxRate(i.getTile().getTaxRate() * 0.9);
+            }
+        }
+        // or adjust it up if it's not high enough
+        if (revenue.getTreasury() < ((resources.getTreasury() * 1.01) / (WorldOrder.annum.getWeeksThisYear() - 1))) {
+            for (Inclusion i : territory.getTileLinks()) {
+                i.getTile().setTaxRate(i.getTile().getTaxRate() * 0.9);
+            }
+        }
     }
 
-    public void createWarStrategy(Process process, int size) {
+    protected void createWarStrategy(Process process, int size) {
 
     }
 
@@ -218,6 +249,11 @@ public class Polity extends Entity implements Serializable {
         }
     }
 
+    private void weeklyExpense(Long step) {
+        double expenses = resources.getTreasury() / WorldOrder.annum.getWeeksThisYear();
+        resources.subtractTreasury(expenses);
+    }
+
     public boolean willProbablyWin(Process process) {
 
         return true;
@@ -227,9 +263,6 @@ public class Polity extends Entity implements Serializable {
         return leadership.shouldEscalate();
     }
 
-    class EconomicPolicy {
-
-    }
 
     public boolean hasInsuficentResources(Institution war) {
 
@@ -293,26 +326,62 @@ public class Polity extends Entity implements Serializable {
             Fact af = (Fact) item.get("af");
             AllianceParticipation ap = new AllianceParticipation(p, a);
             ap.setFrom(af.getFrom());
+            a.addParticipations(ap);
 //            Neo4jSessionFactory.getInstance().getNeo4jSession().save(ap);
             alliances.add(ap);
             institutionList.add(ap);
 //            Neo4jSessionFactory.getInstance().getNeo4jSession().save(ap);
         }
+
+
         // trade
 //        String tradeQuery = "";
         // igos
 //        String igoQuery = "";
     }
 
-
-    class WarStrategy {
-        WarStrategy() {
-
+    public boolean isFriend(Polity p) {
+        /**
+         * returns true if given polity is my alliance partner
+         */
+        Polity polity = p;
+        for (AllianceParticipation ap : polity.getAlliances()) {
+            Alliance alliance = (Alliance) ap.getInstitution();
+            return alliance.findPartners().contains(p);
         }
+        return false;
     }
 
-
-
-
+    public List<Polity> getNeighborhoodWithoutAllies() {
+        List<Polity> polities = new ArrayList<>();
+        Map<String, Object> params = new HashMap<>();
+        params.put("year", territory.getYear());
+        params.put("mapKey", territory.getMapKey());
+        String query = "MATCH (t:Territory{mapKey:{mapKey}})-[:OCCUPIED]-(p1:Polity)-[e:ENTERED]-(apf:AllianceParticipationFact)" +
+                "-[:ENTERED_INTO]-(a:Alliance)-[:ONE_OF]-(l:List), (a)-[:ENTERED_INTO]-()-[e2:ENTERED]-(o:Polity) \n" +
+                "WHERE e.from.year <= {year} AND e.until.year > {year} AND l.type <> \"Entente\" AND " +
+                " e2.from.year <= {year} AND e2.until.year > {year} \n" +
+                "WITH COLLECT(o) AS allies, t \n" +
+                "MATCH (t)-[:BORDERS{during:{year}}]->(:Border)-[:BORDERS{during:{year}}]-(n:Territory)-[:BORDERS{during:{year}}]-(:Border)-[:BORDERS{during:{year}}]-(o:Territory) \n" +
+                "WHERE t <> n AND t <> o \n" +
+                "WITH COLLECT(n) + COLLECT(o) AS ter, t, allies \n" +
+                "UNWIND ter AS z \n" +
+                "MATCH (z)-[:OCCUPIED]-(p:Polity) \n" +
+                "WHERE NOT p IN allies \n" +
+                "WITH COLLECT(p) as potential \n" +
+                "RETURN potential";
+        Iterable<Polity> result = Neo4jSessionFactory.getInstance().getNeo4jSession()
+                .query(Polity.class, query, params);
+        if(result != null) {
+            for(Polity e: result) {
+                Polity p = WorldOrder.getAllTheStates().stream()
+                        .filter(t -> t.getId().equals(e.getId()))
+                        .findAny()
+                        .orElse(null);
+                polities.add(p);
+            }
+        }
+        return polities;
+    }
 
 }

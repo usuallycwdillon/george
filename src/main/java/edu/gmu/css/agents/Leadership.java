@@ -38,7 +38,6 @@ public class Leadership implements Steppable {
         return id;
     }
 
-
     public int getType() {
         return type;
     }
@@ -80,9 +79,9 @@ public class Leadership implements Steppable {
     public PeaceProcess considerPeace(War war) {
         Long step = worldOrder.getStepNumber();
         PeaceProcess pp = new PeaceProcess(polity, war, step);
-        WorldOrder.getAllThePeaceProcs().add(pp);
-        Stoppable stopper = worldOrder.schedule.scheduleRepeating(pp);
-        pp.setStopper(stopper);
+        WorldOrder.getAllTheProcs().add(pp);
+        Stoppable stoppable = worldOrder.schedule.scheduleRepeating(pp);
+        pp.setStopper(stoppable);
         return pp;
     }
 

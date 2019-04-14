@@ -9,11 +9,15 @@ public class Peace extends Institution {
     }
 
     public Peace(Process process) {
-
+        name = "Peace";
     }
 
     @Override
     public void step(SimState simState) {
 
+        if (stopped) {
+            stopper.stop();
+            return;
+        }
     }
 }

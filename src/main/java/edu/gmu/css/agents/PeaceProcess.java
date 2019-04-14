@@ -4,6 +4,7 @@ import edu.gmu.css.data.Domain;
 import edu.gmu.css.entities.Institution;
 import edu.gmu.css.entities.Peace;
 import edu.gmu.css.entities.Polity;
+import edu.gmu.css.entities.War;
 import edu.gmu.css.relations.InstitutionParticipation;
 import edu.gmu.css.relations.Participation;
 import edu.gmu.css.relations.ProcessDisposition;
@@ -20,7 +21,7 @@ public class PeaceProcess extends Process {
         domain = Domain.PEACE;
         name = "Peace";
         began = from;
-        institution = i;
+        issue = i;
         for (InstitutionParticipation ip : i.getParticipation()) {
             Polity participant = ip.getParticipant();
             if (participant == owner) {
@@ -62,22 +63,26 @@ public class PeaceProcess extends Process {
         worldOrder = (WorldOrder) simState;
         int count = 0;
         int statusSum = sumStatus();
-        System.out.println("This " + name + " proc now at " + fiat);
+//        System.out.println("This " + name + " proc now at " + fiat);
         if (stopped) {
-            WorldOrder.getAllThePeaceProcs().remove(this);
+            stopper.stop();
+            WorldOrder.getAllTheProcs().remove(this);
             processParticipantLinks = null;
             return;
+        }
+
+        if (WorldOrder.DEBUG) {
+            System.out.println("Peace Process at " + statusSum);
         }
 
         switch (statusSum) {
             case 1:
                 this.updateStatus();
             case 2:
-                System.out.println("New Peace Process at " + fiat);
+//                System.out.println("New Peace Process at " + fiat);
                 // A war or conflict is ongoing, then at least one party initiates a peace overture.
                 // Pole the participating polities: do they need peace?
                 // If everybody agrees peace is needed, N=true, 4; else outcome=true because it's determinable
-                count = 0;
                 for (ProcessDisposition p : processParticipantLinks) {
                     if (p.atN()) {
                         count += 1;
@@ -99,13 +104,12 @@ public class PeaceProcess extends Process {
             case 3:
                 // Log this attempt to the database; the process just dies; nothing else happens
                 ended = worldOrder.getStepNumber();
-                stopper.stop();
-                stopped = true;
+                conclude();
                 break;
             case 4:
                 // Has the process reached a fiat of equivalence?
                 // If not, have the participants even decided on the mutual need for peace?
-                if (equivalence) {  // go test for P or ~P
+                if (equivalence) {
                     ProcessDisposition pd  = processParticipantLinks.get(0);
                     if (pd.getOwner().evaluateNeedForPeace() ) {
                         this.P = true;
@@ -115,6 +119,7 @@ public class PeaceProcess extends Process {
                         this.outcome = true;        // result in 'E', sums to 5
                     }
                 } else {            // test for U or ~U
+                    equivalence = false;
                     count = 0;
                     for (ProcessDisposition p : processParticipantLinks) {
                         if (p.atU()) {
@@ -138,6 +143,8 @@ public class PeaceProcess extends Process {
                 if (equivalence) {
                     // Log this attempt at peace with the War/Conflict and leave it
                     outcome = true;
+                    stopper.stop();
+                    WorldOrder.getAllTheProcs().remove(this);
                 } else {
                     ProcessDisposition pd = processParticipantLinks.get(0);
                     if (pd.getOwner().evaluateNeedForPeace() ) {
@@ -156,8 +163,8 @@ public class PeaceProcess extends Process {
                 break;
             case 7:
                 // Log this attempt at peace with the War/Conflict and leave it
-                stopper.stop();
-                stopped = true;
+                this.outcome = true;
+                conclude();
                 break;
             case 8:
                 // Test for P or ~P; evaluate to 9 or 10; P/10 is basically a cease fire
@@ -167,7 +174,7 @@ public class PeaceProcess extends Process {
                     // ideally, this is a probability threshold where y ~ p(win)*weight + p(tooManyLosses)*weight
                     // where p(win) = A.forces/B.forces :: 1/100..50/50..100/1 follows p=0.01..p=0.50..p=1.0
                     // TODO: calculate p(win)
-                    double pWin = 0.0;
+                    double pWin = worldOrder.random.nextDouble();
                     if (pWin > 0.5) {
                         count += 1;
                     }
@@ -182,12 +189,12 @@ public class PeaceProcess extends Process {
             case 9:
                 if (equivalence) {
                     // Log this attempt at peace with the War/Conflict and leave it
+                    conclude();
                 } else {
                     this.equivalence = true;
                 }
                 this.updateStatus();
-                stopper.stop();
-                stopped = true;
+
                 break;
             case 10: // C and N and U and P
                 if (0.5 < simState.random.nextGaussian()) {
@@ -199,6 +206,7 @@ public class PeaceProcess extends Process {
                 break;
             case 11:
                 if (outcome) {
+                    conclude();
                 }
                 this.outcome = true;
                 this.updateStatus();
@@ -211,16 +219,18 @@ public class PeaceProcess extends Process {
             case 15:
                 this.outcome = true;
                 Long step = worldOrder.schedule.getSteps();
-                institution.stop();
-                createInstitution(step);
-                stopper.stop();
-                stopped = true;
+                // Assuming for now that peace insitutions are passive, only between participants
+                ((Institution) issue).conclude();
+                institution = createInstitution(step);
+                WorldOrder.getAllTheInstitutions().remove(issue);
+                WorldOrder.getAllTheInstitutions().add(institution);
+                conclude();
                 break;
         }
     }
 
-    public Institution createInstitution(Long step) {
-        return new Peace();
-    }
+//    public Institution createInstitution(Long step) {
+//        return new Peace();
+//    }
 
 }

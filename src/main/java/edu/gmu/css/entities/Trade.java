@@ -24,7 +24,7 @@ public class Trade extends Institution{
     }
 
     public Trade(Process process) {
-
+        name = "Trade";
     }
 
     @Override

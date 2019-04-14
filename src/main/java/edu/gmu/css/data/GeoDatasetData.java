@@ -44,11 +44,11 @@ public class GeoDatasetData {
     static {
         Map<Integer, Dataset> mapdata = new HashMap<>();
         mapdata.put(1816, map1816);
-//        mapdata.put(1880, map1880);
-//        mapdata.put(1914, map1914);
-//        mapdata.put(1938, map1938);
-//        mapdata.put(1945, map1945);
-//        mapdata.put(1994, map1994);
+        mapdata.put(1880, map1880);
+        mapdata.put(1914, map1914);
+        mapdata.put(1938, map1938);
+        mapdata.put(1945, map1945);
+        mapdata.put(1994, map1994);
         GEODATASETS = Collections.unmodifiableMap(mapdata);
     }
 

@@ -33,9 +33,11 @@ public class ProcessDisposition {
     @Transient
     private Resources commitment;
     @Transient
-    SecurityObjective objective;
+    private SecurityObjective objective;
     @Transient
-    Institution subject;
+    private Institution subject;
+    @Transient
+    private int side;
 
 
     public ProcessDisposition() {
@@ -141,5 +143,13 @@ public class ProcessDisposition {
 
     public void setSubject(Institution subject) {
         this.subject = subject;
+    }
+
+    public int getSide() {
+        return side;
+    }
+
+    public void setSide(int side) {
+        this.side = side;
     }
 }

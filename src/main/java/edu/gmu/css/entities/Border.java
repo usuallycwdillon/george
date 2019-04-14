@@ -26,6 +26,7 @@ public class Border extends Institution {
 
     // only for the OGM, don't use this otherwise
     public Border() {
+        name = "Border Agreement";
     }
 
     public Territory getNeighborTerritory(BorderRelation a) {

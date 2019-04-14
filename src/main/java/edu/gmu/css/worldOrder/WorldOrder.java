@@ -2,7 +2,9 @@ package edu.gmu.css.worldOrder;
 
 import edu.gmu.css.agents.*;
 import edu.gmu.css.agents.Process;
+import edu.gmu.css.data.Annum;
 import edu.gmu.css.data.DataTrend;
+import edu.gmu.css.data.EconomicPolicy;
 import edu.gmu.css.entities.*;
 import edu.gmu.css.queries.DataQueries;
 import edu.gmu.css.queries.StateQueries;
@@ -14,9 +16,9 @@ import sim.engine.Steppable;
 import sim.engine.Stoppable;
 import sim.util.distribution.Poisson;
 
-import java.awt.*;
 import java.util.*;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Generator for Experiments on the Order and Relations in a Global Environment (GEORGE) using the Multi-Agent
@@ -43,7 +45,7 @@ public class WorldOrder extends SimState {
             do
                 if (!worldOrder.schedule.step(worldOrder))
                     break;
-            while(worldOrder.schedule.getSteps() < 12000);
+            while(worldOrder.schedule.getSteps() < 52 * 300);
             worldOrder.finish();
         }
         System.exit(0);
@@ -67,7 +69,7 @@ public class WorldOrder extends SimState {
      *
      */
     public static boolean DEBUG = true;
-    public static boolean NEW_BASELINE = true;
+    public static boolean NEW_BASELINE = false;
 
     private static int startYear = 1816; // Choices are 1816, 1880, 1914, 1938, 1945, 1994
     private static int untilYear = 1820; // Depending on how sloppy you're willing to be, can be just below next year
@@ -77,22 +79,24 @@ public class WorldOrder extends SimState {
     // The stabilityDuration is the number of weeks with no change in globalWarLikelihood before the system is "stable"
     // and globalHostility is the collection of that data.
     public static int stabilityDuration;
+    public static long initializationPeriod;
     public static DataTrend globalHostility;
     public static double warCostFactor;       // The maximum % GDP that any one war can cost
     public static double globalWarLikelihood; // based on 136 wars in 10,017 weeks
-    public static Double peaceTreatyEffect;
+    public static double institutionInfluence;
 
     public static Poisson poisson;
 
     public static List<State> allTheStates = new ArrayList<>();
     public static Set<War> allTheWars = new HashSet<>();
+    public static Set<Process> allTheProcs = new HashSet<>();
     public static Set<PeaceProcess> allThePeaceProcs = new HashSet<>();
     public static Set<WarProcess> allTheWarProcs = new HashSet<>();
     public static Map<Long, Tile> tiles = new HashMap<>();
     public static Map<String, Territory> territories = new HashMap<>();
     public static Dataset spatialDataset;
     public static Map<Long, Integer> warCountHistory = new HashMap<>();
-
+    public static Set<Institution> allTheInstitutions = new HashSet<>();
 
 
     // Some parameters for war strategy thresholds.
@@ -119,6 +123,7 @@ public class WorldOrder extends SimState {
 
     public static Dataset modelRun;
     private static Long seed;
+    public static Annum annum;
 
 
 //    public static TerminalAgent terminalAgent = new TerminalAgent();
@@ -130,15 +135,18 @@ public class WorldOrder extends SimState {
         // new dataset node in graph to track this data
         modelRun = new Dataset(seed());
         Neo4jSessionFactory.getInstance().getNeo4jSession().save(modelRun, 0);
+        annum = new Annum();
+        schedule.scheduleRepeating(annum);
 
         // set model parameters
         stabilityDuration = 80 * 52;
-        warCostFactor = 0.25;
-        globalWarLikelihood = 0.01088;
+        initializationPeriod = 10 * 52;
+//        warCostFactor = 0.25;
+        globalWarLikelihood = 0.185312622886355;
         globalHostility = new DataTrend(stabilityDuration);
-        peaceTreatyEffect = 0.001;
+        institutionInfluence = 0.001;
 
-        poisson = new Poisson(0.185312622886355, random);
+        poisson = new Poisson(globalWarLikelihood, random);
 
         territories = TerritoryQueries.getStateTerritories(startYear);
         for (String t : territories.keySet()) {
@@ -147,6 +155,8 @@ public class WorldOrder extends SimState {
             territories.put(t, territory);
         }
 
+        // add water territories AFTER creating the list of states because
+        territories.putAll(TerritoryQueries.getWaterTerritories());
 
         // Each territory is controlled by a Polity, which may be a State
         // TODO: Create Polity Coordination objects to represent underdeveloped & unrecognized polities; until then, they get a placeholder polity object.
@@ -159,9 +169,11 @@ public class WorldOrder extends SimState {
                 p.setTerritory(t);
                 t.setGovernment(p, getStepNumber());
             } else {
-                State s = (State) t.getGovernment();
-                s.setTerritory(t);
-                allTheStates.add(s);
+                if (t.getGovernment().getClass()==State.class) {
+                    State s = (State) t.getGovernment();
+                    s.setTerritory(t);
+                    allTheStates.add(s);
+                }
             }
         }
 
@@ -183,6 +195,7 @@ public class WorldOrder extends SimState {
                 s.setResources(new Resources.ResourceBuilder().pax(10000).treasury(100000.0).build());
                 System.out.println("I made up some military resources for " + s.getName());
             }
+            s.setEconomicPolicy(new EconomicPolicy(0.5, 0.5, 0.1) );
         }
 
         warCountHistory = new DataQueries().getWeeklyWarsCount();
@@ -190,6 +203,10 @@ public class WorldOrder extends SimState {
         // TODO: Add Data Collection to the Schedule
 
         tiles.values().forEach(tile -> schedule.scheduleRepeating(tile));
+
+        ProbabilisticCausality warCause = new ProbabilisticCausality(this);
+        Stoppable externalWarStopper = schedule.scheduleRepeating(warCause);
+        warCause.setStopper(externalWarStopper);
 
         Steppable world = new Steppable() {
 
@@ -207,24 +224,9 @@ public class WorldOrder extends SimState {
                     territories.values().forEach(Territory::updateTotals);
                 }
 
-                int freq = poisson.nextInt();
-                if (DEBUG) {System.out.println("poisson frequency is " + freq);}
-                for (int f=0; f<freq; f++) {
-                    if (freq >= 1) {
-                        int numStates = allTheStates.size();
-                        int instigator = random.nextInt(numStates);
-                        int target = random.nextInt(numStates);
-                        if (target != instigator) {
-                            Polity p = allTheStates.get(instigator);
-                            Polity t = allTheStates.get(target);
-                            WarProcess proc = p.getLeadership().initiateWarProcess(t);
-                            allTheWarProcs.add(proc);
-                            Stoppable stoppable = worldOrder.schedule.scheduleRepeating(proc);
-                            proc.setStopper(stoppable);
-                        }
-                    }
+                if (stepNo == stabilityDuration) {
+                    externalWarStopper.stop();
                 }
-
 
                 // End the simulation if the global probability of war is stagnate or stable at zero
                 if (globalWarLikelihood <= 0) {
@@ -233,9 +235,22 @@ public class WorldOrder extends SimState {
                 if (globalHostility.average() == globalWarLikelihood && stepNo > stabilityDuration) {
                     System.exit(0);
                 }
+
+                // Count Procs
+                Map<String, Long> procCounts =
+                        allTheProcs.stream().collect(Collectors.groupingBy(e -> e.getName(), Collectors.counting()));
+                Map<String, Long> instCounts =
+                        allTheInstitutions.stream().collect(Collectors.groupingBy(e -> e.getName(), Collectors.counting()));
+
+                System.out.println(procCounts  + " : " + instCounts + " : " + globalWarLikelihood);
+
             }
         };
         schedule.scheduleRepeating(world);
+    }
+
+    public void updatePoisson() {
+        poisson = new Poisson(globalWarLikelihood, random);
     }
 
 
@@ -267,6 +282,10 @@ public class WorldOrder extends SimState {
         return globalWarLikelihood;
     }
 
+    public void setGlobalWarLikelihood(double effect) {
+        globalWarLikelihood += effect;
+    }
+
     public static List<State> getAllTheStates() {
         return allTheStates;
     }
@@ -283,6 +302,10 @@ public class WorldOrder extends SimState {
         return allTheWarProcs;
     }
 
+    public static Set<Process> getAllTheProcs() {
+        return allTheProcs;
+    }
+
     public static Map<Long, Tile> getTiles() {
         return tiles;
     }
@@ -295,6 +318,27 @@ public class WorldOrder extends SimState {
         return spatialDataset;
     }
 
+    public static double getInstitutionInfluence() {
+        return institutionInfluence;
+    }
 
+    public static void setInstitutionInfluence(double institutionInfluence) {
+        WorldOrder.institutionInfluence = institutionInfluence;
+    }
 
+    public static Set<Institution> getAllTheInstitutions() {
+        return allTheInstitutions;
+    }
+
+    public static void addInstitution(Institution i) {
+        allTheInstitutions.add(i);
+    }
+
+    public static void removeInstitution(Institution i) {
+        allTheInstitutions.remove(i);
+    }
+
+    public static long getInitializationPeriod() {
+        return initializationPeriod;
+    }
 }

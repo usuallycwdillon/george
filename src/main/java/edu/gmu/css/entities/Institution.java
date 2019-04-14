@@ -8,6 +8,7 @@ import edu.gmu.css.entities.Polity;
 import edu.gmu.css.relations.InstitutionParticipation;
 import edu.gmu.css.relations.Participation;
 import edu.gmu.css.util.MTFApache;
+import edu.gmu.css.worldOrder.WorldOrder;
 import org.neo4j.ogm.annotation.*;
 import sim.engine.SimState;
 import sim.engine.Steppable;
@@ -41,11 +42,17 @@ public abstract class Institution extends Entity implements Steppable, Stoppable
     @Property
     protected boolean active = false;
     @Transient
+    protected WorldOrder worldOrder;
+    @Transient
+    protected boolean stopped;
+    @Transient
     protected Resources maintenance;
     @Transient
     protected MersenneTwisterFast random;
     @Transient
     protected Stoppable stopper = null;
+    @Transient
+    protected String name;
 
     @Relationship(direction=Relationship.INCOMING)
     protected List<InstitutionParticipation> participation = new ArrayList<>();
@@ -61,7 +68,7 @@ public abstract class Institution extends Entity implements Steppable, Stoppable
     }
 
     public void step(SimState simState) {
-
+        worldOrder = (WorldOrder) simState;
     }
 
     @Override
@@ -145,6 +152,14 @@ public abstract class Institution extends Entity implements Steppable, Stoppable
         this.active = active;
     }
 
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
     public Organization getOrganization() {
         return organization;
     }
@@ -167,7 +182,15 @@ public abstract class Institution extends Entity implements Steppable, Stoppable
 
     public void setStopper(Stoppable stopper)   {this.stopper = stopper;}
 
+    public Stoppable getStopper() {
+        return this.stopper;
+    }
+
     public void stop(){stopper.stop();}
 
-
+    public void conclude() {
+        stopper.stop();
+        stopped = true;
+        WorldOrder.getAllTheInstitutions().remove(this);
+    }
 }

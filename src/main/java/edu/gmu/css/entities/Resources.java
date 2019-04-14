@@ -8,6 +8,7 @@ public class Resources {
     private int products;
     private int natResources;
     private double treasury;
+    private double treasurePaxRatio;
 
 
     public static class ResourceBuilder {
@@ -49,6 +50,7 @@ public class Resources {
         this.products = builder.products;
         this.natResources = builder.natResources;
         this.treasury = builder.treasury;
+        this.updateCostPerPax();
     }
 
     private Resources() { }
@@ -165,6 +167,10 @@ public class Resources {
 
     public void subtractNatResources(int reserves) {
         this.natResources -= reserves;
+    }
+
+    public void updateCostPerPax() {
+        this.treasurePaxRatio = treasury / pax;
     }
 
 

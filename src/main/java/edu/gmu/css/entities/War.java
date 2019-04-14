@@ -40,10 +40,15 @@ public class War extends Institution {
     public War(Process proc) {
         from = proc.getWorldOrder().getStepNumber();
         cost = new Resources.ResourceBuilder().build();
+        name = "War";
     }
 
     @Override
     public void step(SimState simState) {
+        if(stopped) {
+            stopper.stop();
+            return;
+        }
         WorldOrder worldOrder = (WorldOrder) simState;
         random = worldOrder.random;
         // 1. Do any participants want peace?

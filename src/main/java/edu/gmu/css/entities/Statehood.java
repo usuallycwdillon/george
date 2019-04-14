@@ -10,7 +10,7 @@ public class Statehood extends Institution {
     }
 
     public Statehood(Process process) {
-
+        name = "Statehood";
     }
 
     @Override

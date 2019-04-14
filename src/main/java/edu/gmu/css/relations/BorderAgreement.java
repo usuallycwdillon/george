@@ -49,6 +49,10 @@ public class BorderAgreement extends InstitutionParticipation{
         this.during = during;
     }
 
+    public Polity getNeighbor() {
+        return institution.findBorderPartner(this);
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

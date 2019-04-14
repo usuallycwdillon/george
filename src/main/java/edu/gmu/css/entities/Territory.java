@@ -85,6 +85,17 @@ public class Territory extends Entity implements Serializable {
         if (area != null) {this.area = area;} else {this.area = 0.0;}
     }
 
+    public Territory(String name, int year) {
+        this.resolution = 4;
+        this.year = year;
+        this.name = name;
+        this.mapKey = name + " " + year;
+        this.population = 0;
+        this.urbanPopulation = 0;
+        this.area = 0.0;
+        this.cowcode = "NA";
+    }
+
     public Territory(String name, String abbr, Double area, int year, int resolution, Feature feature) {
         this();
         this.year = year;

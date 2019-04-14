@@ -8,9 +8,11 @@ import edu.gmu.css.data.GeoDatasetData;
 import edu.gmu.css.entities.Dataset;
 import edu.gmu.css.entities.Entity;
 import edu.gmu.css.entities.Territory;
+import edu.gmu.css.queries.TerritoryQueries;
 import edu.gmu.css.relations.Inclusion;
 import edu.gmu.css.service.Neo4jSessionFactory;
 import org.geojson.*;
+import org.jetbrains.annotations.NotNull;
 import org.neo4j.helpers.collection.MapUtil;
 import org.neo4j.ogm.session.Session;
 import org.neo4j.ogm.transaction.Transaction;
@@ -45,54 +47,21 @@ public class HexFactory {
         LocalTime startTime = LocalTime.now();
         System.out.println("The factory started working at: " + startTime);
 
-        for (Map.Entry entry : geodatasets.entrySet()) {
-            int y = (int)entry.getKey();
-            Dataset d = (Dataset) entry.getValue();
-            String filename = "cowWorld_" + y + ".geojson";
-
-            // Checking that the dataset will save before doing any work; fail early, please.
-//            Neo4jSessionFactory.getInstance().getNeo4jSession().save(d,0);
-
-            List<Feature> features = geoJsonProcessor(filename);
-            d.addAllFacts(features.stream()
-                    .filter(feature -> !feature.getProperty("NAME").equals("Antarctica"))
-                    .map(feature -> new Territory(feature, y))
-                    .collect(Collectors.toList()));
-
-            // Get rid of any territories too small to have any tiles
-            List<Territory> irrelevants = new ArrayList<>();
-            for (Entity e : d.getFacts()) {
-                Territory t = (Territory) e;
-                if (t.getTileLinks().size() <= 0) {
-                    irrelevants.add(t);
-                }
-            }
-            for (Territory t : irrelevants) {
-                d.removeFact(t);
-            }
-
-            // Save the territories into the database
-            for (Entity e : d.getFacts()) {
-                Territory t = (Territory) e;
-//                Neo4jSessionFactory.getInstance().getNeo4jSession().save(t, 1);
-                if(DEBUG) {System.out.println("Saved " + t.getMapKey() + " to the database at " + LocalTime.now());}
-                territories.put(t.getMapKey(), t);
-            }
-
-//            Neo4jSessionFactory.getInstance().getNeo4jSession().save(d, 1);
-            if(DEBUG) {System.out.println("Completed " + y + " at " + LocalTime.now());}
-        }
+        new HexFactory().factoryLoop();
 
         // Hex Tiles get joined globally, because their arrangement is fixed, regardless of which tiles are in which
         // territory in any given year.
-//        new HexFactory().joinHexes();
+        new HexFactory().joinHexes();
+
+        // The missing hexes returned by the joinHexes method together create the outline of all continents and islands.
+        // They can be treated as a territory (one for each data year) and any territory that borders a sea,
 
         // Territory neighbors and munging territories with COW State facts are both dependent on the year, so we can
         // operate on both functions together.
-//        for (int year : geodatasets.keySet()) {
-//            new HexFactory().findTerritoryNeighbors(year);
-//            new HexFactory().makeCowRelations(year);
-//        }
+        for (int year : geodatasets.keySet()) {
+            new HexFactory().findTerritoryNeighbors(year);
+            new HexFactory().makeCowRelations(year);
+        }
 
 
         // Finally, we dump the hex-shaped multi-polygons into files for observation and visual validation (do these
@@ -103,8 +72,10 @@ public class HexFactory {
                 .collect(Collectors.toList());
         makeFeatureCollection(territoryStream);
 
-//        new HexFactory().isolateOccupationEdges();
-//        new HexFactory().makeStateBorders();
+        new HexFactory().isolateOccupationEdges();
+        new HexFactory().makeStateBorders();
+
+//        new HexFactory().adHocTerritory();
 
         System.exit(0);
     }
@@ -139,11 +110,19 @@ public class HexFactory {
 
     private void findTerritoryNeighbors(int year) {
         System.out.println("The simulation is ready to find territorial borders during " + year + " at: " + LocalTime.now());
-        String query = "MATCH (t1:Territory{year:{year}})-[:INCLUDES]->(h1:Tile)-[:ABUTS]-(h2:Tile)<-[:INCLUDES]-(t2:Territory{year:{year}}), " +
-                "        (y:Year{name:toString({year})}) \n" +
-                "        WHERE t1 <> t2 AND t1.year = t2.year \n" +
-                "        CREATE (b:BorderRelation{year:{year}})-[:DURING]->(y) \n" +
-                "        MERGE (t1)-[:BORDERS{during:{year}}]->(b)<-[:BORDERS{during:{year}}]-(t2)";
+        String query = "MATCH (t1:Territory{year:{year}})-[:INCLUDES]->(tt1:Tile)-[:ABUTS]-(tt2:Tile)<-[:INCLUDES]-(t2:Territory{year:{year}})\n" +
+                "  WHERE t1 <> t2 AND tt1 <> tt2 \n" +
+                "WITH [t1.mapKey, t2.mapKey] AS pair ORDER BY pair \n" +
+                "WITH DISTINCT pair AS pairs \n" +
+                "FOREACH (p IN CASE WHEN pairs[0] < pairs[1] THEN [1] ELSE [] END | \n" +
+                "  MERGE (b:Border{year:{year}, subjects:pairs}) \n" +
+                "  MERGE (y:Year{name:toString({year})}) \n" +
+                "  MERGE (t0:Territory{mapKey:pairs[0]}) \n" +
+                "  MERGE (t1:Territory{mapKey:pairs[1]}) \n" +
+                "  MERGE (b)-[:DURING{year:{year}}]->(y) \n" +
+                "  MERGE (t0)-[:BORDERS{during:{year}}]->(b) \n" +
+                "  MERGE (t1)-[:BORDERS{during:{year}}]->(b) \n" +
+                ")";
 
         Neo4jSessionFactory.getInstance().getNeo4jSession().query(query, MapUtil.map("year", year));
 
@@ -171,8 +150,8 @@ public class HexFactory {
             FeatureCollection featureCollection = new FeatureCollection();
             String key = t.getMapKey();
             String filepath = "src/main/resources/historicalHexMaps/" + t.getYear() + "/" + key + "_poly.geojson";
-//            Feature territoryFeature = makeFeatures(t);
-//            featureCollection.add(territoryFeature);
+            Feature territoryFeature = makeFeatures(t);
+            featureCollection.add(territoryFeature);
             featureCollection = makeFeatureCollectionPoly(t);
             ObjectMapper geoFeature = new ObjectMapper();
             try {
@@ -180,14 +159,14 @@ public class HexFactory {
             } catch (Exception e) {
                 e.printStackTrace();
             }
-            filepath = "src/main/resources/historicalHexMaps/" + t.getYear() + "/" + key + "_point.geojson";
-            featureCollection = makeFeatureCollectionPoint(t);
-            ObjectMapper pointFeature = new ObjectMapper();
-            try {
-                pointFeature.writeValue(new File(filepath), featureCollection);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+//            filepath = "src/main/resources/historicalHexMaps/" + t.getYear() + "/" + key + "_point.geojson";
+//            featureCollection = makeFeatureCollectionPoint(t);
+//            ObjectMapper pointFeature = new ObjectMapper();
+//            try {
+//                pointFeature.writeValue(new File(filepath), featureCollection);
+//            } catch (Exception e) {
+//                e.printStackTrace();
+//            }
         }
     }
 
@@ -272,8 +251,8 @@ public class HexFactory {
             int upop = (int)(h.getPopulation() * h.getUrbanization());
             Feature tileFeature = new Feature();
             tileFeature.setId(h.getAddress());
-            tileFeature.setProperty("H3ID", h.getH3Id());
             tileFeature.setProperty("POPULATION", h.getPopulation());
+            tileFeature.setProperty("H3ID", h.getH3Id());
             tileFeature.setProperty("URBAN_POP", upop);
             tileFeature.setProperty("H3Address", h.getAddress());
             Point point = new Point();
@@ -300,7 +279,7 @@ public class HexFactory {
 
     private void makeStateBorders() {
         // This won't work unless state system data has already been loaded.
-        String query = "MATCH (s1:State)-[o1:OCCUPIED]->(t1:Territory)-[b1:BORDERS]->(b:BorderRelation)<-[b2:BORDERS]-(t2:Territory)-[o2:OCCUPIED]-(s2:State) \n" +
+        String query = "MATCH (s1:State)-[o1:OCCUPIED]->(t1:Territory)-[b1:BORDERS]->(b:Border)<-[b2:BORDERS]-(t2:Territory)-[o2:OCCUPIED]-(s2:State) \n" +
                 "WHERE s1<>s2 AND t1<>t2 AND o1.during=o2.during \n" +
                 "MERGE (s1)-[:SHARES_BORDER{during:b.year}]->(b)<-[:SHARES_BORDER{during:b.year}]-(s2) ";
         Neo4jSessionFactory.getInstance().getNeo4jSession().query(query, MapUtil.map());
@@ -309,6 +288,54 @@ public class HexFactory {
     private void isolateOccupationEdges() {
         String query = "MATCH (s:State)-[o:OCCUPIED]-(t:Territory) SET o.during = t.year";
         Neo4jSessionFactory.getInstance().getNeo4jSession().query(query, MapUtil.map());
+    }
+
+    private void factoryLoop() {
+        for (Map.Entry entry : geodatasets.entrySet()) {
+            int y = (int)entry.getKey();
+            Dataset d = (Dataset) entry.getValue();
+            String filename = "cowWorld_" + y + ".geojson";
+
+            // Checking that the dataset will save before doing any work; fail early, please.
+            Neo4jSessionFactory.getInstance().getNeo4jSession().save(d,0);
+
+            List<Feature> features = geoJsonProcessor(filename);
+            d.addAllFacts(features.stream()
+                    .filter(feature -> !feature.getProperty("NAME").equals("Antarctica"))
+                    .map(feature -> new Territory(feature, y))
+                    .collect(Collectors.toList()));
+
+            // Get rid of any territories too small to have any tiles
+            List<Territory> irrelevants = new ArrayList<>();
+            for (Entity e : d.getFacts()) {
+                Territory t = (Territory) e;
+                if (t.getTileLinks().size() <= 0) {
+                    irrelevants.add(t);
+                }
+            }
+            for (Territory t : irrelevants) {
+                d.removeFact(t);
+            }
+
+            // Save the territories into the database
+            for (Entity e : d.getFacts()) {
+                Territory t = (Territory) e;
+                Neo4jSessionFactory.getInstance().getNeo4jSession().save(t, 1);
+                if(DEBUG) {System.out.println("Saved " + t.getMapKey() + " to the database at " + LocalTime.now());}
+                territories.put(t.getMapKey(), t);
+            }
+
+            Neo4jSessionFactory.getInstance().getNeo4jSession().save(d, 1);
+            if(DEBUG) {System.out.println("Completed " + y + " at " + LocalTime.now());}
+        }
+    }
+
+    private void adHocTerritory() {
+        String key = "Coastal Regions 1816";
+        Territory t = TerritoryQueries.loadWithRelations(key);
+        List<Territory> territoryList = new ArrayList<>();
+        territoryList.add(t);
+        makeFeatureCollection(territoryList);
     }
 
 }

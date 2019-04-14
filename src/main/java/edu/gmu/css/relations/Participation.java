@@ -91,6 +91,10 @@ public class Participation extends InstitutionParticipation {
 
     public void tallyLosses(int pax) {
         commitment.subtractPax(pax);
+        if (commitment.getPax() < 0) {
+            // TODO: implement consequences for losing the war; for now, just end it.
+            institution.conclude();
+        }
         magnitude.addPax(pax);
         ProcessDisposition pd = participant.getProcessList().stream()
                 .filter(d -> institution.equals(d.getSubject()))

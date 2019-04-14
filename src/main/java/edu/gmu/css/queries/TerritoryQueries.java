@@ -1,7 +1,9 @@
 package edu.gmu.css.queries;
 
 import edu.gmu.css.agents.Tile;
+import edu.gmu.css.entities.Polity;
 import edu.gmu.css.entities.Territory;
+import edu.gmu.css.entities.Ungoverned;
 import edu.gmu.css.relations.Inclusion;
 import edu.gmu.css.service.Neo4jSessionFactory;
 import edu.gmu.css.worldOrder.WorldOrder;
@@ -33,5 +35,19 @@ public class TerritoryQueries {
         return territory;
     }
 
+    public static Map<String, Territory> getWaterTerritories() {
+        String [] seas = {"World Oceans", "Black Sea", "Caspian Sea"};
+        Map<String, Territory> waterTerritories = new HashMap<>();
+        for (String key : seas) {
+            Territory territory = Neo4jSessionFactory.getInstance().getNeo4jSession().load(Territory.class, key, 1);
+            Ungoverned u = new Ungoverned(territory);
+            territory.setGovernment(u, 0L);
+            waterTerritories.put(key, territory);
+        }
+        return waterTerritories;
+    }
+
 
 }
+
+
