@@ -503,7 +503,24 @@ public class Territory extends Entity implements Serializable {
         population = tileLinks.stream().mapToInt(Inclusion::getTilePopulation).sum();
     }
 
-    // TODO: Add equals method, toString method,
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        if (!super.equals(o)) return false;
 
+        Territory territory = (Territory) o;
 
+        if (!getMapKey().equals(territory.getMapKey())) return false;
+        if (getResolution() != (territory.getResolution())) return false;
+        return getLinkedTileIds() != null ? getLinkedTileIds().equals(territory.getLinkedTileIds()) : territory.getLinkedTileIds() == null;
+
+    }
+
+    @Override
+    public int hashCode() {
+        int result = getMapKey().hashCode();
+        result = 31 * result;
+        return result;
+    }
 }

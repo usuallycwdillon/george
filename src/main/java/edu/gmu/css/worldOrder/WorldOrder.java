@@ -159,7 +159,8 @@ public class WorldOrder extends SimState {
         territories.putAll(TerritoryQueries.getWaterTerritories());
 
         // Each territory is controlled by a Polity, which may be a State
-        // TODO: Create Polity Coordination objects to represent underdeveloped & unrecognized polities; until then, they get a placeholder polity object.
+        // TODO: Create Polity Coordination objects to represent underdeveloped & unrecognized polities; until then,
+        //       they get a placeholder polity object.
         for (String k : territories.keySet()) {
             // if there isn't a government assigned, double-check whether there should be one
             Territory t = territories.get(k);
@@ -196,6 +197,7 @@ public class WorldOrder extends SimState {
                 System.out.println("I made up some military resources for " + s.getName());
             }
             s.setEconomicPolicy(new EconomicPolicy(0.5, 0.5, 0.1) );
+            schedule.scheduleRepeating(s);
         }
 
         warCountHistory = new DataQueries().getWeeklyWarsCount();

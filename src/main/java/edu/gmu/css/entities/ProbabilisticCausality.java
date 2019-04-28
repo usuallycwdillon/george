@@ -42,8 +42,12 @@ public class ProbabilisticCausality implements Steppable, Stoppable {
                 }
                 int target = random.nextInt(numPotentials);
                 Polity t = potentialTargets.get(target);
+                int d = random.nextInt(523);
                 if (p != t) {
+                    Issue i = new Issue.IssueBuilder().duration(d).target(t).build();
+                    i.setStopper(worldOrder.schedule.scheduleRepeating(i));
                     WarProcess proc = p.getLeadership().initiateWarProcess(t);
+                    proc.setIssue(i);
                     WorldOrder.getAllTheProcs().add(proc);
                     Stoppable stoppable = worldOrder.schedule.scheduleRepeating(proc);
                     proc.setStopper(stoppable);

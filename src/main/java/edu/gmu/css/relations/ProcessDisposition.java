@@ -23,7 +23,12 @@ public class ProcessDisposition {
     private Long until;
     @Property
     private Integer during;
-    // The owning polity only cares about it's own (internal) relation to the process S, P, and C are not necessary
+    @Transient
+    private boolean S;
+    @Transient
+    private boolean P;
+    @Transient
+    private boolean C;
     @Transient
     private boolean U;
     @Transient
@@ -41,6 +46,9 @@ public class ProcessDisposition {
 
 
     public ProcessDisposition() {
+        this.S = false;
+        this.P = false;
+        this.C = true;
         this.U = false;
         this.N = false;
         this.K = true;      // default state is for K to be true (otherwise there would be no process or relation to it
@@ -87,6 +95,30 @@ public class ProcessDisposition {
 
     public void setUntil(Long until) {
         this.until = until;
+    }
+
+    public boolean atS() {
+        return S;
+    }
+
+    public void setS(boolean s) {
+        this.S = s;
+    }
+
+    public boolean atP() {
+        return P;
+    }
+
+    public void setP(boolean p) {
+        this.P = p;
+    }
+
+    public boolean atC() {
+        return this.C;
+    }
+
+    public void setC(boolean c) {
+        this.C = c;
     }
 
     public boolean atU() {

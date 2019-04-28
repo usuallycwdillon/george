@@ -76,13 +76,13 @@ public abstract class Process extends Entity implements Steppable, Serializable 
     @Transient
     protected double cost;
     @Transient
-    protected int[] status = new int[]{0, 0, 0};
+    protected int[] status = new int[] {0, 0, 0};
     @Property
     protected Domain domain;
     @Transient
     protected Stoppable stopper = null;
     @Transient
-    protected Entity issue; // the war, peace, trade, org, territory, etc.
+    protected Issue issue; // the war, peace, trade, org, territory, etc.
     @Transient
     protected String name;
     @Transient
@@ -142,16 +142,22 @@ public abstract class Process extends Entity implements Steppable, Serializable 
     public long getEnded() {
         return ended;
     }
+    public Issue getIssue() {
+        return issue;
+    }
     public String getName() {
         return name;
     }
-
     public List<ProcessDisposition> getProcessDispositionList() {
         return processParticipantLinks;
     }
     public Domain getDomain() {
         return domain;
     }
+    public WorldOrder getWorldOrder() {
+        return this.worldOrder;
+    }
+
     public void setWorldOrder(SimState simState) {
         this.worldOrder = (WorldOrder) simState;
     }
@@ -185,10 +191,10 @@ public abstract class Process extends Entity implements Steppable, Serializable 
     public void setInstitution(Institution i) {
         institution = i;
     }
-    public WorldOrder getWorldOrder() {
-        return this.worldOrder;
+    public void setIssue(Issue issue) {
+        this.issue = issue;
     }
-
+    public void setStopper(Stoppable stopper)   {this.stopper = stopper;}
 
 
     public void updateStatus() {
@@ -327,8 +333,6 @@ public abstract class Process extends Entity implements Steppable, Serializable 
         }
     }
 
-    public void setStopper(Stoppable stopper)   {this.stopper = stopper;}
-
     public void stop(){stopper.stop();}
 
     public void saveNearEntity(Object o) {
@@ -349,7 +353,5 @@ public abstract class Process extends Entity implements Steppable, Serializable 
         stopped = true;
         WorldOrder.getAllTheProcs().remove(this);
     }
-
-
 
 }

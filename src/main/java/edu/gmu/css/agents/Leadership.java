@@ -72,7 +72,9 @@ public class Leadership implements Steppable {
         SecurityObjective objective = chooseSecurityObjective();
         Resources force = warStrategy(target, objective);
         WarProcess p = new WarProcess(polity, target, force, objective, worldOrder.getStepNumber());
-        // TODO: Draft and tax for this war
+        if(objective.value / 2.0 > 2.0) {
+            recruit(force);
+        }
         return p;
     }
 
@@ -212,6 +214,10 @@ public class Leadership implements Steppable {
         return strategy;
     }
 
+    private void recruit(Resources risk) {
+
+
+    }
 
 
 

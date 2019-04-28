@@ -58,8 +58,6 @@ public class Polity extends Entity implements Steppable {
     }
 
     public void step(SimState simState) {
-        Long step = simState.schedule.getSteps();
-        weeklyExpense(step);
         collectTax();
     }
 
@@ -192,26 +190,14 @@ public class Polity extends Entity implements Steppable {
 
     protected void recruit(int cohort) {
         Resources draft = new Resources.ResourceBuilder().build();
+    }
+
+    protected void recruit() {
 
     }
 
     protected void collectTax() {
-        Resources revenue = new Resources.ResourceBuilder().build();
-        for (Inclusion i : territory.getTileLinks()) {
-            revenue.addTreasury(i.getTile().payTaxes());
-        }
-        // if the weekly revenue is greater than 1.07 x a week's worth of budget, decrease the tax
-        if ((revenue.getTreasury() * 1.07) > (resources.getTreasury() / (WorldOrder.annum.getWeeksThisYear() - 1))) {
-            for (Inclusion i : territory.getTileLinks()) {
-                i.getTile().setTaxRate(i.getTile().getTaxRate() * 0.9);
-            }
-        }
-        // or adjust it up if it's not high enough
-        if (revenue.getTreasury() < ((resources.getTreasury() * 1.01) / (WorldOrder.annum.getWeeksThisYear() - 1))) {
-            for (Inclusion i : territory.getTileLinks()) {
-                i.getTile().setTaxRate(i.getTile().getTaxRate() * 0.9);
-            }
-        }
+
     }
 
     protected void createWarStrategy(Process process, int size) {
@@ -249,10 +235,7 @@ public class Polity extends Entity implements Steppable {
         }
     }
 
-    private void weeklyExpense(Long step) {
-        double expenses = resources.getTreasury() / WorldOrder.annum.getWeeksThisYear();
-        resources.subtractTreasury(expenses);
-    }
+
 
     public boolean willProbablyWin(Process process) {
 

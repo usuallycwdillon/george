@@ -66,7 +66,6 @@ public class WarProcess extends Process {
             case 1:
                 this.updateStatus();
             case 2:
-//                System.out.println("New War Process at " + fiat);
                 // test for participants' N; +N = escalate, -N = outcome
                 for (ProcessDisposition p : processParticipantLinks) {
                     if (p.atN()) {

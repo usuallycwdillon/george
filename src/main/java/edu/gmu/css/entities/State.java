@@ -3,6 +3,7 @@ package edu.gmu.css.entities;
 
 import edu.gmu.css.agents.Tile;
 import edu.gmu.css.queries.StateQueries;
+import edu.gmu.css.relations.Inclusion;
 import edu.gmu.css.service.Neo4jSessionFactory;
 import edu.gmu.css.worldOrder.*;
 import org.neo4j.ogm.annotation.*;
@@ -42,7 +43,10 @@ public class State extends Polity implements Steppable {
     }
 
     public void step(SimState simState) {
+        Long step = simState.schedule.getSteps();
+        weeklyExpense(step);
         collectTax();
+        recruit();
     }
 
 
@@ -79,9 +83,56 @@ public class State extends Polity implements Steppable {
         suzereinSet.add(suzereign);
     }
 
+
     @Override
-    protected void collectTax() {
+    protected void recruit(int cohort) {
 
     }
+
+    @Override
+    protected void recruit() {
+        int requirement = resources.getPax() - securityStrategy.getPax();
+        if (requirement < 0) {
+            int weekly = (requirement * -1) / 52;
+            double share = weekly / (territory.getTileLinks().size() * 1.0);
+            int recruits = (int) Math.round(share);
+            for (Inclusion i : territory.getTileLinks()) {
+                Tile t = i.getTile();
+                if (t.getPopulation() - recruits > 0) {
+                    t.setPopulation(t.getPopulation() - recruits);
+                    resources.addPax(recruits);
+                } else {
+                    resources.addPax(t.getPopulation());
+                    t.setPopulation(0);
+                }
+            }
+        }
+    }
+
+    private void weeklyExpense(Long step) {
+        double expenses = resources.getTreasury() / WorldOrder.annum.getWeeksThisYear();
+        resources.subtractTreasury(expenses);
+    }
+
+    @Override
+    protected void collectTax() {
+        Resources revenue = new Resources.ResourceBuilder().build();
+        for (Inclusion i : territory.getTileLinks()) {
+            revenue.addTreasury(i.getTile().payTaxes());
+        }
+        // if the weekly revenue is greater than 1.07 x a week's worth of budget, decrease the tax
+        if ((revenue.getTreasury() * 1.07) > (resources.getTreasury() / (WorldOrder.annum.getWeeksThisYear() - 1))) {
+            for (Inclusion i : territory.getTileLinks()) {
+                i.getTile().setTaxRate(i.getTile().getTaxRate() * 0.9);
+            }
+        }
+        // or adjust it up if it's not high enough
+        if (revenue.getTreasury() < ((resources.getTreasury() * 1.01) / (WorldOrder.annum.getWeeksThisYear() - 1))) {
+            for (Inclusion i : territory.getTileLinks()) {
+                i.getTile().setTaxRate(i.getTile().getTaxRate() * 0.9);
+            }
+        }
+    }
+
 
 }

@@ -5,6 +5,7 @@ import com.uber.h3core.H3Core;
 
 import edu.gmu.css.data.EconomicPolicy;
 import edu.gmu.css.entities.Entity;
+import edu.gmu.css.entities.TileWeal;
 import edu.gmu.css.relations.Inclusion;
 import edu.gmu.css.service.H3IdStrategy;
 import edu.gmu.css.data.DataTrend;
@@ -50,13 +51,17 @@ public class Tile extends Entity implements Serializable, Steppable {
     @Transient
     private double taxRate = 0.00;
     @Transient
-    private DataTrend memory = new DataTrend(52 * 7); // Seven year history
+    private TileWeal weal;
+    @Transient
+    private DataTrend memory = new DataTrend(52 * 7); // Seven year economic history
+    @Transient
+    private DataTrend growth = new DataTrend(52 * 14); // Fourteen year population history
     @Property
     private List<Long>neighborIds = new ArrayList<>();
     @Relationship(type="ABUTS", direction = Relationship.UNDIRECTED)
     private List<Tile> neighbors = new ArrayList<>();
     @Relationship(type="INCLUDES", direction = "INCOMING")
-    private List<Inclusion> linkedTerritories = new ArrayList<>();
+    private Inclusion linkedTerritory;
 
 
     public Tile() {
@@ -65,13 +70,16 @@ public class Tile extends Entity implements Serializable, Steppable {
     public Tile(Long id) {
         this.h3Id = id;
         learnNeighborhood();
+        weal = new TileWeal(this);
     }
 
     public void step(SimState simState) {
         memory.add(this.wealth);     // Wealth gets recorded before any increase from current production
+        growth.add(this.population);
         updateProductivity();
         produce();
         growPopulation();
+        weal.step(simState);
     }
 
 
@@ -187,16 +195,12 @@ public class Tile extends Entity implements Serializable, Steppable {
         this.naturalResources = naturalResources;
     }
 
-    public List<Inclusion> getLinkedTerritories() {
-        return linkedTerritories;
+    public Inclusion getLinkedTerritory() {
+        return linkedTerritory;
     }
 
-    public void setLinkedTerritories(List<Inclusion> territories) {
-        this.linkedTerritories = territories;
-    }
-
-    public void addLinkedTerritory(Inclusion link) {
-        this.linkedTerritories.add(link);
+    public void setLinkedTerritory(Inclusion territories) {
+        this.linkedTerritory = territories;
     }
 
     public double getUrbanization() {

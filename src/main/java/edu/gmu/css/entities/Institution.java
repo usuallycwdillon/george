@@ -172,14 +172,6 @@ public abstract class Institution extends Entity implements Steppable, Stoppable
 
     }
 
-//    public void setStopper(Stoppable stopper) {
-//        this.stopper = stopper;
-//    }
-//
-//    public void stop(){
-//        setStopper(this);
-//    }
-
     public void setStopper(Stoppable stopper)   {this.stopper = stopper;}
 
     public Stoppable getStopper() {
