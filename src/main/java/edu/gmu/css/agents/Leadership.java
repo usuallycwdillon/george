@@ -1,6 +1,7 @@
 package edu.gmu.css.agents;
 
 import edu.gmu.css.data.SecurityObjective;
+import edu.gmu.css.entities.Issue;
 import edu.gmu.css.entities.Polity;
 import edu.gmu.css.entities.War;
 import edu.gmu.css.relations.InstitutionParticipation;
@@ -78,12 +79,18 @@ public class Leadership implements Steppable {
         return p;
     }
 
+    public Double supportsWar(Issue i) {
+        return worldOrder.random.nextDouble();
+    }
+
     public PeaceProcess considerPeace(War war) {
         Long step = worldOrder.getStepNumber();
-        PeaceProcess pp = new PeaceProcess(polity, war, step);
+        Issue i = new Issue.IssueBuilder().institution(war).duration(2).build();
+        i.setStopper(worldOrder.schedule.scheduleRepeating(i));
+        // TODO: Wars need a duration or the Issue's step method needs to handle null for wars.
+        PeaceProcess pp = new PeaceProcess(polity, i, step);
         WorldOrder.getAllTheProcs().add(pp);
-        Stoppable stoppable = worldOrder.schedule.scheduleRepeating(pp);
-        pp.setStopper(stoppable);
+        pp.setStopper(worldOrder.schedule.scheduleRepeating(pp));
         return pp;
     }
 

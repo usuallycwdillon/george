@@ -85,7 +85,23 @@ public class Dataset extends Entity {
         this.facts.addAll(theseEntities);
     }
 
-//    public Long getPublished() {
+    public void setFilename(String filename) {
+        this.filename = filename;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public void setVersion(Double version) {
+        this.version = version;
+    }
+
+    public void setSeed(long seed) {
+        this.seed = seed;
+    }
+
+    //    public Long getPublished() {
 //        return published;
 //    }
 //

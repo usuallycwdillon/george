@@ -98,7 +98,6 @@ public class WorldOrder extends SimState {
     public static Map<Long, Integer> warCountHistory = new HashMap<>();
     public static Set<Institution> allTheInstitutions = new HashSet<>();
 
-
     // Some parameters for war strategy thresholds.
     // RED is the opposing force size while BLUE is own force size
     // THREAT is the opposing military expenditures while RISK is own military expenditures
@@ -126,9 +125,6 @@ public class WorldOrder extends SimState {
     public static Annum annum;
 
 
-//    public static TerminalAgent terminalAgent = new TerminalAgent();
-
-
 
     public void start() {
         super.start();
@@ -146,7 +142,7 @@ public class WorldOrder extends SimState {
         globalHostility = new DataTrend(stabilityDuration);
         institutionInfluence = 0.001;
 
-        poisson = new Poisson(globalWarLikelihood, random);
+//        poisson = new Poisson(globalWarLikelihood, random);
 
         territories = TerritoryQueries.getStateTerritories(startYear);
         for (String t : territories.keySet()) {
@@ -162,7 +158,7 @@ public class WorldOrder extends SimState {
         // TODO: Create Polity Coordination objects to represent underdeveloped & unrecognized polities; until then,
         //       they get a placeholder polity object.
         for (String k : territories.keySet()) {
-            // if there isn't a government assigned, double-check whether there should be one
+            // if there isn't a government assigned, double-check whether there should be one, otherwise make another
             Territory t = territories.get(k);
             if (t.getGovernment() == null) {
                 System.out.println(t.getMapKey() + " is not a known state government; creating a blank polity.");
@@ -196,6 +192,9 @@ public class WorldOrder extends SimState {
                 s.setResources(new Resources.ResourceBuilder().pax(10000).treasury(100000.0).build());
                 System.out.println("I made up some military resources for " + s.getName());
             }
+            if (!s.getPolityData(startYear)) {
+                System.out.println("No polity fact for " + s.getName());
+            }
             s.setEconomicPolicy(new EconomicPolicy(0.5, 0.5, 0.1) );
             schedule.scheduleRepeating(s);
         }
@@ -211,11 +210,9 @@ public class WorldOrder extends SimState {
         warCause.setStopper(externalWarStopper);
 
         Steppable world = new Steppable() {
-
             @Override
             public void step(SimState simState) {
                 WorldOrder worldOrder = (WorldOrder) simState;
-
                 /**
                  *
                  */
@@ -254,7 +251,6 @@ public class WorldOrder extends SimState {
     public void updatePoisson() {
         poisson = new Poisson(globalWarLikelihood, random);
     }
-
 
     public WorldOrder getWorldOrderSimState() {
         return this;
@@ -306,6 +302,10 @@ public class WorldOrder extends SimState {
 
     public static Set<Process> getAllTheProcs() {
         return allTheProcs;
+    }
+
+    public void addProc(Process p) {
+        allTheProcs.add(p);
     }
 
     public static Map<Long, Tile> getTiles() {

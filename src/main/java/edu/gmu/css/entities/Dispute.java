@@ -31,6 +31,7 @@ public class Dispute extends Entity {
 
 
     @Relationship
+//            (type = "PARTICIPATE_IN", direction = Relationship.INCOMING)
     private Set<Polity> participants = new HashSet<>();
 
     public Dispute() {

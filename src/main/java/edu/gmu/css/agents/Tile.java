@@ -234,4 +234,8 @@ public class Tile extends Entity implements Serializable, Steppable {
     public void setTaxRate(double taxRate) {
         this.taxRate = taxRate;
     }
+
+    public Double guageSupport(Entity e) {
+        return weal.considerSupport(e);
+    }
 }

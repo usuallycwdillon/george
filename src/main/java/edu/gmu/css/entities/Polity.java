@@ -10,6 +10,7 @@ import edu.gmu.css.data.EconomicPolicy;
 import edu.gmu.css.relations.*;
 import edu.gmu.css.service.Neo4jSessionFactory;
 import edu.gmu.css.worldOrder.WorldOrder;
+import org.neo4j.cypher.internal.frontend.v3_1.SemanticDirection;
 import org.neo4j.ogm.annotation.*;
 import org.neo4j.ogm.model.Result;
 import sim.engine.SimState;
@@ -27,7 +28,7 @@ public class Polity extends Entity implements Steppable {
     protected Set<OccupiedRelation> allTerritories;
     @Transient
     protected Territory territory;
-    @Relationship (direction = "INCOMING")
+    @Relationship (direction = Relationship.INCOMING)
     protected Leadership leadership;
     @Relationship(type = "SHARES_BORDER")
     protected Set<BorderAgreement> bordersWith = new HashSet<>();
@@ -49,6 +50,9 @@ public class Polity extends Entity implements Steppable {
     protected Resources resources = new Resources.ResourceBuilder().treasury(10000).pax(10000).build();
     @Transient
     protected MersenneTwisterFast random = new MersenneTwisterFast();
+    @Transient
+    DiscretePolityFact polityFact;
+
 
 
     public Polity () {
@@ -235,7 +239,14 @@ public class Polity extends Entity implements Steppable {
         }
     }
 
-
+    public boolean warResponse(Issue i, Polity t) {
+        Issue issue = i;
+        Polity target = t;
+        double leadershipPosition = leadership.supportsWar(i);
+        double commonWheal = territory.assessSupport(i);
+        // TODO: Needs some functionality to incorporate Polity IV data (autocrat's weal vs people's weal) to balance calculation.
+        return leadershipPosition + commonWheal > 1.0;
+    }
 
     public boolean willProbablyWin(Process process) {
 
@@ -248,7 +259,6 @@ public class Polity extends Entity implements Steppable {
 
 
     public boolean hasInsuficentResources(Institution war) {
-
         return true;
     }
 
@@ -316,7 +326,6 @@ public class Polity extends Entity implements Steppable {
 //            Neo4jSessionFactory.getInstance().getNeo4jSession().save(ap);
         }
 
-
         // trade
 //        String tradeQuery = "";
         // igos
@@ -366,5 +375,11 @@ public class Polity extends Entity implements Steppable {
         }
         return polities;
     }
+
+    public boolean getPolityData(int year) {
+        return false;
+    }
+
+
 
 }

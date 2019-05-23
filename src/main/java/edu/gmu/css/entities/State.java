@@ -134,5 +134,23 @@ public class State extends Polity implements Steppable {
         }
     }
 
+    @Override
+    public boolean getPolityData(int year) {
+        Map<String, Object> params = new HashMap<>();
+        params.put("id", this.id);
+        params.put("year", year);
+        String query = "MATCH (p:Polity)<-[d:DESCRIBES_POLITY_OF]-(f:DiscretePolityFact) " +
+                "WHERE id(p) = $id AND d.from.year <= $year <= d.until.year " +
+                "RETURN f ORDER BY d.from LIMIT 1";
+        DiscretePolityFact dpf = Neo4jSessionFactory.getInstance().getNeo4jSession()
+                .queryForObject(DiscretePolityFact.class, query, params);
+        if (dpf != null) {
+            polityFact = dpf;
+            dpf.setPolity(this);
+            return true;
+        }
+        return false;
+    }
+
 
 }

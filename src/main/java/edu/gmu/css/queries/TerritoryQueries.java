@@ -21,7 +21,7 @@ public class TerritoryQueries {
     public static Map<String, Territory> getStateTerritories(int startYear) {
         Map<String, Territory> territoryMap = new HashMap<>();
         String query = "MATCH (m:MembershipFact)-[:MEMBER]-(s:State)-[o]-(t:Territory{year:$year}) " +
-                "WHERE t.cowcode = s.cowcode AND m.from.year <= $year " +
+                "WHERE t.cowcode = s.cowcode AND (m.from.year <= $year OR m.from.year IS NULL)" +
                 " RETURN t";
         Map<String, Object> params = new HashMap<>();
         params.put("year", startYear);

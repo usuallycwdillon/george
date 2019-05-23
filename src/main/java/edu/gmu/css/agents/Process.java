@@ -240,7 +240,7 @@ public abstract class Process extends Entity implements Steppable, Serializable 
     public void setFiat() {
         // This process is designed to "rachet", meaning that the process will advance to the next potential fiat, even
         // if the conditions for equivalence and the outcome have not been met; only that the limitations of theee
-        // previous fiat have been surpassed. For example, KCN~U will be classified as fiat E even before P/~P has been
+        // previous fiat have been surpassed. For example: K, C, N, ~U will be classified as fiat E even before P/~P has been
         // evaluated.
         int [] assessableStatus = this.getStatus();
 

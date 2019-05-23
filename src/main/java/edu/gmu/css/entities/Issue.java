@@ -19,6 +19,7 @@ public class Issue extends Entity implements Steppable, Stoppable {
     private Long from;
     private Polity target;
     private Stoppable stopper;
+    private boolean stopped;
 
 
     private Issue() {
@@ -90,6 +91,9 @@ public class Issue extends Entity implements Steppable, Stoppable {
     public void step(SimState simState) {
         duration -= 1;
         if (duration <= 0) stop();
+        if (institution != null && institution.getClass().isInstance(War.class)) {
+            duration += 1;
+        }
     }
 
     public void stop() {
@@ -156,6 +160,20 @@ public class Issue extends Entity implements Steppable, Stoppable {
 
     public Stoppable getStopper() {
         return this.stopper;
+    }
+
+    public boolean isStopped() {
+        return stopped;
+    }
+
+    public void setStopped(boolean stopped) {
+        this.stopped = stopped;
+    }
+
+    public void conclude() {
+        stopped = true;
+        stopper.stop();
+        institution.conclude();
     }
 
 }

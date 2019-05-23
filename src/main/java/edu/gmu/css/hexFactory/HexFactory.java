@@ -39,6 +39,8 @@ public class HexFactory {
     public static Map<Long, Tile> globalHexes = new HashMap<>();
     public static Map<Long, Tile> missingHexes = new HashMap<>();
 
+    public static Dataset dataset;
+
     public static boolean DEBUG = true;
 
 
@@ -46,6 +48,7 @@ public class HexFactory {
         // Adding a few printouts to ease monitoring
         LocalTime startTime = LocalTime.now();
         System.out.println("The factory started working at: " + startTime);
+        dataset = new Dataset();
 
         new HexFactory().factoryLoop();
 
@@ -268,7 +271,6 @@ public class HexFactory {
         }
         return fc;
     }
-
 
     static private LngLatAlt lngLatAlt(GeoCoord coordinates) {
         LngLatAlt lla = new LngLatAlt();

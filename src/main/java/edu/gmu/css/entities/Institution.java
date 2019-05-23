@@ -53,6 +53,8 @@ public abstract class Institution extends Entity implements Steppable, Stoppable
     protected Stoppable stopper = null;
     @Transient
     protected String name;
+    @Transient
+    protected Issue issue;
 
     @Relationship(direction=Relationship.INCOMING)
     protected List<InstitutionParticipation> participation = new ArrayList<>();

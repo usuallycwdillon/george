@@ -51,6 +51,8 @@ public class Territory extends Entity implements Serializable {
     Integer urbanPopulation;
     @Transient
     Double wealth;
+    @Transient
+    TerritorialWeal commonWeal;
 
     @Property
     Set<Long> linkedTileIds;
@@ -72,6 +74,7 @@ public class Territory extends Entity implements Serializable {
         this.area = 0.0;
         this.tileLinks = new HashSet<>();
         this.linkedTileIds = new HashSet<>();
+        this.commonWeal = new TerritorialWeal(this);
     }
 
     public Territory(String name, String abbr, Double area, int year, int resolution) {
@@ -498,9 +501,12 @@ public class Territory extends Entity implements Serializable {
         this.loadBorders();
     }
 
-
     public void updateTotals() {
         population = tileLinks.stream().mapToInt(Inclusion::getTilePopulation).sum();
+    }
+
+    public Double assessSupport(Entity e) {
+        return commonWeal.gaugeSupport(e);
     }
 
     @Override

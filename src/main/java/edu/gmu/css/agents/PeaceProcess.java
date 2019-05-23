@@ -1,10 +1,7 @@
 package edu.gmu.css.agents;
 
 import edu.gmu.css.data.Domain;
-import edu.gmu.css.entities.Institution;
-import edu.gmu.css.entities.Peace;
-import edu.gmu.css.entities.Polity;
-import edu.gmu.css.entities.War;
+import edu.gmu.css.entities.*;
 import edu.gmu.css.relations.InstitutionParticipation;
 import edu.gmu.css.relations.Participation;
 import edu.gmu.css.relations.ProcessDisposition;
@@ -17,16 +14,16 @@ public class PeaceProcess extends Process {
     public PeaceProcess() {
     }
 
-    public PeaceProcess(Polity owner, Institution i, Long from) {
+    public PeaceProcess(Polity owner, Issue i, Long from) {
         domain = Domain.PEACE;
         name = "Peace";
         began = from;
         issue = i;
-        for (InstitutionParticipation ip : i.getParticipation()) {
+        for (InstitutionParticipation ip : i.getInstitution().getParticipation()) {
             Polity participant = ip.getParticipant();
             if (participant == owner) {
                 ProcessDisposition pdo = new ProcessDisposition(owner, this, began);
-                pdo.setSubject(i);
+                pdo.setSubject(i.getInstitution());
                 pdo.setN(true);
                 pdo.setU(true);
                 owner.addProcess(pdo);
@@ -220,7 +217,7 @@ public class PeaceProcess extends Process {
                 this.outcome = true;
                 Long step = worldOrder.schedule.getSteps();
                 // Assuming for now that peace insitutions are passive, only between participants
-                ((Institution) issue).conclude();
+                issue.conclude();
                 institution = createInstitution(step);
                 WorldOrder.getAllTheInstitutions().remove(issue);
                 WorldOrder.getAllTheInstitutions().add(institution);

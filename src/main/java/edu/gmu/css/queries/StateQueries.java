@@ -17,7 +17,7 @@ public class StateQueries {
         params.put("from", period);
 
         String query = "MATCH (s:State)-[:MEMBER]-(f:Fact)-[:MEMBER_OF]-(y:System{name:$name}) " +
-                "WHERE f.from.year <= $from RETURN s";
+                "WHERE f.from.year <= $from OR f.from IS NULL RETURN s";
         Result result = Neo4jSessionFactory.getInstance().getNeo4jSession().query(query, params);
         Iterator it = result.iterator();
         while (it.hasNext()) {
