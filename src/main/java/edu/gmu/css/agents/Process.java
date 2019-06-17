@@ -1,6 +1,7 @@
 package edu.gmu.css.agents;
 
 import edu.gmu.css.data.Domain;
+import edu.gmu.css.data.Issue;
 import edu.gmu.css.entities.*;
 import edu.gmu.css.entities.Fact.FactBuilder;
 import edu.gmu.css.relations.Participation;

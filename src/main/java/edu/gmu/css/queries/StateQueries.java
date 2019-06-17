@@ -78,11 +78,61 @@ public class StateQueries {
         params.put("name", name);
         String query = "MATCH (t:Territory)-[:OCCUPIED]-(s:State)-[:DURING]-(:Year{name:$name}) WHERE id(t) = $mapKey RETURN s";
         State n = Neo4jSessionFactory.getInstance().getNeo4jSession().queryForObject(State.class, query, params);
-        if (n.equals(null)) {
+        if (n==null) {
             return s;
         } else {
             return n;
         }
+    }
+
+    public static DiscretePolityFact getPolityData(Polity p, int year) {
+        Map<String, Object> params = new HashMap<>();
+        params.put("id", p.getId());
+        params.put("year", year);
+        String query = "MATCH (p:Polity)<-[d:DESCRIBES_POLITY_OF]-(f:DiscretePolityFact) " +
+                "WHERE id(p) = $id AND d.from.year <= $year <= d.until.year " +
+                "RETURN f ORDER BY d.from LIMIT 1";
+        DiscretePolityFact dpf = dpf = Neo4jSessionFactory.getInstance().getNeo4jSession()
+                .queryForObject(DiscretePolityFact.class, query, params);
+        if (dpf != null) {
+            dpf.setPolity(p);
+            return dpf;
+        } else {
+            return null;
+        }
+    }
+
+    public static List<Polity> getNeighborhoodWithoutAllies(Polity p) {
+        Territory territory = p.getTerritory();
+        List<Polity> polities = new ArrayList<>();
+        Map<String, Object> params = new HashMap<>();
+        params.put("year", territory.getYear());
+        params.put("mapKey", territory.getMapKey());
+        String query = "MATCH (t:Territory{mapKey:{mapKey}})-[:OCCUPIED]-(p1:Polity)-[e:ENTERED]-(apf:AllianceParticipationFact)" +
+                "-[:ENTERED_INTO]-(a:Alliance)-[:ONE_OF]-(l:List), (a)-[:ENTERED_INTO]-()-[e2:ENTERED]-(o:Polity) \n" +
+                "WHERE e.from.year <= {year} AND e.until.year > {year} AND l.type <> \"Entente\" AND " +
+                " e2.from.year <= {year} AND e2.until.year > {year} \n" +
+                "WITH COLLECT(o) AS allies, t \n" +
+                "MATCH (t)-[:BORDERS{during:{year}}]->(:Border)-[:BORDERS{during:{year}}]-(n:Territory)-[:BORDERS{during:{year}}]-(:Border)-[:BORDERS{during:{year}}]-(o:Territory) \n" +
+                "WHERE t <> n AND t <> o \n" +
+                "WITH COLLECT(n) + COLLECT(o) AS ter, t, allies \n" +
+                "UNWIND ter AS z \n" +
+                "MATCH (z)-[:OCCUPIED]-(p:Polity) \n" +
+                "WHERE NOT p IN allies \n" +
+                "WITH COLLECT(p) as potential \n" +
+                "RETURN potential";
+        Iterable<Polity> result = Neo4jSessionFactory.getInstance().getNeo4jSession()
+                .query(Polity.class, query, params);
+        if(result != null) {
+            for(Polity e: result) {
+                Polity op = WorldOrder.getAllTheStates().stream()
+                        .filter(t -> t.getId().equals(e.getId()))
+                        .findAny()
+                        .orElse(null);
+                polities.add(op);
+            }
+        }
+        return polities;
     }
 
 }

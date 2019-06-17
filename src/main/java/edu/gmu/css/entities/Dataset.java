@@ -101,6 +101,10 @@ public class Dataset extends Entity {
         this.seed = seed;
     }
 
+    public long getSeed() {
+        return this.seed;
+    }
+
     //    public Long getPublished() {
 //        return published;
 //    }

@@ -25,10 +25,9 @@ public class State extends Polity implements Steppable {
     @GeneratedValue
     private Long id;
     @Property
-    private String cowCode;
+    private String cowcode;
     @Property
     private String name;
-
     @Transient
     private double liability = 0;
     @Transient
@@ -56,7 +55,7 @@ public class State extends Polity implements Steppable {
     }
 
     public String getCowCode() {
-        return cowCode;
+        return cowcode;
     }
 
     public String getName() {
@@ -136,20 +135,13 @@ public class State extends Polity implements Steppable {
 
     @Override
     public boolean getPolityData(int year) {
-        Map<String, Object> params = new HashMap<>();
-        params.put("id", this.id);
-        params.put("year", year);
-        String query = "MATCH (p:Polity)<-[d:DESCRIBES_POLITY_OF]-(f:DiscretePolityFact) " +
-                "WHERE id(p) = $id AND d.from.year <= $year <= d.until.year " +
-                "RETURN f ORDER BY d.from LIMIT 1";
-        DiscretePolityFact dpf = Neo4jSessionFactory.getInstance().getNeo4jSession()
-                .queryForObject(DiscretePolityFact.class, query, params);
+        DiscretePolityFact dpf = StateQueries.getPolityData(this, year);
         if (dpf != null) {
             polityFact = dpf;
-            dpf.setPolity(this);
             return true;
+        } else {
+            return false;
         }
-        return false;
     }
 
 

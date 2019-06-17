@@ -2,6 +2,8 @@ package edu.gmu.css.entities;
 
 import ec.util.MersenneTwisterFast;
 import edu.gmu.css.agents.WarProcess;
+import edu.gmu.css.data.Issue;
+import edu.gmu.css.queries.StateQueries;
 import edu.gmu.css.worldOrder.WorldOrder;
 import sim.engine.SimState;
 import sim.engine.Steppable;
@@ -49,9 +51,9 @@ public class ProbabilisticCausality implements Steppable, Stoppable {
                 int numStates = WorldOrder.getAllTheStates().size();
                 int instigator = random.nextInt(numStates);
                 Polity p = WorldOrder.getAllTheStates().get(instigator);
-                List<Polity> potentialTargets = p.getNeighborhoodWithoutAllies();
+                List<Polity> potentialTargets = StateQueries.getNeighborhoodWithoutAllies(p);
                 int numPotentials = potentialTargets.size();
-                if (numPotentials < 1 || p.getNeighborhoodWithoutAllies() == null) {
+                if (numPotentials < 1 || potentialTargets == null) {
                     break;
                 }
                 int target = random.nextInt(numPotentials);

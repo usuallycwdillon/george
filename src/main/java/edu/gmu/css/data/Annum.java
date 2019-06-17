@@ -1,5 +1,6 @@
 package edu.gmu.css.data;
 
+import edu.gmu.css.worldOrder.WorldOrder;
 import sim.engine.SimState;
 import sim.engine.Steppable;
 
@@ -13,6 +14,7 @@ public class Annum implements Steppable {
     public Annum() {}
 
     public void step(SimState simState) {
+        WorldOrder worldOrder = (WorldOrder) simState;
         weeksSoFar += 1;
         if ((year % 5.6 < 1) && (year % 5.6 >= 0)) {
             weeksThisYear = 53;

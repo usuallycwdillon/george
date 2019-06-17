@@ -125,7 +125,6 @@ public class WorldOrder extends SimState {
     public static Annum annum;
 
 
-
     public void start() {
         super.start();
         // new dataset node in graph to track this data
@@ -137,17 +136,18 @@ public class WorldOrder extends SimState {
         // set model parameters
         stabilityDuration = 80 * 52;
         initializationPeriod = 10 * 52;
-//        warCostFactor = 0.25;
+        //  warCostFactor = 0.25;                               // Not used
         globalWarLikelihood = 0.185312622886355;
         globalHostility = new DataTrend(stabilityDuration);
         institutionInfluence = 0.001;
+        warCountHistory = new DataQueries().getWeeklyWarsCount();
 
-//        poisson = new Poisson(globalWarLikelihood, random);
-
+        // Import territories from WorldOrderData
         territories = TerritoryQueries.getStateTerritories(startYear);
         for (String t : territories.keySet()) {
             String mapKey = territories.get(t).getMapKey();
             Territory territory = TerritoryQueries.loadWithRelations(mapKey);
+            territory.initiateGraph();
             territories.put(t, territory);
         }
 
@@ -158,7 +158,7 @@ public class WorldOrder extends SimState {
         // TODO: Create Polity Coordination objects to represent underdeveloped & unrecognized polities; until then,
         //       they get a placeholder polity object.
         for (String k : territories.keySet()) {
-            // if there isn't a government assigned, double-check whether there should be one, otherwise make another
+            // if there isn't a state/polity assigned, double-check whether there should be one, otherwise make another
             Territory t = territories.get(k);
             if (t.getGovernment() == null) {
                 System.out.println(t.getMapKey() + " is not a known state government; creating a blank polity.");
@@ -195,11 +195,8 @@ public class WorldOrder extends SimState {
             if (!s.getPolityData(startYear)) {
                 System.out.println("No polity fact for " + s.getName());
             }
-            s.setEconomicPolicy(new EconomicPolicy(0.5, 0.5, 0.1) );
             schedule.scheduleRepeating(s);
         }
-
-        warCountHistory = new DataQueries().getWeeklyWarsCount();
 
         // TODO: Add Data Collection to the Schedule
 
@@ -219,13 +216,13 @@ public class WorldOrder extends SimState {
                 // Record the global probability of war whether it's prescribed or calculated
                 globalHostility.add(globalWarLikelihood);
                 long stepNo = getStepNumber();
-                if(stepNo % 52 == 0) {
+                if(annum.getWeeksThisYear() == 0) {
                     territories.values().forEach(Territory::updateTotals);
                 }
 
-                if (stepNo == stabilityDuration) {
-                    externalWarStopper.stop();
-                }
+//                if (stepNo == stabilityDuration) {
+//                    externalWarStopper.stop();
+//                }
 
                 // End the simulation if the global probability of war is stagnate or stable at zero
                 if (globalWarLikelihood <= 0) {
@@ -343,4 +340,5 @@ public class WorldOrder extends SimState {
     public static long getInitializationPeriod() {
         return initializationPeriod;
     }
+
 }

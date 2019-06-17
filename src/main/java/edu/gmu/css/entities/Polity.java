@@ -2,15 +2,15 @@ package edu.gmu.css.entities;
 
 import ec.util.MersenneTwisterFast;
 import edu.gmu.css.agents.Leadership;
-import edu.gmu.css.agents.Tile;
 import edu.gmu.css.agents.WarProcess;
 import edu.gmu.css.data.Domain;
 import edu.gmu.css.agents.Process;
 import edu.gmu.css.data.EconomicPolicy;
+import edu.gmu.css.data.Issue;
+import edu.gmu.css.queries.StateQueries;
 import edu.gmu.css.relations.*;
 import edu.gmu.css.service.Neo4jSessionFactory;
 import edu.gmu.css.worldOrder.WorldOrder;
-import org.neo4j.cypher.internal.frontend.v3_1.SemanticDirection;
 import org.neo4j.ogm.annotation.*;
 import org.neo4j.ogm.model.Result;
 import sim.engine.SimState;
@@ -45,7 +45,7 @@ public class Polity extends Entity implements Steppable {
     @Transient
     protected Resources foreignStrategy = new Resources.ResourceBuilder().build();
     @Transient
-    protected EconomicPolicy economicPolicy;
+    protected EconomicPolicy economicPolicy = new EconomicPolicy(0.50, 0.50, 0.10);
     @Transient
     protected Resources resources = new Resources.ResourceBuilder().treasury(10000).pax(10000).build();
     @Transient
@@ -344,40 +344,16 @@ public class Polity extends Entity implements Steppable {
         return false;
     }
 
-    public List<Polity> getNeighborhoodWithoutAllies() {
-        List<Polity> polities = new ArrayList<>();
-        Map<String, Object> params = new HashMap<>();
-        params.put("year", territory.getYear());
-        params.put("mapKey", territory.getMapKey());
-        String query = "MATCH (t:Territory{mapKey:{mapKey}})-[:OCCUPIED]-(p1:Polity)-[e:ENTERED]-(apf:AllianceParticipationFact)" +
-                "-[:ENTERED_INTO]-(a:Alliance)-[:ONE_OF]-(l:List), (a)-[:ENTERED_INTO]-()-[e2:ENTERED]-(o:Polity) \n" +
-                "WHERE e.from.year <= {year} AND e.until.year > {year} AND l.type <> \"Entente\" AND " +
-                " e2.from.year <= {year} AND e2.until.year > {year} \n" +
-                "WITH COLLECT(o) AS allies, t \n" +
-                "MATCH (t)-[:BORDERS{during:{year}}]->(:Border)-[:BORDERS{during:{year}}]-(n:Territory)-[:BORDERS{during:{year}}]-(:Border)-[:BORDERS{during:{year}}]-(o:Territory) \n" +
-                "WHERE t <> n AND t <> o \n" +
-                "WITH COLLECT(n) + COLLECT(o) AS ter, t, allies \n" +
-                "UNWIND ter AS z \n" +
-                "MATCH (z)-[:OCCUPIED]-(p:Polity) \n" +
-                "WHERE NOT p IN allies \n" +
-                "WITH COLLECT(p) as potential \n" +
-                "RETURN potential";
-        Iterable<Polity> result = Neo4jSessionFactory.getInstance().getNeo4jSession()
-                .query(Polity.class, query, params);
-        if(result != null) {
-            for(Polity e: result) {
-                Polity p = WorldOrder.getAllTheStates().stream()
-                        .filter(t -> t.getId().equals(e.getId()))
-                        .findAny()
-                        .orElse(null);
-                polities.add(p);
-            }
-        }
-        return polities;
-    }
+
 
     public boolean getPolityData(int year) {
-        return false;
+        DiscretePolityFact dpf = StateQueries.getPolityData(this, year);
+        if (dpf != null) {
+            polityFact = dpf;
+            return true;
+        } else {
+            return false;
+        }
     }
 
 

@@ -1,17 +1,14 @@
 package edu.gmu.css.agents;
 
 import edu.gmu.css.data.SecurityObjective;
-import edu.gmu.css.entities.Issue;
+import edu.gmu.css.data.Issue;
 import edu.gmu.css.entities.Polity;
 import edu.gmu.css.entities.War;
-import edu.gmu.css.relations.InstitutionParticipation;
-import edu.gmu.css.relations.Participation;
 import edu.gmu.css.relations.ProcessDisposition;
 import edu.gmu.css.entities.Resources;
 import edu.gmu.css.worldOrder.WorldOrder;
 import sim.engine.SimState;
 import sim.engine.Steppable;
-import sim.engine.Stoppable;
 
 public class Leadership implements Steppable {
 

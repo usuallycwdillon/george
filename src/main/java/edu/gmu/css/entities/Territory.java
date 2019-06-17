@@ -74,7 +74,6 @@ public class Territory extends Entity implements Serializable {
         this.area = 0.0;
         this.tileLinks = new HashSet<>();
         this.linkedTileIds = new HashSet<>();
-        this.commonWeal = new TerritorialWeal(this);
     }
 
     public Territory(String name, String abbr, Double area, int year, int resolution) {
@@ -208,6 +207,10 @@ public class Territory extends Entity implements Serializable {
         this.government = new OccupiedRelation(government, this, step);
     }
 
+    public void initiateGraph() {
+        this.commonWeal = new TerritorialWeal(this, true);
+    }
+
     public void addHex(Tile hex) {
         Inclusion o = new Inclusion(this, hex, year);
         this.tileLinks.add(o);
@@ -253,7 +256,6 @@ public class Territory extends Entity implements Serializable {
                     holes.add(hole);
                 }
             }
-
             try {
                 H3Core h3 = H3Core.newInstance();
                 tempList5.addAll(h3.polyfill(boundaryCoordinates, holes, resolution + 1));
@@ -264,7 +266,6 @@ public class Territory extends Entity implements Serializable {
                         linkedTileIds.add(t5Parent);
                     }
                 }
-
             } catch (Exception e) {
                 e.printStackTrace();
             }
