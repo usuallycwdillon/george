@@ -15,6 +15,7 @@ import org.neo4j.ogm.annotation.*;
 import org.neo4j.ogm.model.Result;
 import sim.engine.SimState;
 import sim.engine.Steppable;
+import sim.engine.Stoppable;
 
 import java.util.*;
 
@@ -147,7 +148,6 @@ public class Polity extends Entity implements Steppable {
                     .treasury(cost)
                     .build();
         }
-
     }
 
     protected Resources requestNewStratgy(Resources proposed) {
@@ -192,6 +192,10 @@ public class Polity extends Entity implements Steppable {
         return alliances;
     }
 
+    public DiscretePolityFact getPolityFact() {
+        return polityFact;
+    }
+
     protected void recruit(int cohort) {
         Resources draft = new Resources.ResourceBuilder().build();
     }
@@ -206,6 +210,25 @@ public class Polity extends Entity implements Steppable {
 
     protected void createWarStrategy(Process process, int size) {
 
+    }
+
+    public boolean takeIssue(SimState simState, Issue i) {
+        WorldOrder worldOrder = (WorldOrder) simState;
+
+        Issue issue = i;
+        i.setStopper(worldOrder.schedule.scheduleRepeating(i));
+        Polity t = issue.getTarget();
+        // TODO: Do leadership and population of p agree on need N for military action to address issue?
+        if (warResponse(i, t)) {
+            WarProcess proc = getLeadership().initiateWarProcess(t);
+            proc.setIssue(i);
+            worldOrder.addProc(proc);
+            Stoppable stoppable = worldOrder.schedule.scheduleRepeating(proc);
+            proc.setStopper(stoppable);
+            return true;
+        } else {
+            return false;
+        }
     }
 
     public boolean evaluateAttackSuccess(ProcessDisposition disposition) {
@@ -245,7 +268,7 @@ public class Polity extends Entity implements Steppable {
         double leadershipPosition = leadership.supportsWar(i);
         double commonWheal = territory.assessSupport(i);
         // TODO: Needs some functionality to incorporate Polity IV data (autocrat's weal vs people's weal) to balance calculation.
-        return leadershipPosition + commonWheal > 1.0;
+        return (leadershipPosition + commonWheal > 1.0);
     }
 
     public boolean willProbablyWin(Process process) {
@@ -256,7 +279,6 @@ public class Polity extends Entity implements Steppable {
     public boolean willEscalate() {
         return leadership.shouldEscalate();
     }
-
 
     public boolean hasInsuficentResources(Institution war) {
         return true;
@@ -346,7 +368,7 @@ public class Polity extends Entity implements Steppable {
 
 
 
-    public boolean getPolityData(int year) {
+    public boolean findPolityData(int year) {
         DiscretePolityFact dpf = StateQueries.getPolityData(this, year);
         if (dpf != null) {
             polityFact = dpf;
@@ -354,6 +376,16 @@ public class Polity extends Entity implements Steppable {
         } else {
             return false;
         }
+    }
+
+    public void setNeutralPolityFact() {
+        DiscretePolityFact f = new DiscretePolityFact();
+        f.setAutocracyRating(5);
+        f.setDemocracyRating(5);
+        f.setPolityScore(0);
+        f.setSource("World Order Simulation");
+        f.setFrom(0L);
+        this.polityFact = f;
     }
 
 

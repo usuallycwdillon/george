@@ -27,6 +27,8 @@ public class Issue extends Entity implements Steppable, Stoppable {
         this.institution = builder.institution;
         this.process = builder.process;
         this.from = builder.from;
+        this.target = builder.target;
+        this.territory = builder.territory;
     }
 
     public static class IssueBuilder {

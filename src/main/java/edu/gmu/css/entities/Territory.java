@@ -52,7 +52,7 @@ public class Territory extends Entity implements Serializable {
     @Transient
     Double wealth;
     @Transient
-    TerritorialWeal commonWeal;
+    CommonWeal commonWeal;
 
     @Property
     Set<Long> linkedTileIds;
@@ -208,7 +208,7 @@ public class Territory extends Entity implements Serializable {
     }
 
     public void initiateGraph() {
-        this.commonWeal = new TerritorialWeal(this, true);
+        this.commonWeal = new CommonWeal(this, true);
     }
 
     public void addHex(Tile hex) {

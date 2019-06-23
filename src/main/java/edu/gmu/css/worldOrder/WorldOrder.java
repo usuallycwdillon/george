@@ -147,7 +147,6 @@ public class WorldOrder extends SimState {
         for (String t : territories.keySet()) {
             String mapKey = territories.get(t).getMapKey();
             Territory territory = TerritoryQueries.loadWithRelations(mapKey);
-            territory.initiateGraph();
             territories.put(t, territory);
         }
 
@@ -192,9 +191,11 @@ public class WorldOrder extends SimState {
                 s.setResources(new Resources.ResourceBuilder().pax(10000).treasury(100000.0).build());
                 System.out.println("I made up some military resources for " + s.getName());
             }
-            if (!s.getPolityData(startYear)) {
+            if (!s.findPolityData(startYear)) {
+                s.setNeutralPolityFact();
                 System.out.println("No polity fact for " + s.getName());
             }
+            s.getTerritory().initiateGraph();
             schedule.scheduleRepeating(s);
         }
 

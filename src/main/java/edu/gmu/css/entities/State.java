@@ -11,10 +11,7 @@ import sim.engine.SimState;
 import sim.engine.Steppable;
 
 import java.io.Serializable;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 @NodeEntity
 public class State extends Polity implements Steppable {
@@ -134,12 +131,16 @@ public class State extends Polity implements Steppable {
     }
 
     @Override
-    public boolean getPolityData(int year) {
+    public boolean findPolityData(int year) {
         DiscretePolityFact dpf = StateQueries.getPolityData(this, year);
         if (dpf != null) {
             polityFact = dpf;
+            // setup leadership from common weal using polity data facts
+//            TODO : List<String> leaders = territory.commonWeal.sortByValue(territory.commonWeal., leadershipSize);
             return true;
         } else {
+            // setup leadership from common weal using 5/5 as polity data
+            setNeutralPolityFact();
             return false;
         }
     }

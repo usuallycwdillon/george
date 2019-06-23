@@ -10,12 +10,19 @@ import edu.gmu.css.worldOrder.WorldOrder;
 import sim.engine.SimState;
 import sim.engine.Steppable;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 public class Leadership implements Steppable {
 
     private Long id;
     private int type;
     private Polity polity;
+    private Map<String, Person> leaders = new HashMap<>();
     public WorldOrder worldOrder;
+
 
     public Leadership() {
 
@@ -50,6 +57,14 @@ public class Leadership implements Steppable {
 
     public void setPolity(Polity polity) {
         this.polity = polity;
+    }
+
+    public Map<String, Person> getLeaders() {
+        return leaders;
+    }
+
+    public void setLeaders(Map<String, Person> leaders) {
+        this.leaders = leaders;
     }
 
     private void updateSecurityStrategy() {
@@ -184,6 +199,7 @@ public class Leadership implements Steppable {
         double threat;
         double risk;
         Resources strategy = new Resources.ResourceBuilder().build(); // Creates a Resources with 0 values
+//        System.out.println(target.getTerritory().getMapKey() + " ...what a problem");
         switch (goal) {
             case 0: // Punish
                 red = (int) (target.getForces() * WorldOrder.RED_PUNISH);
