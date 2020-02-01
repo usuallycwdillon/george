@@ -1,7 +1,7 @@
 package edu.gmu.css.entities;
 
-import ec.util.MersenneTwisterFast;
 import edu.gmu.css.agents.Person;
+import edu.gmu.css.relations.ProcessDisposition;
 import edu.gmu.css.util.MTFWrapper;
 import edu.gmu.css.worldOrder.WorldOrder;
 import org.jgrapht.Graph;
@@ -25,12 +25,11 @@ public class CommonWeal implements Steppable {
     private Map<Entity, Double> entityPosition;
     private Map<String, Person> personMap;
     private Graph<String, DefaultEdge> graph;
-    private MTFWrapper random = new MTFWrapper(WorldOrder.modelRun.getSeed()); // JGraphT requires an implementation of Java's util.Random class
+    private MTFWrapper random = new MTFWrapper(WorldOrder.getSeed()); // JGraphT requires an implementation of Java's util.Random class
     private WattsStrogatzGraphGenerator<String, DefaultEdge> wsg;
     private Supplier<String> vSupplier;
     private double rebel = 0.002;
     public ConnectivityInspector<String, DefaultEdge> inspector;
-
 
 
     public CommonWeal() {
@@ -66,13 +65,22 @@ public class CommonWeal implements Steppable {
 
     }
 
-    public Double gaugeSupport(Entity e) {
+
+    public Double evaluateWarNeed(Entity e) {
+        // TODO: Change this from returning a random value to the average support after a week of public deliberation.
+        //  The common weal basically asks: can we afford this issue (in people or resources)?
         Double support = random.nextDouble();
         entityPosition.put(e, support);
         return support;
     }
 
-    public Graph newGraph(Territory t) {
+    public boolean evaluateWarWillingness(ProcessDisposition pd) {
+        // TODO: Change this from return ing a random value to returning the average support for the Institution/Process
+        //  after a week of deliberation. Now that the State/Polity has asked for taxes/recruits, is the common weal willing?
+        return entityPosition.get(pd.getSubject()) > 0.34;
+    }
+
+    public Graph<String, DefaultEdge> newGraph(Territory t) {
         Graph<String, DefaultEdge> localGraph = new SimpleGraph<>(
                 vSupplier, SupplierUtil.createDefaultEdgeSupplier(), false);
         wsg.generateGraph(localGraph);
@@ -80,13 +88,13 @@ public class CommonWeal implements Steppable {
     }
 
     public void calculateBetweenness() {
-        BetweennessCentrality bc = new BetweennessCentrality(graph);
+        BetweennessCentrality<String, DefaultEdge> bc = new BetweennessCentrality<>(graph);
         Map<String, Double> betweennessScores = bc.getScores();
         for (Map.Entry<String, Double> e : betweennessScores.entrySet()) {
             Person p = personMap.get(e.getKey());
             p.setBcScore(e.getValue());
         }
-        Polity p = territory.getGovernment();
+        Polity p = territory.getPolity();
         int leadershipSize = (p.getPolityFact().getAutocracyRating() * 10) + 1; // between 1 and 101
         Set<String> leaderIds = sortByValue(betweennessScores, leadershipSize).keySet();
         Map<String, Person> leaders = new HashMap<>();

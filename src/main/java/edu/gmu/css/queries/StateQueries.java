@@ -4,14 +4,20 @@ import edu.gmu.css.entities.*;
 import edu.gmu.css.service.Neo4jSessionFactory;
 import edu.gmu.css.worldOrder.WorldOrder;
 import org.neo4j.ogm.model.Result;
+import sim.engine.SimState;
 
 import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 public class StateQueries {
 
-    public List<State> getStates(String system, int period) {
+    public static List<State> getStates(String system, int period) {
+        /*
+         * Provided the name of a system and an integer value of the year the system begins, return the list of States
+         * in the system.
+         */
         List<State> states = new ArrayList<>();
-
         Map<String, Object> params = new HashMap<>();
         params.put("name", system); // system name
         params.put("from", period);
@@ -28,6 +34,19 @@ public class StateQueries {
             }
         }
         return states;
+    }
+
+    public static List<State> getCowStatesDuringPeriod(int fy, int uy) {
+        List<State> states = new ArrayList<>();
+        Map<String, Object> params = new HashMap<>();
+        params.put("name", "COW State System"); // system name
+        params.put("from", fy);
+        params.put("until", uy);
+        String q = "MATCH (s:State)-[:MEMBER]-(f:Fact)-[:MEMBER_OF]-(y:System{name:$name}) " +
+                "WHERE f.from.year <= $from <= f.until.year OR f.from IS NULL " +
+                "RETURN s";
+        Iterable<State> result = Neo4jSessionFactory.getInstance().getNeo4jSession().query(State.class, q, params);
+        return StreamSupport.stream(result.spliterator(), false).collect(Collectors.toCollection(ArrayList::new));
     }
 
     public static Resources getMilResources(Polity polity, int year) {
@@ -47,12 +66,12 @@ public class StateQueries {
         Fact milperfact = Neo4jSessionFactory.getInstance().getNeo4jSession().queryForObject(Fact.class, paxQuery, params);
         if (milperfact != null) {
             Long num = ((Long) milperfact.getValue()) * 1000;
-            pax = num != null ? num.intValue() : null;
+            pax = num != null ? num.intValue() : 0;
         }
         Fact milexfact = Neo4jSessionFactory.getInstance().getNeo4jSession().queryForObject(Fact.class, exQuery, params);
         if (milexfact != null) {
             Long amt = ((Long) milexfact.getValue()) * 1000;
-            exp = amt != null ? amt.intValue() : null;
+            exp = amt != null ? amt.intValue() : 0;
         }
         return new Resources.ResourceBuilder().pax(pax).treasury(exp).build();
     }
@@ -62,7 +81,7 @@ public class StateQueries {
         String cowCode = s.getCowCode();
         Map<String, Object> params = new HashMap<>();
         params.put("cowcode", cowCode);
-        params.put("year", WorldOrder.getStartYear());
+        params.put("year", WorldOrder.getFromYear());
         String territoryQuery = "MATCH (p:State{cowcode:$cowcode})-[:OCCUPIED]-(t:Territory{year:$year}) RETURN t";
         return Neo4jSessionFactory.getInstance().getNeo4jSession()
                 .queryForObject(Territory.class, territoryQuery, params);
@@ -72,7 +91,7 @@ public class StateQueries {
     public static State getStateFromDatabase(Territory t) {
         State s = null;
         String mapKey = t.getMapKey();
-        String name = WorldOrder.getStartYear() + "";
+        String name = WorldOrder.getFromYear() + "";
         Map<String, Object> params = new HashMap<>();
         params.put("mapKey",mapKey);
         params.put("name", name);
@@ -102,7 +121,8 @@ public class StateQueries {
         }
     }
 
-    public static List<Polity> getNeighborhoodWithoutAllies(Polity p) {
+    public static List<Polity> getNeighborhoodWithoutAllies(Polity p, SimState simState) {
+        WorldOrder worldOrder = (WorldOrder) simState;
         Territory territory = p.getTerritory();
         List<Polity> polities = new ArrayList<>();
         Map<String, Object> params = new HashMap<>();
@@ -125,7 +145,7 @@ public class StateQueries {
                 .query(Polity.class, query, params);
         if(result != null) {
             for(Polity e: result) {
-                Polity op = WorldOrder.getAllTheStates().stream()
+                Polity op = worldOrder.getAllTheStates().stream()
                         .filter(t -> t.getId().equals(e.getId()))
                         .findAny()
                         .orElse(null);

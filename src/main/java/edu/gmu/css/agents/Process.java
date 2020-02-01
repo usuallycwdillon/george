@@ -94,11 +94,11 @@ public abstract class Process extends Entity implements Steppable, Serializable 
     @Relationship(direction = "INCOMING")
     protected List<ProcessDisposition> processParticipantLinks = new ArrayList<>();
 
-
     public Process() {
     }
 
     public Process(SimState simState) {
+        worldOrder = (WorldOrder) simState;
     }
 
     public Long getId() {
@@ -288,6 +288,7 @@ public abstract class Process extends Entity implements Steppable, Serializable 
     }
 
     public Institution createInstitution(Long step) {
+        double influence = worldOrder.getInstitutionInfluence();
         switch (domain) {
             case WAR:
                 // Create a new war out of this process; mirrors WarMakingFact
@@ -296,14 +297,14 @@ public abstract class Process extends Entity implements Steppable, Serializable 
                 for (ProcessDisposition d : processParticipantLinks) {
                     institution.addParticipation(new Participation(d, institution, worldOrder.getStepNumber()));
                 }
-                worldOrder.setGlobalWarLikelihood(processParticipantLinks.size() * WorldOrder.getInstitutionInfluence());
+                worldOrder.updateGlobalWarLikelihood(processParticipantLinks.size() * influence);
                 return institution;
             case PEACE:
                 institution = new Peace(this);
                 for (ProcessDisposition d : processParticipantLinks) {
                     institution.addParticipation(new Participation(d, institution, worldOrder.getStepNumber()));
                 }
-                worldOrder.setGlobalWarLikelihood(processParticipantLinks.size() * WorldOrder.getInstitutionInfluence() * -1);
+                worldOrder.updateGlobalWarLikelihood(processParticipantLinks.size() * influence * -1);
                 return institution;
             case TRADE:
                 institution = new Trade(this);
@@ -341,7 +342,7 @@ public abstract class Process extends Entity implements Steppable, Serializable 
          *  Saves this Process to the database following the same pattern as data imports.
          *
          */
-        Dataset d = WorldOrder.getModelRun();
+        Dataset d = worldOrder.getModelRun();
         Fact f = new FactBuilder().name(this.name).from(began).until(worldOrder.getStepNumber())
                 .subject(d.getFilename()).build();
         d.addFacts(f);
@@ -352,7 +353,7 @@ public abstract class Process extends Entity implements Steppable, Serializable 
     protected void conclude() {
         stopper.stop();
         stopped = true;
-        WorldOrder.getAllTheProcs().remove(this);
+        worldOrder.getAllTheProcs().remove(this);
     }
 
 }

@@ -2,6 +2,7 @@ package edu.gmu.css.entities;
 
 import ec.util.MersenneTwisterFast;
 import edu.gmu.css.agents.Leadership;
+import edu.gmu.css.agents.Tile;
 import edu.gmu.css.agents.WarProcess;
 import edu.gmu.css.data.Domain;
 import edu.gmu.css.agents.Process;
@@ -15,9 +16,10 @@ import org.neo4j.ogm.annotation.*;
 import org.neo4j.ogm.model.Result;
 import sim.engine.SimState;
 import sim.engine.Steppable;
-import sim.engine.Stoppable;
 
+import java.awt.*;
 import java.util.*;
+import java.util.List;
 
 
 @NodeEntity
@@ -25,6 +27,8 @@ public class Polity extends Entity implements Steppable {
 
     @Id @GeneratedValue
     private Long id;
+    @Property
+    protected int color;
     @Relationship (type = "OCCUPIED")
     protected Set<OccupiedRelation> allTerritories;
     @Transient
@@ -41,19 +45,23 @@ public class Polity extends Entity implements Steppable {
     protected Set<AllianceParticipation> alliances = new HashSet<>();
     @Transient
     protected List<InstitutionParticipation> institutionList = new ArrayList<>();
-    @Transient
+    // Resources, Strategies and Policies
+    @Transient  // The actual resources available to this polity
+    protected Resources resources = new Resources.ResourceBuilder().build();
+    @Transient  // The amount of resources that ~should~ be available to this polity; the goal
+    protected Resources economicStrategy = new Resources.ResourceBuilder().build();
+    @Transient  // The initial/goal amount of resources to be available for conflict
     protected Resources securityStrategy = new Resources.ResourceBuilder().build();
-    @Transient
+    @Transient  // The amount of resources to be available for foreign policy (alliances, etc)
     protected Resources foreignStrategy = new Resources.ResourceBuilder().build();
-    @Transient
+    @Transient  //
     protected EconomicPolicy economicPolicy = new EconomicPolicy(0.50, 0.50, 0.10);
-    @Transient
-    protected Resources resources = new Resources.ResourceBuilder().treasury(10000).pax(10000).build();
     @Transient
     protected MersenneTwisterFast random = new MersenneTwisterFast();
     @Transient
-    DiscretePolityFact polityFact;
-
+    protected DiscretePolityFact polityFact;
+    @Transient
+    protected Color polColor = new Color(color);
 
 
     public Polity () {
@@ -62,8 +70,10 @@ public class Polity extends Entity implements Steppable {
     public Polity (int startYear) {
     }
 
+
     public void step(SimState simState) {
-        collectTax();
+        WorldOrder worldOrder = (WorldOrder) simState;
+        adjustTaxRate(worldOrder);
     }
 
 
@@ -135,19 +145,36 @@ public class Polity extends Entity implements Steppable {
         return securityStrategy;
     }
 
-    public void setSecurityStrategy(Resources securityStrategy) {
+    public void setSecurityStrategy(Resources newStrategy) {
         // Some portion of overall resources that can be used for wars
-        if (securityStrategy.getTreasury() < resources.getTreasury()
+        if (newStrategy.getTreasury() < resources.getTreasury()
                 && securityStrategy.getPax() < resources.getPax()) {
-            this.securityStrategy = securityStrategy;
+            this.securityStrategy = newStrategy;
         } else {
             Integer pax = (int) (resources.getPax() * 0.90);
             Double cost = resources.getTreasury() * 0.90;
-            securityStrategy = new Resources.ResourceBuilder()
+            this.securityStrategy = new Resources.ResourceBuilder()
                     .pax(pax)
                     .treasury(cost)
                     .build();
         }
+    }
+
+    public Resources getEconomicStrategy() {
+        return economicStrategy;
+    }
+
+    public void setEconomicStrategy(Resources economicStrategy) {
+        this.economicStrategy = economicStrategy;
+    }
+
+    public Color getPolColor() {
+        polColor = new Color(color);
+        return polColor;
+    }
+
+    public void setPolColor(Color polColor) {
+        this.polColor = polColor;
     }
 
     protected Resources requestNewStratgy(Resources proposed) {
@@ -204,7 +231,12 @@ public class Polity extends Entity implements Steppable {
 
     }
 
-    protected void collectTax() {
+    public void collectTax() {
+
+    }
+
+
+    protected void adjustTaxRate(WorldOrder wo) {
 
     }
 
@@ -212,23 +244,19 @@ public class Polity extends Entity implements Steppable {
 
     }
 
-    public boolean takeIssue(SimState simState, Issue i) {
-        WorldOrder worldOrder = (WorldOrder) simState;
+    public boolean evaluateWarNeed(SimState simState, Issue i) {
+        // The polity has a new Issue (Change occurs) and must decide whether they perceive a need to take action. Conceptually,
+        // the ProbabilisticCausality agent creates the issue and the ProcessDisposition directly, and the ProcessDisposition
+        // contains the logic about whether the polity perceives a need to take military action over the new Issue. In
+        // practical terms, we would have to create a Process and a ProcessDisposition (because the ProcessDisposition is
+        // a Neo4j relationship and it must know both of its endpoints at creation time); and the Issue may not result in
+        // a new Process after all. For convenience, the first step of the conflict logic is inside this method.
+        // But Polities which are not States cannot do much in the simulation at this stage of development.
+        return false;
+    }
 
-        Issue issue = i;
-        i.setStopper(worldOrder.schedule.scheduleRepeating(i));
-        Polity t = issue.getTarget();
-        // TODO: Do leadership and population of p agree on need N for military action to address issue?
-        if (warResponse(i, t)) {
-            WarProcess proc = getLeadership().initiateWarProcess(t);
-            proc.setIssue(i);
-            worldOrder.addProc(proc);
-            Stoppable stoppable = worldOrder.schedule.scheduleRepeating(proc);
-            proc.setStopper(stoppable);
-            return true;
-        } else {
-            return false;
-        }
+    public boolean evaluateWarWillingness(ProcessDisposition disposition) {
+        return evaluateAttackSuccess(disposition);
     }
 
     public boolean evaluateAttackSuccess(ProcessDisposition disposition) {
@@ -262,23 +290,11 @@ public class Polity extends Entity implements Steppable {
         }
     }
 
-    public boolean warResponse(Issue i, Polity t) {
-        Issue issue = i;
-        Polity target = t;
-        double leadershipPosition = leadership.supportsWar(i);
-        double commonWheal = territory.assessSupport(i);
-        // TODO: Needs some functionality to incorporate Polity IV data (autocrat's weal vs people's weal) to balance calculation.
-        return (leadershipPosition + commonWheal > 1.0);
-    }
-
     public boolean willProbablyWin(Process process) {
 
         return true;
     }
 
-    public boolean willEscalate() {
-        return leadership.shouldEscalate();
-    }
 
     public boolean hasInsuficentResources(Institution war) {
         return true;
@@ -297,7 +313,7 @@ public class Polity extends Entity implements Steppable {
     public void setCurrentTerritory() {
         Map<String, Object> params = new HashMap<>();
         params.put("id", this.id);
-        params.put("year", WorldOrder.getStartYear());
+        params.put("year", WorldOrder.getFromYear());
         String territoryQuery = "MATCH (p:Polity)-[:OCCUPIED]-(t:Territory{year:$year})" +
                 "WHERE id(p)=$id RETURN t LIMIT 1";
         Territory t = Neo4jSessionFactory.getInstance().getNeo4jSession()
@@ -310,27 +326,28 @@ public class Polity extends Entity implements Steppable {
         params.put("year", year);
         params.put("name", "" + year);
         params.put("id", this.getId());
-        // borders
-        String borderQuery = "MATCH (p:Polity)-[sb:SHARES_BORDER]-(b:Border)-[d:DURING]-(y:Year{name:{name}}) " +
-                "WHERE id(p) = {id} RETURN p, sb, b";
+
+        // Load Polity's Borders
+        String borderQuery = "MATCH (p:Polity)-[sb:SHARES_BORDER]-(b:Border)-[d:DURING]-(y:Year{name:$name}) " +
+                "WHERE id(p) = $id RETURN p, sb, b";
         Iterable<BorderAgreement> borders = Neo4jSessionFactory.getInstance().getNeo4jSession()
                 .query(BorderAgreement.class, borderQuery, params);
         for (BorderAgreement b : borders) {
             bordersWith.add(b);
             institutionList.add(b);
         }
-        // dipEx
-        String dipQuery = "MATCH (p:Polity)-[r:REPRESENTATION]-(d:DiplomaticExchange)-[:DURING]-(y:Year{name:{name}}) " +
-                "WHERE id(p) = {id} RETURN r";
+        // Load dipEx missions
+        String dipQuery = "MATCH (p:Polity)-[r:REPRESENTATION]-(d:DiplomaticExchange)-[:DURING]-(y:Year{name:$name}) " +
+                "WHERE id(p) = $id RETURN r";
         Iterable<DiplomaticRepresentation> dipEx = Neo4jSessionFactory.getInstance().getNeo4jSession()
                 .query(DiplomaticRepresentation.class, dipQuery, params);
         for (DiplomaticRepresentation d : dipEx) {
             representedAt.add(d);
             institutionList.add(d);
         }
-        // alliances
+        // Load alliances
         String allianceQuery = "MATCH (p:Polity)-[e:ENTERED]-(af:AllianceParticipationFact)-[:ENTERED_INTO]-(a:Alliance) " +
-                "WHERE id(p) = {id} AND e.from.year <= {year} AND e.until.year > {year} RETURN p, af, a";
+                "WHERE id(p) = $id AND e.from.year <= $year AND e.until.year > $year RETURN p, af, a";
         Result result = Neo4jSessionFactory.getInstance().getNeo4jSession()
                 .query(allianceQuery, params, true);
         Iterator it = result.iterator();
@@ -366,8 +383,6 @@ public class Polity extends Entity implements Steppable {
         return false;
     }
 
-
-
     public boolean findPolityData(int year) {
         DiscretePolityFact dpf = StateQueries.getPolityData(this, year);
         if (dpf != null) {
@@ -387,7 +402,5 @@ public class Polity extends Entity implements Steppable {
         f.setFrom(0L);
         this.polityFact = f;
     }
-
-
 
 }

@@ -62,7 +62,7 @@ public class PeaceProcess extends Process {
 //        System.out.println("This " + name + " proc now at " + fiat);
         if (stopped) {
             stopper.stop();
-            WorldOrder.getAllTheProcs().remove(this);
+            worldOrder.getAllTheProcs().remove(this);
             processParticipantLinks = null;
             return;
         }
@@ -140,7 +140,7 @@ public class PeaceProcess extends Process {
                     // Log this attempt at peace with the War/Conflict and leave it
                     outcome = true;
                     stopper.stop();
-                    WorldOrder.getAllTheProcs().remove(this);
+                    worldOrder.getAllTheProcs().remove(this);
                 } else {
                     ProcessDisposition pd = processParticipantLinks.get(0);
                     if (pd.getOwner().evaluateNeedForPeace() ) {

@@ -7,9 +7,11 @@ import edu.gmu.css.entities.Polity;
 import edu.gmu.css.entities.Resources;
 import org.neo4j.ogm.annotation.*;
 
+import java.io.Serializable;
+
 
 @RelationshipEntity(type="DISPOSITION_IN")
-public class ProcessDisposition {
+public class ProcessDisposition implements Serializable {
 
     @Id @GeneratedValue
     private Long id;
@@ -183,5 +185,11 @@ public class ProcessDisposition {
 
     public void setSide(int side) {
         this.side = side;
+    }
+
+    public void learnPolityWarNeed() {
+        if (owner.getLeadership().evaluateWarNeed(process.getIssue()) +
+                owner.getTerritory().getCommonWeal().evaluateWarNeed(process.getIssue()) > 1.0)
+            setN(true);
     }
 }

@@ -10,8 +10,10 @@ import org.neo4j.ogm.annotation.Property;
 import org.neo4j.ogm.annotation.RelationshipEntity;
 import org.neo4j.ogm.annotation.StartNode;
 
+import java.io.Serializable;
+
 @RelationshipEntity
-public class OrganizationMembership {
+public class OrganizationMembership implements Serializable {
 
     @StartNode
     protected Polity polity;

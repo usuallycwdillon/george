@@ -1,17 +1,12 @@
 package edu.gmu.css.entities;
 
 import edu.gmu.css.service.DateConverter;
-import org.neo4j.ogm.annotation.GeneratedValue;
-import org.neo4j.ogm.annotation.Id;
-import org.neo4j.ogm.annotation.Property;
-import org.neo4j.ogm.annotation.Relationship;
+import org.neo4j.ogm.annotation.*;
 import org.neo4j.ogm.annotation.typeconversion.Convert;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
 
 public class Dataset extends Entity {
@@ -23,6 +18,8 @@ public class Dataset extends Entity {
     @Property
     String name;
     @Property
+    Integer year;
+    @Property
     Double version;
 //    @Convert(DateConverter.class)
 //    Long published = 0L;
@@ -32,6 +29,8 @@ public class Dataset extends Entity {
 //    Long validUntil = 0L;
     @Property
     long seed;
+    @Transient
+    Map<String, Double> warParameters = new HashMap<>();
 
 
     @Relationship(type="CONTRIBUTES")
@@ -40,9 +39,10 @@ public class Dataset extends Entity {
     public Dataset() {
     }
 
-    public Dataset(String filename, String name, Double version) {
+    public Dataset(String filename, String name, Integer year, Double version) {
         this.filename = filename;
         this.name = name;
+        this.year = year;
         this.version = version;
     }
 
@@ -103,6 +103,22 @@ public class Dataset extends Entity {
 
     public long getSeed() {
         return this.seed;
+    }
+
+    public Map<String, Double> getWarParameters() {
+        return warParameters;
+    }
+
+    public void setWarParameters(Map<String, Double> params) {
+        this.warParameters = params;
+    }
+
+    public void setYear(int year) {
+        this.year = year;
+    }
+
+    public int getYear() {
+        return this.year;
     }
 
     //    public Long getPublished() {

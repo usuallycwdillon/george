@@ -1,6 +1,8 @@
 package edu.gmu.css.entities;
 
-public class Resources {
+import java.io.Serializable;
+
+public class Resources implements Serializable {
     /**
      * Resources are some combination of the resource types (and values) a State government has at its disposal.
      */

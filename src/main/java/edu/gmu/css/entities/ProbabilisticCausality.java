@@ -1,7 +1,6 @@
 package edu.gmu.css.entities;
 
 import ec.util.MersenneTwisterFast;
-import edu.gmu.css.agents.WarProcess;
 import edu.gmu.css.data.Issue;
 import edu.gmu.css.queries.StateQueries;
 import edu.gmu.css.worldOrder.WorldOrder;
@@ -23,7 +22,7 @@ public class ProbabilisticCausality implements Steppable, Stoppable {
 
     public ProbabilisticCausality(SimState simState) {
         WorldOrder worldOrder = (WorldOrder) simState;
-        initializationPeriod = WorldOrder.getInitializationPeriod();
+        initializationPeriod = worldOrder.getInitializationPeriod();
         globalWarLikelihood = worldOrder.getGlobalWarLikelihood();
         random = worldOrder.random;
         poisson = new Poisson(globalWarLikelihood, random);
@@ -34,22 +33,36 @@ public class ProbabilisticCausality implements Steppable, Stoppable {
         int freq = poisson.nextInt();
         if (freq > 0) {
             for (int f=0; f<freq; f++) {
-                int numStates = WorldOrder.getAllTheStates().size();
+                int numStates = worldOrder.getAllTheStates().size();
                 int instigator = worldOrder.random.nextInt(numStates);
-                Polity p = WorldOrder.getAllTheStates().get(instigator);
-                List<Polity> potentialTargets = StateQueries.getNeighborhoodWithoutAllies(p);
+                Polity p = worldOrder.getAllTheStates().get(instigator);
+                List<Polity> potentialTargets = StateQueries.getNeighborhoodWithoutAllies(p, worldOrder);
                 int numPotentials = potentialTargets.size();
                 if (numPotentials > 0) {
                     Polity t = potentialTargets.get(random.nextInt(numPotentials));
                     if (p != t) {
-                        int d = random.nextInt(523);
+                        int d = random.nextInt(522);
                         Issue i = new Issue.IssueBuilder().duration(d).target(t).build();
-                        p.takeIssue(simState, i);
+                        i.setStopper(worldOrder.schedule.scheduleRepeating(i));
+                        // this logic was...
+//                        if (p.warResponse(i, t)) {
+//                            WarProcess proc = p.getLeadership().initiateWarProcess(t);
+//                            proc.setIssue(i);
+//                            worldOrder.addProc(proc);
+//                            Stoppable stoppable = worldOrder.schedule.scheduleRepeating(proc);
+//                            proc.setStopper(stoppable);
+//                        }
+                        p.evaluateWarNeed(simState, i);
                     }
                 }
             }
         }
     }
+
+    public void upateDistribution() {
+        poisson = new Poisson(globalWarLikelihood,random);
+    }
+
 
     public void stop() {
     }

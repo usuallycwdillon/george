@@ -22,7 +22,6 @@ public class CategoryList extends Entity {
         return id;
     }
 
-
     public String getName() {
         return name;
     }

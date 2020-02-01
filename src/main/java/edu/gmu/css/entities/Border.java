@@ -18,7 +18,7 @@ public class Border extends Institution {
     @Property
     private Long until;
     @Property
-    private int year;
+    private int during;
     @Relationship (type = "BORDERS", direction=Relationship.INCOMING)
     private Set<BorderRelation> borderRelationSet;
     @Relationship (type="SHARES_BORDER", direction = Relationship.INCOMING)
@@ -53,7 +53,7 @@ public class Border extends Institution {
         private Set<BorderRelation> borderRelations;
         private Long from;
         private Long until;
-        private int year;
+        private int during;
         private Resources maintenance;
 
         public BorderBuilder() {        }
@@ -80,7 +80,7 @@ public class Border extends Institution {
         }
 
         public BorderBuilder year (int year) {
-            this.year = year;
+            this.during = year;
             return this;
         }
 
@@ -102,7 +102,7 @@ public class Border extends Institution {
         this.from = builder.from;
         this.until = builder.until;
         this.maintenance = builder.maintenance;
-        this.year = builder.year;
+        this.during = builder.during;
     }
 
     public Long getId() {
@@ -134,12 +134,12 @@ public class Border extends Institution {
     }
 
     @Override
-    public int getYear() {
-        return year;
+    public int getDuring() {
+        return during;
     }
 
-    public void setYear(int year) {
-        this.year = year;
+    public void setDuring(int during) {
+        this.during = during;
     }
 
     public Set<BorderRelation> getBorderRelationSet() {

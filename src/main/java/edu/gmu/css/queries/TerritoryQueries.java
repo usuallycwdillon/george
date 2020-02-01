@@ -1,38 +1,67 @@
 package edu.gmu.css.queries;
 
-import edu.gmu.css.agents.Tile;
-import edu.gmu.css.entities.Polity;
-import edu.gmu.css.entities.Territory;
-import edu.gmu.css.entities.Ungoverned;
-import edu.gmu.css.relations.Inclusion;
+import ec.util.MersenneTwisterFast;
+import edu.gmu.css.agents.Leadership;
+import edu.gmu.css.data.World;
+import edu.gmu.css.entities.*;
 import edu.gmu.css.service.Neo4jSessionFactory;
 import edu.gmu.css.worldOrder.WorldOrder;
 
-import org.neo4j.ogm.cypher.ComparisonOperator;
-import org.neo4j.ogm.cypher.Filter;
-import org.neo4j.ogm.model.Result;
-
 import java.util.*;
+
+import static edu.gmu.css.worldOrder.WorldOrder.allTheLeaders;
+import static edu.gmu.css.worldOrder.WorldOrder.allTheStates;
 
 public class TerritoryQueries {
 
 //    public Map<Long, Tile> tiles = WorldOrder.tiles;
+    public static MersenneTwisterFast random;
 
-    public static Map<String, Territory> getStateTerritories(int startYear) {
+    public static Map<String, Territory> getStateTerritories(int startYear, WorldOrder wo) {
+        random = wo.random;
         Map<String, Territory> territoryMap = new HashMap<>();
         String query = "MATCH (m:MembershipFact)-[:MEMBER]-(s:State)-[o]-(t:Territory{year:$year}) " +
-                "WHERE t.cowcode = s.cowcode AND (m.from.year <= $year OR m.from.year IS NULL)" +
-                " RETURN t";
+                       "WHERE t.cowcode = s.cowcode AND (m.from.year <= $year OR m.from.year IS NULL) " +
+                       "RETURN t";
         Map<String, Object> params = new HashMap<>();
         params.put("year", startYear);
-        Iterable<Territory> result = Neo4jSessionFactory.getInstance().getNeo4jSession().query(Territory.class, query, params);
-        result.forEach(t -> territoryMap.put(t.getMapKey(), t));
+        Neo4jSessionFactory.getInstance().getNeo4jSession().query(Territory.class, query, params)
+            .forEach(t -> territoryMap.put(t.getMapKey(), loadWithRelations(t.getMapKey(), wo)));
         return territoryMap;
     }
 
-    public static Territory loadWithRelations(String mapKey) {
-        Territory territory = Neo4jSessionFactory.getInstance().getNeo4jSession().load(Territory.class, mapKey, 1);
-        return territory;
+    public static Territory loadWithRelations(String mapKey, WorldOrder wo) {
+        WorldOrder worldOrder = wo;
+        Territory t = Neo4jSessionFactory.getInstance().getNeo4jSession().load(Territory.class, mapKey, 1);
+        int year = t.getYear();
+        if (t.getPolity() == null) {
+            System.out.println(t.getMapKey() + " is not a known state government; creating a blank polity.");
+            Polity p = new Polity();
+            p.setTerritory(t);
+            t.setGovernment(p, 0L);
+        }
+        if (t.getPolity().getClass() == State.class) {
+            State s = (State) t.getPolity();
+            Leadership l = new Leadership(random);
+            l.setPolity(s);
+            s.setTerritory(t);
+            s.setLeadership(l);
+            s.loadInstitutionData(year);
+            s.setResources(StateQueries.getMilResources(s, year).multipliedBy(1.11112));
+            if (s.getResources()==null) { // make something up
+                s.setResources(new Resources.ResourceBuilder().pax(10000).treasury(100000.0).build());
+                System.out.println("I made up some military resources for " + s.getName());
+            }
+            s.setSecurityStrategy(s.getResources().multipliedBy(0.9));
+            if (!s.findPolityData(year)) {
+                s.setNeutralPolityFact();
+                System.out.println("No polity fact for " + s.getName());
+            }
+            allTheStates.add(s);
+            allTheLeaders.add(l);
+            t.initiateGraph();
+        }
+        return t;
     }
 
     public static Map<String, Territory> getWaterTerritories() {

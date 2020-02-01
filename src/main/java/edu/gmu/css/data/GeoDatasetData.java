@@ -14,31 +14,37 @@ public class GeoDatasetData {
     static Dataset map1816 = new Dataset(
             "cowWorld_1816.geojson",
             "world 1816",
+            1816,
             0.9);
 
     static Dataset map1880 = new Dataset(
             "cowWorld_1880.geojson",
             "world 1880",
+            1880,
             0.9);
 
     static Dataset map1914 = new Dataset(
             "cowWorld_1914.geojson",
             "world 1914",
+            1914,
             0.9);
 
     static Dataset map1938 = new Dataset(
             "cowWorld_1938.geojson",
             "world 1938",
+            1938,
             0.9);
 
     static Dataset map1945 = new Dataset(
             "cowWorld_1945.geojson",
             "world 1945",
+            1945,
             0.9);
 
     static Dataset map1994 = new Dataset(
             "cowWorld_1994.geojson",
             "world 1994",
+            1994,
             0.9);
 
     static {

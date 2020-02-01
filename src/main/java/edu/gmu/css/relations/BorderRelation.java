@@ -4,8 +4,10 @@ import edu.gmu.css.entities.Border;
 import edu.gmu.css.entities.Territory;
 import org.neo4j.ogm.annotation.*;
 
+import java.io.Serializable;
+
 @RelationshipEntity(type="BORDERS")
-public class BorderRelation {
+public class BorderRelation implements Serializable {
 
     @Id @GeneratedValue
     Long id;

@@ -42,7 +42,8 @@ if [ "x$MAX_HEAP_SIZE" != "x" ]; then
 fi
 
 #export CLASSPATH="$HAZELCAST_HOME/lib/hazelcast-all-3.11.jar:$HAZELCAST_HOME/user-lib:$HAZELCAST_HOME/user-lib/*"
-export CLASSPATH="$HAZELCAST_HOME/lib/george-0.1.0-SNAPSHOT.jar"
+export CLASSPATH="$HAZELCAST_HOME/lib/george.jar"
+#export CLASSPATH="$HAZELCAST_HOME/lib/hazelcast-all-3.12.5.jar:$HAZELCAST_HOME/lib/george.jar"
 
 echo "########################################"
 echo "# RUN_JAVA=$RUN_JAVA"

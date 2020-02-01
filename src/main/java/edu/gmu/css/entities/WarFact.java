@@ -1,5 +1,5 @@
 package edu.gmu.css.entities;
 
-public class WarFact extends Entity {
+public class WarFact extends Fact {
 
 }

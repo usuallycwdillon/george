@@ -1,21 +1,24 @@
 package edu.gmu.css.worldOrder;
 
+import ec.util.MersenneTwisterFast;
 import edu.gmu.css.agents.*;
 import edu.gmu.css.agents.Process;
-import edu.gmu.css.data.Annum;
+import edu.gmu.css.data.DefaultWarParams;
 import edu.gmu.css.data.DataTrend;
-import edu.gmu.css.data.EconomicPolicy;
 import edu.gmu.css.entities.*;
 import edu.gmu.css.queries.DataQueries;
 import edu.gmu.css.queries.StateQueries;
 import edu.gmu.css.queries.TerritoryQueries;
 
-import edu.gmu.css.service.Neo4jSessionFactory;
+import edu.gmu.css.queries.TimelineQueries;
 import sim.engine.SimState;
 import sim.engine.Steppable;
 import sim.engine.Stoppable;
 import sim.util.distribution.Poisson;
 
+import java.awt.*;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.*;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -38,14 +41,13 @@ public class WorldOrder extends SimState {
         int jobs = 1;
         seed = System.currentTimeMillis();
         SimState worldOrder = new WorldOrder(seed);
-        worldOrder.nameThread();
         for (int job = 0; job < jobs; job++) {
             worldOrder.setJob(job);
             worldOrder.start();
             do
                 if (!worldOrder.schedule.step(worldOrder))
                     break;
-            while(worldOrder.schedule.getSteps() < 52 * 300);
+            while(worldOrder.schedule.getSteps() < 52 * 400);
             worldOrder.finish();
         }
         System.exit(0);
@@ -55,8 +57,10 @@ public class WorldOrder extends SimState {
     // The simulation singleton self-manifest
     public WorldOrder(long seed) {
         super(seed);
-        // Some default values to boostrap some values, globally
+        WorldOrder.seed = seed;
     }
+
+    public static boolean DEBUG = true;
 
     /**
      * Select a year for baseline data and initialize the global environment with empirical descriptions of States,
@@ -68,141 +72,111 @@ public class WorldOrder extends SimState {
      * Set the debugging flag to true to print out comments about what the setup is doing.
      *
      */
-    public static boolean DEBUG = true;
-    public static boolean NEW_BASELINE = false;
-
-    private static int startYear = 1816; // Choices are 1816, 1880, 1914, 1938, 1945, 1994
-    private static int untilYear = 1820; // Depending on how sloppy you're willing to be, can be just below next year
-    public static int getStartYear() {return startYear;}
-    public static int getUntilYear() {return untilYear;}
-
+    private static int fromYear = 1816; // Choices are 1816, 1880, 1914, 1938, 1945, 1994
+    private static int untilYear = 1818; // Depending on how sloppy you're willing to be, can be just below next year
     // The stabilityDuration is the number of weeks with no change in globalWarLikelihood before the system is "stable"
     // and globalHostility is the collection of that data.
-    public static int stabilityDuration;
-    public static long initializationPeriod;
-    public static DataTrend globalHostility;
-    public static double warCostFactor;       // The maximum % GDP that any one war can cost
-    public static double globalWarLikelihood; // based on 136 wars in 10,017 weeks
-    public static double institutionInfluence;
-
+    public static int overallDuration = 400 * 52;
+    public static int stabilityDuration = 80 * 52;
+    public static long initializationPeriod = 10 * 52;
+    public static DataTrend globalHostility = new DataTrend(stabilityDuration);
+//    public static double warCostFactor;       // The maximum % GDP that any one war can cost
+    public static double globalWarLikelihood = 0.185312622886355; // based on 136 wars in 10,017 weeks
+    public static double institutionInfluence = 0.0001;
     public static Poisson poisson;
-
+    private static Long seed;
+    private static Color[] colorGradients;
+    public Dataset modelRun;
+    public Year dataYear;
+    public int weeksThisYear;
+    public long dateIndex;
     public static List<State> allTheStates = new ArrayList<>();
+    public static List<Leadership> allTheLeaders = new ArrayList<>();
+    public static Map<String, Territory> territories;
     public static Set<War> allTheWars = new HashSet<>();
     public static Set<Process> allTheProcs = new HashSet<>();
     public static Set<PeaceProcess> allThePeaceProcs = new HashSet<>();
     public static Set<WarProcess> allTheWarProcs = new HashSet<>();
     public static Map<Long, Tile> tiles = new HashMap<>();
-    public static Map<String, Territory> territories = new HashMap<>();
     public static Dataset spatialDataset;
     public static Map<Long, Integer> warCountHistory = new HashMap<>();
     public static Set<Institution> allTheInstitutions = new HashSet<>();
+    /**
+     * Some parameters for war strategy thresholds.
+     * RED is the opposing force size while BLUE is own force size
+     * THREAT is the opposing military expenditures while RISK is own military expenditures
+     * Goals for each conflict are PUNISH, COERCE, DEFEAT, or CONQUER
+     * A polity uses these coefficients to plan their offensive war strategies
+     * The four strategies roughly correspond to military activities: strike, show of force, swiftly defeat,
+     * and win decisively
+     */
+    private double RED_PUNISH;
+    private double RED_COERCE;
+    private double RED_DEFEAT;
+    private double RED_CONQUER;
+    private double BLUE_PUNISH;
+    private double BLUE_COERCE;
+    private double BLUE_DEFEAT;
+    private double BLUE_CONQUER;
+    private double THREAT_PUNISH;
+    private double THREAT_COERCE;
+    private double THREAT_DEFEAT;
+    private double THREAT_CONQUER;
+    private double RISK_PUNISH;
+    private double RISK_COERCE;
+    private double RISK_DEFEAT;
+    private double RISK_CONQUER;
 
-    // Some parameters for war strategy thresholds.
-    // RED is the opposing force size while BLUE is own force size
-    // THREAT is the opposing military expenditures while RISK is own military expenditures
-    // Goals for each conflict are PUNISH, COERCE, DEFEAT, or CONQUER
-    // A polity uses these coefficients to plan their offensive war strategies
-    public static double RED_PUNISH = 0.2;
-    public static double RED_COERCE = 0.33;
-    public static double RED_DEFEAT = 0.5;
-    public static double RED_CONQUER = 1.0;
-    public static double BLUE_PUNISH = 0.1;
-    public static double BLUE_COERCE = 0.1;
-    public static double BLUE_DEFEAT = 0.66;
-    public static double BLUE_CONQUER = 1.0;
-    public static double THREAT_PUNISH = 0.1;
-    public static double THREAT_COERCE = 0.2;
-    public static double THREAT_DEFEAT = 0.33;
-    public static double THREAT_CONQUER = 0.5;
-    public static double RISK_PUNISH = 0.01;
-    public static double RISK_COERCE = 0.01;
-    public static double RISK_DEFEAT = 0.01;
-    public static double RISK_CONQUER = 0.01;
 
-    public static Dataset modelRun;
-    private static Long seed;
-    public static Annum annum;
 
 
     public void start() {
         super.start();
         // new dataset node in graph to track this data
         modelRun = new Dataset(seed());
-        Neo4jSessionFactory.getInstance().getNeo4jSession().save(modelRun, 0);
-        annum = new Annum();
-        schedule.scheduleRepeating(annum);
+        modelRun.setWarParameters(new DefaultWarParams().getWarParams());
+//        Neo4jSessionFactory.getInstance().getNeo4jSession().save(modelRun, 0);
+        dataYear = TimelineQueries.getYearFromIntVal(fromYear);
+        weeksThisYear = dataYear.getWeeksThisYear();
+        dateIndex = TimelineQueries.getFirstWeek(dataYear).getStepNumber();
+        territories = TerritoryQueries.getStateTerritories(fromYear, this);
+        territories.values().forEach(Territory::loadTileFacts);
+        territories.values().forEach(Territory::initiateGraph);
+        // allTheStates gets loaded inside the territories query stream and their institution data gets loaded, too.
+        // AFTER that, we add water territories so that no new Polity() is made for them
+        territories.putAll(TerritoryQueries.getWaterTerritories());
+        colorGradients = allTheStates.stream().map(Polity::getPolColor).toArray(Color[]::new);
 
-        // set model parameters
+        RED_PUNISH = modelRun.getWarParameters().get("RED_PUNISH");
+        RED_COERCE = modelRun.getWarParameters().get("RED_COERCE");
+        RED_DEFEAT = modelRun.getWarParameters().get("RED_DEFEAT");
+        RED_CONQUER = modelRun.getWarParameters().get("RED_CONQUER");
+        BLUE_PUNISH = modelRun.getWarParameters().get("BLUE_PUNISH");
+        BLUE_COERCE = modelRun.getWarParameters().get("BLUE_COERCE");
+        BLUE_DEFEAT = modelRun.getWarParameters().get("BLUE_DEFEAT");
+        BLUE_CONQUER = modelRun.getWarParameters().get("BLUE_CONQUER");
+        THREAT_PUNISH = modelRun.getWarParameters().get("THREAT_PUNISH");
+        THREAT_COERCE = modelRun.getWarParameters().get("THREAT_COERCE");
+        THREAT_DEFEAT = modelRun.getWarParameters().get("THREAT_DEFEAT");
+        THREAT_CONQUER = modelRun.getWarParameters().get("THREAT_CONQUER");
+        RISK_PUNISH = modelRun.getWarParameters().get("RISK_PUNISH");
+        RISK_COERCE = modelRun.getWarParameters().get("RISK_COERCE");
+        RISK_DEFEAT = modelRun.getWarParameters().get("RISK_DEFEAT");
+        RISK_CONQUER = modelRun.getWarParameters().get("RISK_CONQUER");
+
+        // set model run parameters
         stabilityDuration = 80 * 52;
         initializationPeriod = 10 * 52;
-        //  warCostFactor = 0.25;                               // Not used
-        globalWarLikelihood = 0.185312622886355;
+        globalWarLikelihood = DataQueries.getWarAndConflictAverages().get("onset"); // 0.185312622886355 mean wars per week
         globalHostility = new DataTrend(stabilityDuration);
-        institutionInfluence = 0.001;
-        warCountHistory = new DataQueries().getWeeklyWarsCount();
-
-        // Import territories from WorldOrderData
-        territories = TerritoryQueries.getStateTerritories(startYear);
-        for (String t : territories.keySet()) {
-            String mapKey = territories.get(t).getMapKey();
-            Territory territory = TerritoryQueries.loadWithRelations(mapKey);
-            territories.put(t, territory);
-        }
-
-        // add water territories AFTER creating the list of states because
-        territories.putAll(TerritoryQueries.getWaterTerritories());
-
-        // Each territory is controlled by a Polity, which may be a State
-        // TODO: Create Polity Coordination objects to represent underdeveloped & unrecognized polities; until then,
-        //       they get a placeholder polity object.
-        for (String k : territories.keySet()) {
-            // if there isn't a state/polity assigned, double-check whether there should be one, otherwise make another
-            Territory t = territories.get(k);
-            if (t.getGovernment() == null) {
-                System.out.println(t.getMapKey() + " is not a known state government; creating a blank polity.");
-                Polity p = new Polity();
-                p.setTerritory(t);
-                t.setGovernment(p, getStepNumber());
-            } else {
-                if (t.getGovernment().getClass()==State.class) {
-                    State s = (State) t.getGovernment();
-                    s.setTerritory(t);
-                    allTheStates.add(s);
-                }
-            }
-        }
-
-        if (NEW_BASELINE) {
-            territories.values().forEach(Territory::loadBaselinePopulation);
-        }
-
-        allTheStates.forEach(p -> p.loadInstitutionData(startYear));
-
-        for (State s : allTheStates) {
-            Leadership l = new Leadership(this);
-            schedule.scheduleRepeating(l);
-            s.setLeadership(l);
-            l.setPolity(s);
-            // update military resources or invent some if there aren't any
-            s.setResources(StateQueries.getMilResources(s, startYear));
-            if (s.getResources()==null) {
-                // make something up
-                s.setResources(new Resources.ResourceBuilder().pax(10000).treasury(100000.0).build());
-                System.out.println("I made up some military resources for " + s.getName());
-            }
-            if (!s.findPolityData(startYear)) {
-                s.setNeutralPolityFact();
-                System.out.println("No polity fact for " + s.getName());
-            }
-            s.getTerritory().initiateGraph();
-            schedule.scheduleRepeating(s);
-        }
-
-        // TODO: Add Data Collection to the Schedule
-
+        institutionInfluence = 0.0001;
+        warCountHistory = new DataQueries().getWeeklyWarHistory();
+//       warCostFactor = 0.25;                           // Not used
+        allTheStates.stream().forEach(s -> schedule.scheduleRepeating(s));
+        allTheLeaders.stream().forEach(l -> schedule.scheduleRepeating(l));
         tiles.values().forEach(tile -> schedule.scheduleRepeating(tile));
 
+        // TODO: Add Data Collection to the Schedule
         ProbabilisticCausality warCause = new ProbabilisticCausality(this);
         Stoppable externalWarStopper = schedule.scheduleRepeating(warCause);
         warCause.setStopper(externalWarStopper);
@@ -217,22 +191,24 @@ public class WorldOrder extends SimState {
                 // Record the global probability of war whether it's prescribed or calculated
                 globalHostility.add(globalWarLikelihood);
                 long stepNo = getStepNumber();
-                if(annum.getWeeksThisYear() == 0) {
-                    territories.values().forEach(Territory::updateTotals);
+                // TODO: set this equal the current step count minus the last week of the current year.
+                if (worldOrder.getStepNumber() - dataYear.getLast() == 0) {
+                    dataYear = dataYear.getNextYear();
+                    territories.values().stream().filter(t -> t.getMapKey() == "World Oceans")
+                            .forEach(Territory::updateTotals);
                 }
-
-//                if (stepNo == stabilityDuration) {
-//                    externalWarStopper.stop();
-//                }
-
+                // End the simulation after (about) 400 years
+                if (stepNo == overallDuration) {
+                    externalWarStopper.stop();
+                }
                 // End the simulation if the global probability of war is stagnate or stable at zero
                 if (globalWarLikelihood <= 0) {
                     System.exit(0);
                 }
+                // End the simulation if hostility gets stuck in a local minimum/maximum
                 if (globalHostility.average() == globalWarLikelihood && stepNo > stabilityDuration) {
                     System.exit(0);
                 }
-
                 // Count Procs
                 Map<String, Long> procCounts =
                         allTheProcs.stream().collect(Collectors.groupingBy(e -> e.getName(), Collectors.counting()));
@@ -246,6 +222,10 @@ public class WorldOrder extends SimState {
         schedule.scheduleRepeating(world);
     }
 
+    public static long getSeed() {
+        return seed;
+    }
+
     public void updatePoisson() {
         poisson = new Poisson(globalWarLikelihood, random);
     }
@@ -253,6 +233,10 @@ public class WorldOrder extends SimState {
     public WorldOrder getWorldOrderSimState() {
         return this;
     }
+
+    public static int getFromYear() {return fromYear;}
+
+    public static int getUntilYear() {return untilYear;}
 
     public long getStepNumber() {
         return this.schedule.getSteps();
@@ -262,43 +246,51 @@ public class WorldOrder extends SimState {
         return stabilityDuration;
     }
 
-    public static Dataset getModelRun() {
+    public Dataset getModelRun() {
         return modelRun;
+    }
+
+    public Color[] getGradients() {
+        return colorGradients;
     }
 
     public DataTrend getGlobalHostility() {
         return globalHostility;
     }
 
-    public double getWarCostFactor() {
-        return warCostFactor;
-    }
+//    public double getWarCostFactor() {
+//        return warCostFactor;
+//    }
 
     public double getGlobalWarLikelihood() {
         return globalWarLikelihood;
     }
 
-    public void setGlobalWarLikelihood(double effect) {
+    public void setGlobalWarLikelihood(double l) {
+        globalWarLikelihood = l;
+    }
+
+    public void updateGlobalWarLikelihood(double effect) {
         globalWarLikelihood += effect;
     }
 
-    public static List<State> getAllTheStates() {
+    public List<State> getAllTheStates() {
         return allTheStates;
     }
 
-    public static Set<War> getAllTheWars() {
+    public Set<War> getAllTheWars() {
         return allTheWars;
     }
 
-    public static Set<PeaceProcess> getAllThePeaceProcs() {
+    public Set<PeaceProcess> getAllThePeaceProcs() {
         return allThePeaceProcs;
     }
 
-    public static Set<WarProcess> getAllTheWarProcs() {
+    public Set<WarProcess> getAllTheWarProcs() {
         return allTheWarProcs;
     }
 
-    public static Set<Process> getAllTheProcs() {
+    public Set<Process> getAllTheProcs() {
         return allTheProcs;
     }
 
@@ -306,23 +298,23 @@ public class WorldOrder extends SimState {
         allTheProcs.add(p);
     }
 
-    public static Map<Long, Tile> getTiles() {
+    public Map<Long, Tile> getTiles() {
         return tiles;
     }
 
-    public static Map<String, Territory> getTerritories() {
+    public Map<String, Territory> getTerritories() {
         return territories;
     }
 
-    public static Dataset getSpatialDataset() {
+    public Dataset getSpatialDataset() {
         return spatialDataset;
     }
 
-    public static double getInstitutionInfluence() {
+    public double getInstitutionInfluence() {
         return institutionInfluence;
     }
 
-    public static void setInstitutionInfluence(double institutionInfluence) {
+    public void setInstitutionInfluence(double institutionInfluence) {
         WorldOrder.institutionInfluence = institutionInfluence;
     }
 
@@ -330,16 +322,79 @@ public class WorldOrder extends SimState {
         return allTheInstitutions;
     }
 
-    public static void addInstitution(Institution i) {
+    public void addInstitution(Institution i) {
         allTheInstitutions.add(i);
     }
 
-    public static void removeInstitution(Institution i) {
+    public void removeInstitution(Institution i) {
         allTheInstitutions.remove(i);
     }
 
-    public static long getInitializationPeriod() {
+    public long getInitializationPeriod() {
         return initializationPeriod;
     }
 
+    public double getRED_PUNISH() {
+        return RED_PUNISH;
+    }
+
+    public double getRED_COERCE() {
+        return RED_COERCE;
+    }
+
+    public double getRED_DEFEAT() {
+        return RED_DEFEAT;
+    }
+
+    public double getRED_CONQUER() {
+        return RED_CONQUER;
+    }
+
+    public double getBLUE_PUNISH() {
+        return BLUE_PUNISH;
+    }
+
+    public double getBLUE_COERCE() {
+        return BLUE_COERCE;
+    }
+
+    public double getBLUE_DEFEAT() {
+        return BLUE_DEFEAT;
+    }
+
+    public double getTHREAT_CONQUER() {
+        return THREAT_CONQUER;
+    }
+
+    public double getBLUE_CONQUER() {
+        return BLUE_CONQUER;
+    }
+
+    public double getTHREAT_PUNISH() {
+        return THREAT_PUNISH;
+    }
+
+    public double getTHREAT_COERCE() {
+        return THREAT_COERCE;
+    }
+
+    public double getTHREAT_DEFEAT() {
+        return THREAT_DEFEAT;
+    }
+
+    public double getRISK_PUNISH() {
+        return RISK_PUNISH;
+    }
+
+    public double getRISK_COERCE() {
+        return RISK_COERCE;
+    }
+
+    public double getRISK_DEFEAT() {
+        return RISK_DEFEAT;
+    }
+
+    public double getRISK_CONQUER() {
+        return RISK_CONQUER;
+    }
 }

@@ -4,10 +4,11 @@ import edu.gmu.css.entities.Institution;
 import edu.gmu.css.entities.Polity;
 import org.neo4j.ogm.annotation.*;
 
+import java.io.Serializable;
 import java.util.Set;
 
 
-public abstract class InstitutionParticipation {
+public abstract class InstitutionParticipation implements Serializable {
 
     Long id;
     Polity participant;

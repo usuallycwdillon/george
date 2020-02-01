@@ -1,17 +1,19 @@
 package edu.gmu.css.agents;
 
-import com.sun.javafx.geom.Vec2d;
 import com.uber.h3core.H3Core;
-
 import edu.gmu.css.data.EconomicPolicy;
 import edu.gmu.css.entities.Entity;
+import edu.gmu.css.entities.Fact;
+import edu.gmu.css.entities.Territory;
 import edu.gmu.css.entities.TileWeal;
 import edu.gmu.css.relations.Inclusion;
 import edu.gmu.css.service.H3IdStrategy;
 import edu.gmu.css.data.DataTrend;
 
+import edu.gmu.css.service.Neo4jSessionFactory;
 import edu.gmu.css.worldOrder.WorldOrder;
 import one.util.streamex.DoubleStreamEx;
+import org.jetbrains.annotations.NotNull;
 import org.neo4j.ogm.annotation.*;
 import sim.engine.SimState;
 import sim.engine.Steppable;
@@ -32,9 +34,11 @@ public class Tile extends Entity implements Serializable, Steppable {
     @Property
     @Index(unique = true)
     private String address;
-    @Property
+    @Transient
+    private int year;
+    @Transient
     private double urbanization;
-    @Property
+    @Transient
     private int population;
     @Transient
     private int products;
@@ -43,19 +47,15 @@ public class Tile extends Entity implements Serializable, Steppable {
     @Transient
     private double wealth;
     @Transient
-    private double wealthLastStep;
-    @Transient
-    private double productivity = 1.01;
+    private double productivity = 1.03;
     @Transient
     private EconomicPolicy economicPolicy = new EconomicPolicy(0.5, 0.5);
     @Transient
-    private double taxRate = 0.00;
+    private double taxRate = 0.08;
     @Transient
-    private TileWeal weal;
+    private DataTrend memory = new DataTrend(365); // Seven year economic history
     @Transient
-    private DataTrend memory = new DataTrend(52 * 7); // Seven year economic history
-    @Transient
-    private DataTrend growth = new DataTrend(52 * 14); // Fourteen year population history
+    private DataTrend growth = new DataTrend(731); // Fourteen year population history
     @Property
     private List<Long>neighborIds = new ArrayList<>();
     @Relationship(type="ABUTS", direction = Relationship.UNDIRECTED)
@@ -70,16 +70,18 @@ public class Tile extends Entity implements Serializable, Steppable {
     public Tile(Long id) {
         this.h3Id = id;
         learnNeighborhood();
-        weal = new TileWeal(this);
     }
 
     public void step(SimState simState) {
+        WorldOrder worldOrder = (WorldOrder) simState;
         memory.add(this.wealth);     // Wealth gets recorded before any increase from current production
         growth.add(this.population);
         updateProductivity();
         produce();
         growPopulation();
-        weal.step(simState);
+        evenStep(worldOrder);
+//        weal.step(simState);
+
     }
 
 
@@ -87,7 +89,7 @@ public class Tile extends Entity implements Serializable, Steppable {
     // * growPopulation()
     // * produce()
 
-    // Population growth is a linear function of regional wealth (averaged over themTimes) and the proportion of the
+    // Population growth is a linear function of regional wealth (averaged over length of `memory`) and the proportion of the
     // population that is urban. It varies between 0.098 for urban population with negative history of average wealth--
     // increasing toward 1.0 as proportion of urban population decreases--to 1.02 for rural populations with positive
     // wealth history. These numbers hacked out crudely from @article {Cohen1995, author={Cohen, JE}, title={
@@ -98,11 +100,11 @@ public class Tile extends Entity implements Serializable, Steppable {
         double rate;
         double trend = DoubleStreamEx.of(memory).pairMap((a, b) -> b - a).sum();
         if (trend < 0) {
-            rate = 1.0 - (urbanization * -0.0205);
-            rate = 1.0 - ((1.0 - rate) / 52);
+            double diff = 1.0 - (urbanization * -0.0205);
+            rate = 1.0 - ((1.0 - diff) / 52);
         } else {
-            rate = 1.02 + (urbanization * -0.0205);
-            rate = ((rate - 1.0) / 52) + 1.0;
+            double diff = 1.02 + (urbanization * -0.0205);
+            rate = ((diff - 1.0) / 52) + 1.0;
         }
        this.population = (int) (this.population * rate);
     }
@@ -114,17 +116,17 @@ public class Tile extends Entity implements Serializable, Steppable {
         double kpLabor = 1 - agLabor;
         double production = (productivity * (
                 Math.pow(population, agLabor) * Math.pow(wealth, kpLabor)));
-        // the Economic policy determines how much money becomes wealth and how much gets consumed as product
+        // The Economic policy determines how much money becomes wealth and how much gets consumed as product.
         this.products += this.products + ((int) (production * economicPolicy.getCapital()));
         this.wealth += this.wealth + (production * economicPolicy.getLabor());
     }
 
     // External (State) agents demand taxes and draft soldiers.
     public double payTaxes() {
-        double weeklyTaxRate = taxRate / WorldOrder.annum.getWeeksThisYear();
-        double amount = weeklyTaxRate * this.wealth;
-        this.wealth =- amount;
-        return amount;
+        double increase =  Math.max(memory.latestDiff(), 0.0);
+        double tax = increase * taxRate;
+        wealth -= tax;
+        return tax;
     }
 
     public int recruitSoldiers(double portion) {
@@ -215,6 +217,10 @@ public class Tile extends Entity implements Serializable, Steppable {
         }
     }
 
+    public int getTerritoryYear() {
+        return getLinkedTerritory().getTerritoryYear();
+    }
+
     public double getProductivity() {
         return productivity;
     }
@@ -235,7 +241,34 @@ public class Tile extends Entity implements Serializable, Steppable {
         this.taxRate = taxRate;
     }
 
-    public Double guageSupport(Entity e) {
-        return weal.considerSupport(e);
+//    public Double guageSupport(Entity e) {
+//        return weal.considerSupport(e);
+//    }
+
+    private boolean evenStep(WorldOrder wo) {
+        return wo.getStepNumber() % 2 == 1;
     }
+
+    public boolean loadFacts(Map<String, Object> data) {
+        Long a = ((Number) data.get("a")).longValue();
+        Integer p = ((Number) data.get("p")).intValue();
+        Integer u = ((Number) data.get("u")).intValue();
+        Double w = ((Number) data.get("w")).doubleValue();
+        if (Objects.equals(a, this.h3Id)) {
+            this.setPopulation(p);
+            this.setUrbanization(u);
+            this.setWealth(w);
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+
+
+        // weal
+//        this.weal = new TileWeal(this);
+
+        // DataTrend elements 0 and 1
+
 }

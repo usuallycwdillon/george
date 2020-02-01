@@ -4,13 +4,15 @@ import edu.gmu.css.agents.Tile;
 import edu.gmu.css.entities.Territory;
 import org.neo4j.ogm.annotation.*;
 
+import java.io.Serializable;
+
 @RelationshipEntity(type="INCLUDES")
-public class Inclusion {
+public class Inclusion implements Serializable {
 
     @Id @GeneratedValue
     private Long relationshipId;
     @Property
-    private Integer year;
+    private Integer during;
     @StartNode
     private Territory territory;
     @EndNode
@@ -19,18 +21,18 @@ public class Inclusion {
 
     public Inclusion() {}
 
-    public Inclusion(Territory territory, Tile tile, Integer year) {
+    public Inclusion(Territory territory, Tile tile, Integer during) {
         this.territory = territory;
         this.tile = tile;
-        this.year = year;
+        this.during = during;
     }
 
-    public Integer getYear() {
-        return year;
+    public Integer getDuring() {
+        return during;
     }
 
-    public void setYear(Integer year) {
-        this.year = year;
+    public void setDuring(Integer during) {
+        this.during = during;
     }
 
     public Territory getTerritory() {
@@ -53,7 +55,24 @@ public class Inclusion {
         return this.tile.getH3Id();
     }
 
+    public String getTileAddress() {
+        return this.tile.getAddress();
+    }
+
     public Integer getTilePopulation() {
         return this.tile.getPopulation();
+    }
+
+    public Integer getTileUrbanPop() {
+        Long lupop = Math.round(this.getTilePopulation() * this.tile.getUrbanization());
+        return lupop.intValue();
+    }
+
+    public Double geTileWealth() {
+        return this.getTile().getWealth();
+    }
+
+    public Integer getTerritoryYear() {
+        return territory.getYear();
     }
 }

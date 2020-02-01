@@ -115,6 +115,10 @@ public class Fact extends Entity {
         return during;
     }
 
+    public void setDuring(int d) {
+        this.during = d;
+    }
+
     public String getName() {
         return name;
     }
@@ -124,6 +128,18 @@ public class Fact extends Entity {
     }
 
     public void setValue(Double value) {
+        this.value = value;
+    }
+
+    public void setValue(Integer value) {
+        this.value = value;
+    }
+
+    public void setValue(String value) {
+        this.value = value;
+    }
+
+    public void setValue(Long value) {
         this.value = value;
     }
 

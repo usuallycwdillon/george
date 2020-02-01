@@ -38,7 +38,8 @@ public class War extends Institution {
     }
 
     public War(Process proc) {
-        from = proc.getWorldOrder().getStepNumber();
+        worldOrder = proc.getWorldOrder();
+        from = worldOrder.getStepNumber();
         cost = new Resources.ResourceBuilder().build();
         name = "War";
     }

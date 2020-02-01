@@ -15,7 +15,7 @@ Given a map year and boundary years for data, a world is instantiated. This exam
     1. Borders
     1. Diplomatic Exchange
     1. Alliances
-    1. (Future accomodation for Trade and IGO membership)
+    1. (Future accommodation for Trade and IGO membership)
 1. Create _Leadership_ objects for _States_ and add them to the schedule. 
     1. _Leadership_ and _Polities_ know each other
     1. Configure _Leadership_ to match Polity IV Data information (incomplete)
@@ -35,15 +35,18 @@ Given a map year and boundary years for data, a world is instantiated. This exam
  
 ## Simulation Process
 
-The _Probabilistic Causality_ (PC) agent may create an _Issue_ on any given step (week) between a random State Leadership and 
-a non-allied State within two border-crossings. The _Issue_ is also associated with a new _Process Disposition_ agent. 
-The issue can last between 1 and 523 weeks/steps. The _Issue_ can specify the conflict object: any specific institution 
-(such as a Border, Trade Agreement, War, ...), any Resource (a Territory/set of tiles, wealth, military personnel, ... ); 
-or a Process (conflict process, peace process, state-making process, ...). These specifications are not currently being 
-used, but the framework is designed to be extended in this way. Once a State Leadership agent has initiated an Issue, it 
-exists until its duration has expired or the associated _Process_ has institutionalized (become a War, Trade Agreement, 
-...). 
-
+1. When it steps, the _Probabilistic Causality_ (PC) agent may... 
+    1. ...create an _Issue_ on any given step (week) between a random State Leadership and a non-allied State within two 
+    border-crossings. The _Issue_ is also associated with a new _Process Disposition_ agent.
+    1. In the canonical process we say, "A change occurs," (Polity::takeIssue()) and the Leadership agent may decide there 
+    is a need to take action (Polity::warResponse())
+    1. The issue can last between 1 and 523 weeks/steps (it may or may not persist until the process is institutionalized). 
+    1, The _Issue_ can specify the conflict object: any specific institution (such as a Border, Trade Agreement, War, 
+    ...), any Resource (a Territory/set of tiles, wealth, military personnel, ... ) or a Process (conflict process, peace 
+    process, state-making process, ...). However, these specifications are not currently being used---the framework is 
+    designed to be extended in this way. 
+    1. The Issue exists until its duration has expired or the associated _Process_ has institutionalized (become a War, 
+    Trade Agreement, ...). 
 A _Process Disposition_ (PD) agent has no fixed duration and may outlive the preceding _Issue_. The PD agent represents 
 one State's side of a new international process; a gross approximation of a domestic process that involves the _Leadership_ 
 and the _Common Weal_. If the _State_ is willing to undertake military action against the target polity, a new _War Process_ 

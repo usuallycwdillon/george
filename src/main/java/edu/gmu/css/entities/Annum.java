@@ -1,4 +1,4 @@
-package edu.gmu.css.data;
+package edu.gmu.css.entities;
 
 import edu.gmu.css.worldOrder.WorldOrder;
 import sim.engine.SimState;
@@ -24,6 +24,7 @@ public class Annum implements Steppable {
         if (weeksSoFar == weeksThisYear) {
             year += 1;
             weeksSoFar = 0;
+
         }
     }
 

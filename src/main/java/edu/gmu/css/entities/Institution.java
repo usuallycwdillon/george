@@ -63,6 +63,7 @@ public abstract class Institution extends Entity implements Steppable, Stoppable
     }
 
     public Institution(Process process) {
+        worldOrder = process.getWorldOrder();
     }
 
     public void step(SimState simState) {
@@ -106,12 +107,12 @@ public abstract class Institution extends Entity implements Steppable, Stoppable
         this.size = size;
     }
 
-    public int getYear() {
+    public int getDuring() {
         return year;
     }
 
-    public void setYear(int year) {
-        this.year = year;
+    public void setDuring(int during) {
+        this.year = during;
     }
 
     public List<InstitutionParticipation> getParticipation() {
@@ -134,6 +135,26 @@ public abstract class Institution extends Entity implements Steppable, Stoppable
         return participants;
     }
 
+    public Set<Polity> getOtherParticipants(Polity p) {
+        Set<Polity> others = new HashSet<>();
+        for (InstitutionParticipation i : participation) {
+            if (i.getParticipant() != p) {
+                others.add(i.getParticipant());
+            }
+        }
+        return others;
+    }
+
+    public boolean isParticipant(Polity t) {
+        for (InstitutionParticipation i : participation) {
+            if (i.getParticipant() == t) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+
     public Process getProcess() {
         return process;
     }
@@ -148,6 +169,10 @@ public abstract class Institution extends Entity implements Steppable, Stoppable
 
     public void setActive(boolean active) {
         this.active = active;
+    }
+
+    public WorldOrder getWorldOrder() {
+        return worldOrder;
     }
 
     public String getName() {

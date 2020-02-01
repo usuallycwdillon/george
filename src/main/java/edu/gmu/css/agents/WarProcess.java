@@ -1,6 +1,5 @@
 package edu.gmu.css.agents;
 
-import com.sun.xml.internal.bind.annotation.OverrideAnnotationOf;
 import edu.gmu.css.data.Domain;
 import edu.gmu.css.data.SecurityObjective;
 import edu.gmu.css.entities.*;
@@ -31,14 +30,16 @@ public class WarProcess extends Process {
         pdo.setSide(0);
         pdo.setObjective(objective);
         pdo.setN(true);
-        pdo.setU(true);
-        pdo.setCommitment(force);
+        // TODO: 09JUL19. I commented these out because it isn't necessarily true after adding the CommonWeal.
+//        pdo.setU(true);
+//        pdo.setCommitment(force);
         // We must commit the resources before adding the process disposition to the owner's list of processes
         owner.addProcess(pdo);
         processParticipantLinks.add(pdo);
         // target state links to the process but has no strategy, yet. That's part of the process.
         ProcessDisposition pdt = new ProcessDisposition(target, this, began);
         pdt.setSide(1);
+        pdt.learnPolityWarNeed();
         target.addProcess(pdt);
         processParticipantLinks.add(pdt);
         involvement.increaseBy(force);
@@ -58,7 +59,7 @@ public class WarProcess extends Process {
 //        System.out.println("This " + name + " proc now at " + fiat);
 
         if (stopped) {
-            WorldOrder.getAllTheProcs().remove(this);
+            worldOrder.getAllTheProcs().remove(this);
             processParticipantLinks = null;
             return;
         }
@@ -71,7 +72,7 @@ public class WarProcess extends Process {
                     if (p.atN()) {
                         count += 1;
                     } else {
-                        if (p.getOwner().willEscalate()) {
+                        if (p.getOwner().evaluateWarWillingness(p)) {
                             p.setN(true);
                             count += 1;
                         }
@@ -101,7 +102,7 @@ public class WarProcess extends Process {
                 // log this as a dispute
                 ended = worldOrder.getStepNumber();
                 Dispute d = new Dispute(this);
-                WorldOrder.getModelRun().addFacts(d);
+                worldOrder.getModelRun().addFacts(d);
                 saveNearEntity(d);
                 conclude();
                 break;
@@ -140,7 +141,7 @@ public class WarProcess extends Process {
                 if (equivalence) {
                     outcome = true;
                     stopper.stop();
-                    WorldOrder.getAllTheProcs().remove(this);
+                    worldOrder.getAllTheProcs().remove(this);
                 } else {
                     ProcessDisposition pd = processParticipantLinks.get(0);
                     if (pd.getOwner().evaluateAttackSuccess(pd)) {

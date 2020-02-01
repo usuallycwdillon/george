@@ -1,7 +1,10 @@
 package edu.gmu.css.agents;
 
+import ec.util.MersenneTwisterFast;
 import edu.gmu.css.data.SecurityObjective;
 import edu.gmu.css.data.Issue;
+import edu.gmu.css.data.World;
+import edu.gmu.css.entities.Entity;
 import edu.gmu.css.entities.Polity;
 import edu.gmu.css.entities.War;
 import edu.gmu.css.relations.ProcessDisposition;
@@ -21,21 +24,21 @@ public class Leadership implements Steppable {
     private int type;
     private Polity polity;
     private Map<String, Person> leaders = new HashMap<>();
-    public WorldOrder worldOrder;
-
+    public MersenneTwisterFast random;
 
     public Leadership() {
 
     }
 
-    public Leadership(SimState simState) {
-        worldOrder = (WorldOrder) simState;
+    public Leadership(MersenneTwisterFast mtf) {
+        random = mtf;
     }
 
     public void step(SimState simState) {
-        worldOrder = (WorldOrder) simState;
+        WorldOrder worldOrder = (WorldOrder) simState;
+        random = worldOrder.random;
         updateEconomicPolicy();
-        updateSecurityStrategy();
+        updateSecurityPolicy();
 
     }
 
@@ -67,11 +70,12 @@ public class Leadership implements Steppable {
         this.leaders = leaders;
     }
 
-    private void updateSecurityStrategy() {
+    private void updateSecurityPolicy() {
         if (polity != null) {
-            
-        }
+            Resources current = polity.getSecurityStrategy();
+        } else {
 
+        }
     }
 
     private void updateEconomicPolicy() {
@@ -81,34 +85,36 @@ public class Leadership implements Steppable {
 
     }
 
-    public WarProcess initiateWarProcess(Polity target) {
+    public WarProcess initiateWarProcess(Polity target, WorldOrder wo) {
         SecurityObjective objective = chooseSecurityObjective();
-        Resources force = warStrategy(target, objective);
-        WarProcess p = new WarProcess(polity, target, force, objective, worldOrder.getStepNumber());
+        Resources force = warStrategy(target, objective, wo);
+        WarProcess p = new WarProcess(polity, target, force, objective, wo.getStepNumber());
         if(objective.value / 2.0 > 2.0) {
             recruit(force);
         }
         return p;
     }
 
-    public Double supportsWar(Issue i) {
-        return worldOrder.random.nextDouble();
+    public Double evaluateWarNeed(Issue i) {
+        // TODO: Leadership's evaluation of need to go to war over an issue should be extended with threat assessment.
+        return random.nextDouble();
     }
 
     public PeaceProcess considerPeace(War war) {
+        WorldOrder worldOrder = war.getWorldOrder();
         Long step = worldOrder.getStepNumber();
         Issue i = new Issue.IssueBuilder().institution(war).duration(2).build();
         i.setStopper(worldOrder.schedule.scheduleRepeating(i));
         // TODO: Wars need a duration or the Issue's step method needs to handle null for wars.
         PeaceProcess pp = new PeaceProcess(polity, i, step);
-        WorldOrder.getAllTheProcs().add(pp);
+        worldOrder.getAllTheProcs().add(pp);
         pp.setStopper(worldOrder.schedule.scheduleRepeating(pp));
         return pp;
     }
 
     public boolean reconsiderPeace() {
         boolean decision = false;
-        if (worldOrder.random.nextDouble() < 0.50) {
+        if (random.nextDouble() < 0.50) {
             decision = true;
         }
         return decision;
@@ -170,7 +176,7 @@ public class Leadership implements Steppable {
 
     private SecurityObjective chooseSecurityObjective() {
         // This method of arbitrarily selecting a strategic objective is a placeholder for some realistic logic
-        int goal = worldOrder.random.nextInt(4) * 2;
+        int goal = random.nextInt(4) * 2;
         SecurityObjective objective = SecurityObjective.name(goal);
         return objective;
     }
@@ -181,13 +187,13 @@ public class Leadership implements Steppable {
         return available;
     }
 
-    public boolean shouldEscalate() {
-        double respond = worldOrder.random.nextGaussian();
+    public boolean evaluateWarWillingness(ProcessDisposition pd) {
+        double respond = random.nextGaussian();
         // Ref Cioffi-Revilla (1998) Politics and Uncertainty, p 160. (P_B), there is some probability that...
         return respond < 0.80;
     }
 
-    private Resources warStrategy(Polity target, SecurityObjective objective) {
+    private Resources warStrategy(Polity target, SecurityObjective objective, WorldOrder wo) {
         int goal;
         if (objective.value % 2 == 0) {
             goal = objective.value / 2;
@@ -202,31 +208,31 @@ public class Leadership implements Steppable {
 //        System.out.println(target.getTerritory().getMapKey() + " ...what a problem");
         switch (goal) {
             case 0: // Punish
-                red = (int) (target.getForces() * WorldOrder.RED_PUNISH);
-                blue = (int) (polity.getForces() * (worldOrder.random.nextDouble() * WorldOrder.BLUE_PUNISH) );
-                threat = (target.getTreasury() * WorldOrder.THREAT_PUNISH);
-                risk = (polity.getTreasury() * WorldOrder.RISK_PUNISH);
+                red = (int) (target.getForces() * wo.getRED_PUNISH() );
+                blue = (int) (polity.getForces() * (wo.random.nextDouble() * wo.getBLUE_PUNISH()) );
+                threat = (target.getTreasury() * wo.getTHREAT_PUNISH());
+                risk = (polity.getTreasury() * wo.getRISK_PUNISH());
                 strategy = new Resources.ResourceBuilder().pax(Math.min(red, blue)).treasury(Math.min(threat, risk)).build();
                 return strategy;
             case 1: // Coerce
-                red = (int) (target.getForces() * WorldOrder.RED_COERCE);
-                blue = (int) (polity.getForces() * (worldOrder.random.nextDouble() * WorldOrder.BLUE_COERCE) );
-                threat = (target.getTreasury() * WorldOrder.THREAT_COERCE);
-                risk = (polity.getTreasury() * WorldOrder.RISK_COERCE);
+                red = (int) (target.getForces() * wo.getRED_COERCE() );
+                blue = (int) (polity.getForces() * (wo.random.nextDouble() * wo.getBLUE_COERCE() ) );
+                threat = (target.getTreasury() * wo.getTHREAT_COERCE() );
+                risk = (polity.getTreasury() * wo.getRISK_COERCE() );
                 strategy = new Resources.ResourceBuilder().pax(Math.min(red, blue)).treasury(Math.min(threat, risk)).build();
                 return strategy;
             case 2:  // Defeat
-                red = (int) (target.getForces() * WorldOrder.RED_DEFEAT);
-                blue = (int) (polity.getForces() * (worldOrder.random.nextDouble() * WorldOrder.BLUE_DEFEAT) );
-                threat = (target.getTreasury() * WorldOrder.THREAT_DEFEAT);
-                risk = (polity.getTreasury() * WorldOrder.RISK_DEFEAT);
+                red = (int) (target.getForces() * wo.getRED_DEFEAT() );
+                blue = (int) (polity.getForces() * (wo.random.nextDouble() * wo.getBLUE_DEFEAT() ) );
+                threat = (target.getTreasury() * wo.getTHREAT_DEFEAT() );
+                risk = (polity.getTreasury() * wo.getRISK_DEFEAT() );
                 strategy = new Resources.ResourceBuilder().pax(Math.min(red, blue)).treasury(Math.min(threat, risk)).build();
                 return strategy;
             case 3:  // Conquer
-                red = (int) (target.getForces() * WorldOrder.RED_CONQUER);
-                blue = (int) (polity.getForces() * (worldOrder.random.nextDouble() * WorldOrder.BLUE_CONQUER) );
-                threat = (target.getTreasury() * WorldOrder.THREAT_CONQUER);
-                risk = (polity.getTreasury() * WorldOrder.RISK_CONQUER);
+                red = (int) (target.getForces() * wo.getRED_CONQUER() );
+                blue = (int) (polity.getForces() * (wo.random.nextDouble() * wo.getBLUE_CONQUER() ) );
+                threat = (target.getTreasury() * wo.getTHREAT_CONQUER() );
+                risk = (polity.getTreasury() * wo.getRISK_CONQUER() );
                 strategy = new Resources.ResourceBuilder().pax(Math.min(red, blue)).treasury(Math.min(threat, risk)).build();
                 return strategy;
         }

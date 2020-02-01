@@ -5,8 +5,10 @@ import edu.gmu.css.entities.Polity;
 import edu.gmu.css.entities.Territory;
 import org.neo4j.ogm.annotation.*;
 
+import java.io.Serializable;
+
 @RelationshipEntity (type="OCCUPIED")
-public class OccupiedRelation {
+public class OccupiedRelation implements Serializable {
 
     @Id @GeneratedValue
     private Long id;

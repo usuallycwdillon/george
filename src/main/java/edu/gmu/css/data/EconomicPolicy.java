@@ -1,6 +1,8 @@
 package edu.gmu.css.data;
 
-public class EconomicPolicy {
+import java.io.Serializable;
+
+public class EconomicPolicy implements Serializable {
 
     private double capital;
     private double labor;

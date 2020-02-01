@@ -3,11 +3,14 @@ package edu.gmu.css.entities;
 import org.neo4j.ogm.annotation.GeneratedValue;
 import org.neo4j.ogm.annotation.Id;
 
+import java.io.Serializable;
 
-public abstract class Entity {
+
+public abstract class Entity implements Serializable {
 
     @Id @GeneratedValue
     private Long id;
+    private static final long serialVersionUID = 1L;
 
     public Long getId() {
         return id;
