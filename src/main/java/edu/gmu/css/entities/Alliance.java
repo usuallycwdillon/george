@@ -41,7 +41,11 @@ public class Alliance extends Institution {
         name = "Alliance";
     }
 
-    public Alliance(Process process) {
+    public Alliance(Process process, long s) {
+        name = "Alliance";
+        from = s;
+        cause = process;
+        cost = new Resources.ResourceBuilder().build();
     }
 
 

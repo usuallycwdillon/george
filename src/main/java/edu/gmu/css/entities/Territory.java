@@ -2,6 +2,7 @@ package edu.gmu.css.entities;
 
 import edu.gmu.css.agents.Tile;
 
+import edu.gmu.css.data.World;
 import edu.gmu.css.relations.BorderRelation;
 import edu.gmu.css.relations.Inclusion;
 import edu.gmu.css.relations.OccupiedRelation;
@@ -157,11 +158,12 @@ public class Territory extends Entity implements Serializable {
         this.commonWeal = new CommonWeal(this, true);
     }
 
-    public void addHex(Tile hex) {
+    public void addHex(Tile hex, WorldOrder wo) {
+        WorldOrder worldOrder = wo;
         Inclusion i = new Inclusion(this, hex, year);
         this.tileLinks.add(i);
-        if (!WorldOrder.tiles.containsKey(hex.getH3Id())) {
-            WorldOrder.tiles.put(hex.getH3Id(), hex);
+        if (!worldOrder.getTiles().containsKey(hex.getH3Id())) {
+            worldOrder.tiles.put(hex.getH3Id(), hex);
         }
     }
 
@@ -169,7 +171,8 @@ public class Territory extends Entity implements Serializable {
         return borderRelations;
     }
 
-    public void loadIncludedTiles() {
+    public void loadIncludedTiles(WorldOrder wo) {
+        WorldOrder worldOrder = wo;
         Map<String, Object> params = new HashMap<>();
         params.put("mapKey", mapKey);
         String query = "MATCH (t:Territory{mapKey:$mapKey})-[:INCLUDES]-(ti:Tile) RETURN ti";
@@ -177,7 +180,7 @@ public class Territory extends Entity implements Serializable {
                 .getNeo4jSession().query(Tile.class, query, params);
         Iterator it = result.iterator();
         while (it.hasNext()) {
-            result.forEach(tile -> addHex(tile));
+            result.forEach(tile -> addHex(tile, wo));
         }
     }
 
@@ -208,12 +211,12 @@ public class Territory extends Entity implements Serializable {
         }
     }
 
-    public void loadRelations() {
-        this.loadIncludedTiles();
-        this.loadGovernment();
-        this.loadBorders();
-        this.loadTileFacts();
-    }
+//    public void loadRelations() {
+//        this.loadIncludedTiles();
+//        this.loadGovernment();
+//        this.loadBorders();
+//        this.loadTileFacts();
+//    }
 
     public void loadTileFacts() {
         if (tileLinks.size() < 10) {

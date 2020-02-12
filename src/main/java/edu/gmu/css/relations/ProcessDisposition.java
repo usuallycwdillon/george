@@ -75,6 +75,10 @@ public class ProcessDisposition implements Serializable {
         this.U = true;
     }
 
+    public void commitMore(Resources resources) {
+        commitment.increaseBy(resources);
+    }
+
     public Long getId() {
         return id;
     }

@@ -85,23 +85,41 @@ public class Leadership implements Steppable {
 
     }
 
-    public WarProcess initiateWarProcess(Polity target, WorldOrder wo) {
-        SecurityObjective objective = chooseSecurityObjective();
-        Resources force = warStrategy(target, objective, wo);
-        WarProcess p = new WarProcess(polity, target, force, objective, wo.getStepNumber());
-        if(objective.value / 2.0 > 2.0) {
-            recruit(force);
+    public SecurityObjective chooseSecurityObjective(Issue i) {
+        // This method of arbitrarily selecting a strategic objective is a placeholder for some realistic logic
+        Issue issue = i;
+        if (issue.getInstigator()==polity) { // I'm the instigator
+            Polity target = issue.getTarget();
+            int x = 0;
+            int opfor = target.getForces();
+            int myfor = polity.getForces();
+            double ratio = (myfor * 1.0) / (opfor * 1.0);
+            if (ratio > 4.0) {
+                x = random.nextInt(15);
+            } else if (ratio > 2.0) {
+                x = random.nextInt(14);
+            } else if (ratio >= 1.0) {
+                x = random.nextInt(12);
+            } else {
+                x = random.nextInt(8);
+            }
+            if (x > 14) return SecurityObjective.name(6);
+            else if (x > 12) return SecurityObjective.name(4);
+            else if (x > 8) return SecurityObjective.name(2);
+            else return SecurityObjective.name(0);
+        } else {
+            return null;
         }
-        return p;
     }
 
     public Double evaluateWarNeed(Issue i) {
-        // TODO: Leadership's evaluation of need to go to war over an issue should be extended with threat assessment.
+        // TODO: Leadership's evaluation of need to go to war over an issue should be extended with threat assessment, but
+        //  for now, it's just a random double value.
         return random.nextDouble();
     }
 
-    public PeaceProcess considerPeace(War war) {
-        WorldOrder worldOrder = war.getWorldOrder();
+    public PeaceProcess considerPeace(War war, WorldOrder wo) {
+        WorldOrder worldOrder = wo;
         Long step = worldOrder.getStepNumber();
         Issue i = new Issue.IssueBuilder().institution(war).duration(2).build();
         i.setStopper(worldOrder.schedule.scheduleRepeating(i));
@@ -119,6 +137,7 @@ public class Leadership implements Steppable {
         }
         return decision;
     }
+
 
 
     void initiatePeaceProcess() {
@@ -174,12 +193,7 @@ public class Leadership implements Steppable {
     }
 
 
-    private SecurityObjective chooseSecurityObjective() {
-        // This method of arbitrarily selecting a strategic objective is a placeholder for some realistic logic
-        int goal = random.nextInt(4) * 2;
-        SecurityObjective objective = SecurityObjective.name(goal);
-        return objective;
-    }
+
 
     public Resources respondToThreat(ProcessDisposition disposition, Resources threat) {
         // commit resources in response to threat upto twice the threat
@@ -204,35 +218,35 @@ public class Leadership implements Steppable {
         int blue;
         double threat;
         double risk;
+        Map<String, Double> warParams = wo.getModelRun().getWarParameters();
         Resources strategy = new Resources.ResourceBuilder().build(); // Creates a Resources with 0 values
-//        System.out.println(target.getTerritory().getMapKey() + " ...what a problem");
         switch (goal) {
-            case 0: // Punish
-                red = (int) (target.getForces() * wo.getRED_PUNISH() );
-                blue = (int) (polity.getForces() * (wo.random.nextDouble() * wo.getBLUE_PUNISH()) );
-                threat = (target.getTreasury() * wo.getTHREAT_PUNISH());
-                risk = (polity.getTreasury() * wo.getRISK_PUNISH());
+            case 0: // Punish (Strike)
+                red = (int) (target.getForces() * warParams.get("RED_PUNISH") );
+                blue = (int) (polity.getForces() * (wo.random.nextDouble() * warParams.get("BLUE_PUNISH")) );
+                threat = (target.getTreasury() * warParams.get("THREAT_PUNISH"));
+                risk = (polity.getTreasury() * warParams.get("RISK_PUNISH"));
                 strategy = new Resources.ResourceBuilder().pax(Math.min(red, blue)).treasury(Math.min(threat, risk)).build();
                 return strategy;
-            case 1: // Coerce
-                red = (int) (target.getForces() * wo.getRED_COERCE() );
-                blue = (int) (polity.getForces() * (wo.random.nextDouble() * wo.getBLUE_COERCE() ) );
-                threat = (target.getTreasury() * wo.getTHREAT_COERCE() );
-                risk = (polity.getTreasury() * wo.getRISK_COERCE() );
+            case 1: // Coerce (Show of Force)
+                red = (int) (target.getForces() * warParams.get("RED_COERCE") );
+                blue = (int) (polity.getForces() * (wo.random.nextDouble() * warParams.get("BLUE_COERCE") ) );
+                threat = (target.getTreasury() * warParams.get("THREAT_COERCE") );
+                risk = (polity.getTreasury() * warParams.get("RISK_COERCE") );
                 strategy = new Resources.ResourceBuilder().pax(Math.min(red, blue)).treasury(Math.min(threat, risk)).build();
                 return strategy;
-            case 2:  // Defeat
-                red = (int) (target.getForces() * wo.getRED_DEFEAT() );
-                blue = (int) (polity.getForces() * (wo.random.nextDouble() * wo.getBLUE_DEFEAT() ) );
-                threat = (target.getTreasury() * wo.getTHREAT_DEFEAT() );
-                risk = (polity.getTreasury() * wo.getRISK_DEFEAT() );
+            case 2:  // Defeat (Swiftly Defeat)
+                red = (int) (target.getForces() * warParams.get("RED_DEFEAT") );
+                blue = (int) (polity.getForces() * (wo.random.nextDouble() * warParams.get("BLUE_DEFEAT") ) );
+                threat = (target.getTreasury() * warParams.get("THREAT_DEFEAT") );
+                risk = (polity.getTreasury() * warParams.get("RISK_DEFEAT") );
                 strategy = new Resources.ResourceBuilder().pax(Math.min(red, blue)).treasury(Math.min(threat, risk)).build();
                 return strategy;
-            case 3:  // Conquer
-                red = (int) (target.getForces() * wo.getRED_CONQUER() );
-                blue = (int) (polity.getForces() * (wo.random.nextDouble() * wo.getBLUE_CONQUER() ) );
-                threat = (target.getTreasury() * wo.getTHREAT_CONQUER() );
-                risk = (polity.getTreasury() * wo.getRISK_CONQUER() );
+            case 3:  // Conquer (Win Decisively)
+                red = (int) (target.getForces() * warParams.get("RED_CONQUER") );
+                blue = (int) (polity.getForces() * (wo.random.nextDouble() * warParams.get("BLUE_CONQUER") ) );
+                threat = (target.getTreasury() * warParams.get("THREAT_CONQUER") );
+                risk = (polity.getTreasury() * warParams.get("RISK_CONQUER") );
                 strategy = new Resources.ResourceBuilder().pax(Math.min(red, blue)).treasury(Math.min(threat, risk)).build();
                 return strategy;
         }

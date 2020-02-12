@@ -38,8 +38,6 @@ public abstract class Institution extends Entity implements Steppable, Stoppable
     @Property
     protected boolean active = false;
     @Transient
-    protected WorldOrder worldOrder;
-    @Transient
     protected boolean stopped;
     @Transient
     protected Resources maintenance;
@@ -51,6 +49,10 @@ public abstract class Institution extends Entity implements Steppable, Stoppable
     protected String name;
     @Transient
     protected Issue issue;
+    @Transient
+    protected Process cause;
+    @Transient
+    protected Resources cost;
 
     @Relationship(direction=Relationship.INCOMING)
     protected List<InstitutionParticipation> participation = new ArrayList<>();
@@ -62,12 +64,14 @@ public abstract class Institution extends Entity implements Steppable, Stoppable
     public Institution() {
     }
 
-    public Institution(Process process) {
-        worldOrder = process.getWorldOrder();
+    public Institution(Process process, long s) {
+       cause = process;
+       from = s;
+       cost = new Resources.ResourceBuilder().build();
     }
 
     public void step(SimState simState) {
-        worldOrder = (WorldOrder) simState;
+        WorldOrder worldOrder = (WorldOrder) simState;
     }
 
     @Override
@@ -171,10 +175,6 @@ public abstract class Institution extends Entity implements Steppable, Stoppable
         this.active = active;
     }
 
-    public WorldOrder getWorldOrder() {
-        return worldOrder;
-    }
-
     public String getName() {
         return name;
     }
@@ -203,9 +203,9 @@ public abstract class Institution extends Entity implements Steppable, Stoppable
 
     public void stop(){stopper.stop();}
 
-    public void conclude() {
+    public void conclude(WorldOrder wo) {
         stopper.stop();
         stopped = true;
-        WorldOrder.getAllTheInstitutions().remove(this);
+        wo.getAllTheInstitutions().remove(this);
     }
 }

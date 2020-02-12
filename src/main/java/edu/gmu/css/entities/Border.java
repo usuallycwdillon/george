@@ -1,5 +1,6 @@
 package edu.gmu.css.entities;
 
+import edu.gmu.css.agents.Process;
 import edu.gmu.css.relations.BorderAgreement;
 import edu.gmu.css.relations.BorderRelation;
 import org.neo4j.ogm.annotation.*;
@@ -27,6 +28,13 @@ public class Border extends Institution {
     // only for the OGM, don't use this otherwise
     public Border() {
         name = "Border Agreement";
+    }
+
+    public Border(Process proc, long s) {
+        cause = proc;
+        from = s;
+        name = "Border";
+        cost = new Resources.ResourceBuilder().build();
     }
 
     public Territory getNeighborTerritory(BorderRelation a) {

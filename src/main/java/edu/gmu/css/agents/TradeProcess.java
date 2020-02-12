@@ -34,7 +34,6 @@ public class TradeProcess extends Process {
     @Override
     public void step(SimState simState) {
 
-        worldOrder = (WorldOrder) simState;
         int count = 0;
 
         int statusSum = 0;

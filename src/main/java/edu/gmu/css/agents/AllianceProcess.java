@@ -13,7 +13,7 @@ public class AllianceProcess extends Process {
     public AllianceProcess() {  }
 
     public AllianceProcess(Polity owner, Polity target) {
-
+        name = "Alliance Process";
     }
 
 
@@ -31,7 +31,7 @@ public class AllianceProcess extends Process {
 
     @Override
     public void step(SimState simState) {
-        worldOrder = (WorldOrder) simState;
+        WorldOrder worldOrder = (WorldOrder) simState;
         int count = 0;
 
         int statusSum = 0;

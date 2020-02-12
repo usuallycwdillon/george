@@ -1,8 +1,10 @@
 package edu.gmu.css.agents;
 
 import edu.gmu.css.data.Domain;
+import edu.gmu.css.data.Issue;
 import edu.gmu.css.entities.DiplomaticExchange;
 import edu.gmu.css.entities.Institution;
+import edu.gmu.css.entities.Polity;
 import edu.gmu.css.relations.ProcessDisposition;
 import edu.gmu.css.worldOrder.WorldOrder;
 import sim.engine.SimState;
@@ -13,6 +15,12 @@ public class DiplomacyProcess extends Process {
 
 
     public DiplomacyProcess() {
+    }
+
+    public DiplomacyProcess(Issue i, long s) {
+        name = "Diplomatic Process";
+        began = s;
+        issue = i;
     }
 
     public void setStatus() {
@@ -33,7 +41,7 @@ public class DiplomacyProcess extends Process {
 
     @Override
     public void step(SimState simState) {
-        worldOrder = (WorldOrder) simState;
+        WorldOrder worldOrder = (WorldOrder) simState;
         int count = 0;
 
         int statusSum = 0;

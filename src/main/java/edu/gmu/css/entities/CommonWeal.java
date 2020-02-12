@@ -75,7 +75,7 @@ public class CommonWeal implements Steppable {
     }
 
     public boolean evaluateWarWillingness(ProcessDisposition pd) {
-        // TODO: Change this from return ing a random value to returning the average support for the Institution/Process
+        // TODO: Change this from returning a random value to returning the average support for the Institution/Process
         //  after a week of deliberation. Now that the State/Polity has asked for taxes/recruits, is the common weal willing?
         return entityPosition.get(pd.getSubject()) > 0.34;
     }

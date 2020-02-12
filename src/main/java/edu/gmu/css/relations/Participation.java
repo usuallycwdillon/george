@@ -5,6 +5,7 @@ import edu.gmu.css.entities.Institution;
 import edu.gmu.css.entities.Polity;
 import edu.gmu.css.entities.Resources;
 import edu.gmu.css.entities.War;
+import edu.gmu.css.worldOrder.WorldOrder;
 import org.neo4j.ogm.annotation.*;
 
 import java.util.List;
@@ -89,11 +90,12 @@ public class Participation extends InstitutionParticipation {
         this.commitment = commitment;
     }
 
-    public void tallyLosses(int pax) {
+    public void tallyLosses(int pax, WorldOrder wo) {
+        WorldOrder worldOrder = wo;
         commitment.subtractPax(pax);
         if (commitment.getPax() < 0) {
             // TODO: implement consequences for losing the war; for now, just end it.
-            institution.conclude();
+            institution.conclude(worldOrder);
         }
         magnitude.addPax(pax);
         ProcessDisposition pd = participant.getProcessList().stream()
@@ -101,7 +103,7 @@ public class Participation extends InstitutionParticipation {
                 .findAny().orElse(null);
         if (pax * 3 > commitment.getPax()) {
             if (pd == null) {
-                participant.getLeadership().considerPeace((War) institution);
+                participant.getLeadership().considerPeace((War) institution, worldOrder);
             } else {
                 pd.setN(true);
             }

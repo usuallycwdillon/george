@@ -155,4 +155,14 @@ public class StateQueries {
         return polities;
     }
 
+    public static boolean areAllies(Polity p, Polity t) {
+
+        return false;
+    }
+
+    public static boolean sharePeace(Polity p, Polity t) {
+
+        return false;
+    }
+
 }

@@ -9,16 +9,14 @@ import edu.gmu.css.worldOrder.WorldOrder;
 
 import java.util.*;
 
-import static edu.gmu.css.worldOrder.WorldOrder.allTheLeaders;
-import static edu.gmu.css.worldOrder.WorldOrder.allTheStates;
+//import edu.gmu.css.worldOrder.WorldOrder.allTheLeaders;
+//import edu.gmu.css.worldOrder.WorldOrder.allTheStates;
 
 public class TerritoryQueries {
 
-//    public Map<Long, Tile> tiles = WorldOrder.tiles;
-    public static MersenneTwisterFast random;
 
     public static Map<String, Territory> getStateTerritories(int startYear, WorldOrder wo) {
-        random = wo.random;
+        MersenneTwisterFast random = wo.random;
         Map<String, Territory> territoryMap = new HashMap<>();
         String query = "MATCH (m:MembershipFact)-[:MEMBER]-(s:State)-[o]-(t:Territory{year:$year}) " +
                        "WHERE t.cowcode = s.cowcode AND (m.from.year <= $year OR m.from.year IS NULL) " +
@@ -31,7 +29,7 @@ public class TerritoryQueries {
     }
 
     public static Territory loadWithRelations(String mapKey, WorldOrder wo) {
-        WorldOrder worldOrder = wo;
+        MersenneTwisterFast random = wo.random;
         Territory t = Neo4jSessionFactory.getInstance().getNeo4jSession().load(Territory.class, mapKey, 1);
         int year = t.getYear();
         if (t.getPolity() == null) {
@@ -47,7 +45,7 @@ public class TerritoryQueries {
             s.setTerritory(t);
             s.setLeadership(l);
             s.loadInstitutionData(year);
-            s.setResources(StateQueries.getMilResources(s, year).multipliedBy(1.11112));
+            s.setResources(StateQueries.getMilResources(s, year));
             if (s.getResources()==null) { // make something up
                 s.setResources(new Resources.ResourceBuilder().pax(10000).treasury(100000.0).build());
                 System.out.println("I made up some military resources for " + s.getName());
@@ -57,8 +55,8 @@ public class TerritoryQueries {
                 s.setNeutralPolityFact();
                 System.out.println("No polity fact for " + s.getName());
             }
-            allTheStates.add(s);
-            allTheLeaders.add(l);
+            wo.allTheStates.add(s);
+            wo.allTheLeaders.add(l);
             t.initiateGraph();
         }
         return t;

@@ -3,6 +3,7 @@ package edu.gmu.css.entities;
 import ec.util.MersenneTwisterFast;
 import edu.gmu.css.agents.PeaceProcess;
 import edu.gmu.css.agents.Process;
+import edu.gmu.css.data.World;
 import edu.gmu.css.relations.InstitutionParticipation;
 import edu.gmu.css.relations.Participation;
 import edu.gmu.css.util.MTFApache;
@@ -37,11 +38,11 @@ public class War extends Institution {
     public War() {
     }
 
-    public War(Process proc) {
-        worldOrder = proc.getWorldOrder();
-        from = worldOrder.getStepNumber();
+    public War(Process proc, long s) {
+        from = s;
         cost = new Resources.ResourceBuilder().build();
         name = "War";
+        cause = proc;
     }
 
     @Override
@@ -58,7 +59,7 @@ public class War extends Institution {
         updateValues();
         // 3. Will there be a battle?
         if (random.nextGaussian() > 0.0) {
-            battle();
+            battle(worldOrder);
         }
     }
 
@@ -79,7 +80,8 @@ public class War extends Institution {
         this.participants.add(participant);
     }
 
-    private void battle() {
+    private void battle(WorldOrder wo) {
+        WorldOrder worldOrder = wo;
         // Take a part of the total force as a loss; split the loss between the participants
         // 1. How big was the battle? between [0, 0.5) of the current total commitment
         Double battleSize = random.nextDouble() * 0.5;
@@ -99,7 +101,7 @@ public class War extends Institution {
             Participation p = (Participation) participation.get(i);
             Double decr = portions[i];
             Double pax = decr * battleMagnitude;
-            p.tallyLosses(pax.intValue());
+            p.tallyLosses(pax.intValue(), worldOrder);
             cost.addPax(pax.intValue());
         }
     }

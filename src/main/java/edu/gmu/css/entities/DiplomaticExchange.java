@@ -19,8 +19,10 @@ public class DiplomaticExchange extends Institution {
     public DiplomaticExchange() {
     }
 
-    public DiplomaticExchange(Process process) {
-
+    public DiplomaticExchange(Process process, long s) {
+        cause = process;
+        from = s;
+        name = "Diplomatic Exchange";
     }
 
     @Override

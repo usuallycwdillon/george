@@ -1,6 +1,7 @@
 package edu.gmu.css.entities;
 
 
+import com.fasterxml.jackson.databind.annotation.JsonAppend;
 import edu.gmu.css.agents.Process;
 import edu.gmu.css.data.SecurityObjective;
 import edu.gmu.css.relations.ProcessDisposition;
@@ -16,6 +17,8 @@ public class Dispute extends Entity {
      */
     @Id @GeneratedValue
     private long id;
+    @Property
+    private String name;
     @Property
     private long from;
     @Property
@@ -39,6 +42,7 @@ public class Dispute extends Entity {
     }
 
     public Dispute(Process process) {
+        name = "Dispute";
         from = process.getBegan();
         until = process.getEnded();
         objective = highestLevel(process);

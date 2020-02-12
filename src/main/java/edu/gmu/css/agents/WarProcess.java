@@ -1,6 +1,7 @@
 package edu.gmu.css.agents;
 
 import edu.gmu.css.data.Domain;
+import edu.gmu.css.data.Issue;
 import edu.gmu.css.data.SecurityObjective;
 import edu.gmu.css.entities.*;
 import edu.gmu.css.relations.ProcessDisposition;
@@ -11,6 +12,7 @@ import sim.engine.Stoppable;
 public class WarProcess extends Process {
 
     private Resources involvement = new Resources.ResourceBuilder().build();
+    private Resources cost = new Resources.ResourceBuilder().build();
 
     public WarProcess() {
     }
@@ -23,7 +25,7 @@ public class WarProcess extends Process {
 
     public WarProcess(Polity owner, Polity target, Resources force, SecurityObjective objective, Long step) {
         domain = Domain.WAR;
-        name = "Dispute";
+        name = "Conflict Process";
         began = step;
         // owning state links to the process and sets a strategy; that strategy establishes initial process parameters
         ProcessDisposition pdo = new ProcessDisposition(owner, this, began);
@@ -46,6 +48,13 @@ public class WarProcess extends Process {
         this.updateStatus();
     }
 
+    public WarProcess(Issue i, Long s) {
+        domain = Domain.WAR;
+        name = "Conflict Process";
+        began = s;
+        issue = i;
+    }
+
     @Override
     public void step(SimState simState) {
         /** Switch on the current status
@@ -53,7 +62,8 @@ public class WarProcess extends Process {
          *  process averts the war while being prepared (N+U+P) to defend the state/polity.
          *
          */
-        worldOrder = (WorldOrder) simState;
+        WorldOrder worldOrder = (WorldOrder) simState;
+        long step = worldOrder.getStepNumber();
         int count = 0;
         int statusSum = sumStatus();
 //        System.out.println("This " + name + " proc now at " + fiat);
@@ -72,13 +82,12 @@ public class WarProcess extends Process {
                     if (p.atN()) {
                         count += 1;
                     } else {
-                        if (p.getOwner().evaluateWarWillingness(p)) {
-                            p.setN(true);
+                          if (p.getOwner().evaluateWarNeed(p, step)){
                             count += 1;
                         }
                     }
                 }
-                if (count >= processParticipantLinks.size() ) {
+                if (count == processParticipantLinks.size() ) {
                     // This process is no longer equivalent to 'x' because participants all agree N; status = 4
                     this.N = true;
                     this.equivalence = false;
@@ -94,7 +103,7 @@ public class WarProcess extends Process {
                         // TODO: target(s) lose something
                     }
                 }
-                // return the instigator resources
+                // return all committed war resources to state participants
                 ProcessDisposition pdo = processParticipantLinks.get(0);
                 Polity instigator = pdo.getOwner();
                 Resources returned = pdo.getCommitment();
@@ -103,8 +112,8 @@ public class WarProcess extends Process {
                 ended = worldOrder.getStepNumber();
                 Dispute d = new Dispute(this);
                 worldOrder.getModelRun().addFacts(d);
-                saveNearEntity(d);
-                conclude();
+                saveNearEntity(d, worldOrder);
+                conclude(worldOrder);
                 break;
             case 4:
                 // target recognizes need; test for U, then for P
@@ -165,8 +174,8 @@ public class WarProcess extends Process {
                 pd.getCommitment().setTreasury(0.0);
                 pd.getOwner().getResources().addPax(pd.getCommitment().getPax());
                 this.outcome = true;
-                saveNearEntity(new Dispute(this));
-                conclude();
+                saveNearEntity(new Dispute(this), worldOrder);
+                conclude(worldOrder);
                 break;
             case 8:
                 // Test for P. Evaluates to 9 or 10
@@ -190,7 +199,7 @@ public class WarProcess extends Process {
                 }
                 // log nothing; just die next step
                 this.updateStatus();
-                conclude();
+                conclude(worldOrder);
                 break;
             case 10:
                 // Starting the war is successful or not
@@ -206,12 +215,12 @@ public class WarProcess extends Process {
                 break;
             case 11:
                 if (outcome) {
-                    Long step = worldOrder.getStepNumber();
-                    Institution w = createInstitution(step);
+//                    Long step = worldOrder.getStepNumber();
+                    Institution w = createInstitution(worldOrder);
                     Stoppable stoppable = worldOrder.schedule.scheduleRepeating(w);
                     w.setStopper(stoppable);
-                    WorldOrder.getAllTheInstitutions().add(w);
-                    conclude();
+                    worldOrder.getAllTheInstitutions().add(w);
+                    conclude(worldOrder);
                 }
                 this.outcome = true;
                 this.updateStatus();
@@ -230,11 +239,11 @@ public class WarProcess extends Process {
                         p.getOwner().getResources().increaseBy(p.getCommitment());
                     }
                     ended = worldOrder.getStepNumber();
-                    saveNearEntity(new Dispute(this));
+                    saveNearEntity(new Dispute(this), worldOrder);
                 }
                 this.outcome = true;
                 this.updateStatus();
-                conclude();
+                conclude(worldOrder);
                 break;
         }
 

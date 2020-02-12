@@ -2,6 +2,7 @@ package edu.gmu.css.agents;
 
 import edu.gmu.css.data.Domain;
 import edu.gmu.css.data.Issue;
+import edu.gmu.css.data.World;
 import edu.gmu.css.entities.*;
 import edu.gmu.css.entities.Fact.FactBuilder;
 import edu.gmu.css.relations.Participation;
@@ -15,11 +16,12 @@ import sim.engine.Stoppable;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedList;
 import java.util.List;
 
 
 @NodeEntity
-public abstract class Process extends Entity implements Steppable, Serializable {
+public abstract class Process extends Entity implements Steppable, Stoppable {
     /** Binary version of Cioffi-Revilla `Canonical Process` Engine, dialectically
      *  The Omega digit reflects whether the outcome has been calculated
      *  The [SPC] digit reflects the external state
@@ -44,8 +46,8 @@ public abstract class Process extends Entity implements Steppable, Serializable 
 
     @Id @GeneratedValue
     protected Long id;
-    @Transient
-    protected WorldOrder worldOrder;
+//    @Transient
+//    protected WorldOrder worldOrder;
     @Property
     protected boolean newNow;
     @Transient
@@ -69,7 +71,7 @@ public abstract class Process extends Entity implements Steppable, Serializable 
     @Property
     protected int age = 0;
     @Transient
-    protected double effect = WorldOrder.institutionInfluence;
+    protected double effect;
     @Property
     protected Long began;
     @Property
@@ -88,17 +90,16 @@ public abstract class Process extends Entity implements Steppable, Serializable 
     protected String name;
     @Transient
     boolean stopped;
-
     @Transient
     protected Institution institution;
     @Relationship(direction = "INCOMING")
-    protected List<ProcessDisposition> processParticipantLinks = new ArrayList<>();
+    protected List<ProcessDisposition> processParticipantLinks = new LinkedList<>();
 
     public Process() {
     }
 
     public Process(SimState simState) {
-        worldOrder = (WorldOrder) simState;
+
     }
 
     public Long getId() {
@@ -152,15 +153,12 @@ public abstract class Process extends Entity implements Steppable, Serializable 
     public List<ProcessDisposition> getProcessDispositionList() {
         return processParticipantLinks;
     }
+    public boolean addProcessParticipant(ProcessDisposition pd) {
+        processParticipantLinks.add(pd);
+        return true;
+    }
     public Domain getDomain() {
         return domain;
-    }
-    public WorldOrder getWorldOrder() {
-        return this.worldOrder;
-    }
-
-    public void setWorldOrder(SimState simState) {
-        this.worldOrder = (WorldOrder) simState;
     }
     public void setC(boolean challenge) {
         this.C = challenge;
@@ -279,7 +277,7 @@ public abstract class Process extends Entity implements Steppable, Serializable 
 
     @Override
     public void step(SimState simState) {
-        worldOrder = (WorldOrder) simState;
+        WorldOrder worldOrder = (WorldOrder) simState;
         long stepNum = worldOrder.schedule.getSteps();
         // TODO: stability is based on the sum of system-linked relationships with institutions
         // TODO: reduce the overall probability of war by their combined effect
@@ -287,12 +285,14 @@ public abstract class Process extends Entity implements Steppable, Serializable 
 
     }
 
-    public Institution createInstitution(Long step) {
+    public Institution createInstitution(WorldOrder wo) {
+        WorldOrder worldOrder = wo;
+        long step = worldOrder.getStepNumber();
         double influence = worldOrder.getInstitutionInfluence();
         switch (domain) {
             case WAR:
                 // Create a new war out of this process; mirrors WarMakingFact
-                institution = new War(this);
+                institution = new War(this, step);
                 // Create an Institution Participation link out of each Process Disposition link
                 for (ProcessDisposition d : processParticipantLinks) {
                     institution.addParticipation(new Participation(d, institution, worldOrder.getStepNumber()));
@@ -300,32 +300,32 @@ public abstract class Process extends Entity implements Steppable, Serializable 
                 worldOrder.updateGlobalWarLikelihood(processParticipantLinks.size() * influence);
                 return institution;
             case PEACE:
-                institution = new Peace(this);
+                institution = new Peace(this, step);
                 for (ProcessDisposition d : processParticipantLinks) {
                     institution.addParticipation(new Participation(d, institution, worldOrder.getStepNumber()));
                 }
                 worldOrder.updateGlobalWarLikelihood(processParticipantLinks.size() * influence * -1);
                 return institution;
             case TRADE:
-                institution = new Trade(this);
+                institution = new Trade(this, step);
                 for (ProcessDisposition d : processParticipantLinks) {
                     institution.addParticipation(new Participation(d, institution, worldOrder.getStepNumber()));
                 }
                 return institution;
             case DIPLOMACY:
-                institution = new DiplomaticExchange(this);
+                institution = new DiplomaticExchange(this, step);
                 for (ProcessDisposition d : processParticipantLinks) {
                     institution.addParticipation(new Participation(d, institution, worldOrder.getStepNumber()));
                 }
                 return institution;
             case ALLIANCE:
-                institution = new Alliance(this);
+                institution = new Alliance(this, step);
                 for (ProcessDisposition d : processParticipantLinks) {
                     institution.addParticipation(new Participation(d, institution, worldOrder.getStepNumber()));
                 }
                 return institution;
             case STATEHOOD:
-                institution = new Statehood(this);
+                institution = new Statehood(this, step);
                 for (ProcessDisposition d : processParticipantLinks) {
                     institution.addParticipation(new Participation(d, institution, worldOrder.getStepNumber()));
                 }
@@ -335,25 +335,28 @@ public abstract class Process extends Entity implements Steppable, Serializable 
         }
     }
 
+
+
     public void stop(){stopper.stop();}
 
-    public void saveNearEntity(Object o) {
+    public void saveNearEntity(Object o, WorldOrder wo) {
         /**
          *  Saves this Process to the database following the same pattern as data imports.
          *
          */
+        WorldOrder worldOrder = wo;
         Dataset d = worldOrder.getModelRun();
         Fact f = new FactBuilder().name(this.name).from(began).until(worldOrder.getStepNumber())
                 .subject(d.getFilename()).build();
         d.addFacts(f);
-        conclude();
+        conclude(worldOrder);
 //        Neo4jSessionFactory.getInstance().getNeo4jSession().save(o, 1);
     }
 
-    protected void conclude() {
+    protected void conclude(WorldOrder wo) {
         stopper.stop();
         stopped = true;
-        worldOrder.getAllTheProcs().remove(this);
+        wo.getAllTheProcs().remove(this);
     }
 
 }

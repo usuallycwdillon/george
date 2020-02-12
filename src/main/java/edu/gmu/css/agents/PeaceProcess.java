@@ -15,7 +15,7 @@ public class PeaceProcess extends Process {
 
     public PeaceProcess(Polity owner, Issue i, Long from) {
         domain = Domain.PEACE;
-        name = "Peace";
+        name = "Peace Process";
         began = from;
         issue = i;
         for (InstitutionParticipation ip : i.getInstitution().getParticipation()) {
@@ -56,7 +56,7 @@ public class PeaceProcess extends Process {
          *      [0] [111] [111]  [0,7,7]   -   14   Institution will be realized
          *      [1] [111] [111]  [1,7,7]   A   15   action is successful; change/challenge resolves into new institution
          */
-        worldOrder = (WorldOrder) simState;
+        WorldOrder worldOrder = (WorldOrder) simState;
         int count = 0;
         int statusSum = sumStatus();
 //        System.out.println("This " + name + " proc now at " + fiat);
@@ -100,7 +100,7 @@ public class PeaceProcess extends Process {
             case 3:
                 // Log this attempt to the database; the process just dies; nothing else happens
                 ended = worldOrder.getStepNumber();
-                conclude();
+                conclude(worldOrder);
                 break;
             case 4:
                 // Has the process reached a fiat of equivalence?
@@ -160,7 +160,7 @@ public class PeaceProcess extends Process {
             case 7:
                 // Log this attempt at peace with the War/Conflict and leave it
                 this.outcome = true;
-                conclude();
+                conclude(worldOrder);
                 break;
             case 8:
                 // Test for P or ~P; evaluate to 9 or 10; P/10 is basically a cease fire
@@ -185,7 +185,7 @@ public class PeaceProcess extends Process {
             case 9:
                 if (equivalence) {
                     // Log this attempt at peace with the War/Conflict and leave it
-                    conclude();
+                    conclude(worldOrder);
                 } else {
                     this.equivalence = true;
                 }
@@ -202,7 +202,7 @@ public class PeaceProcess extends Process {
                 break;
             case 11:
                 if (outcome) {
-                    conclude();
+                    conclude(worldOrder);
                 }
                 this.outcome = true;
                 this.updateStatus();
@@ -216,11 +216,11 @@ public class PeaceProcess extends Process {
                 this.outcome = true;
                 Long step = worldOrder.schedule.getSteps();
                 // Assuming for now that peace insitutions are passive, only between participants
-                issue.conclude();
-                institution = createInstitution(step);
-                WorldOrder.getAllTheInstitutions().remove(issue);
-                WorldOrder.getAllTheInstitutions().add(institution);
-                conclude();
+                issue.conclude(worldOrder);
+                institution = createInstitution(worldOrder);
+                worldOrder.getAllTheInstitutions().remove(issue);
+                worldOrder.getAllTheInstitutions().add(institution);
+                conclude(worldOrder);
                 break;
         }
     }

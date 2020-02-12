@@ -46,15 +46,17 @@ public class Polity extends Entity implements Steppable {
     @Transient
     protected List<InstitutionParticipation> institutionList = new ArrayList<>();
     // Resources, Strategies and Policies
-    @Transient  // The actual resources available to this polity
+    @Transient                      // The actual resources available to this polity
     protected Resources resources = new Resources.ResourceBuilder().build();
-    @Transient  // The amount of resources that ~should~ be available to this polity; the goal
-    protected Resources economicStrategy = new Resources.ResourceBuilder().build();
-    @Transient  // The initial/goal amount of resources to be available for conflict
+    @Transient                      // The amount of resources that ~should~ be available to this polity; the goal
     protected Resources securityStrategy = new Resources.ResourceBuilder().build();
-    @Transient  // The amount of resources to be available for foreign policy (alliances, etc)
+    @Transient                      // The resources committed to processes
+    protected Resources militaryStrategy = new Resources.ResourceBuilder().build();
+    @Transient                      // The amount of resources to be available for foreign policy (alliances, etc)
     protected Resources foreignStrategy = new Resources.ResourceBuilder().build();
-    @Transient  //
+    @Transient                      // The shortfall between resources and securityStrategy to make up for this year
+    protected Resources economicStrategy = new Resources.ResourceBuilder().build();
+    @Transient
     protected EconomicPolicy economicPolicy = new EconomicPolicy(0.50, 0.50, 0.10);
     @Transient
     protected MersenneTwisterFast random = new MersenneTwisterFast();
@@ -87,6 +89,8 @@ public class Polity extends Entity implements Steppable {
 
     public void setResources(Resources resources) {
         this.resources = resources;
+        this.economicStrategy = resources;
+        this.securityStrategy = resources;
     }
 
     public Territory getTerritory() {
@@ -255,16 +259,16 @@ public class Polity extends Entity implements Steppable {
         return false;
     }
 
+    public boolean evaluateWarNeed(ProcessDisposition pd, long step) {
+        return false;
+    }
+
     public boolean evaluateWarWillingness(ProcessDisposition disposition) {
         return evaluateAttackSuccess(disposition);
     }
 
-    public boolean evaluateAttackSuccess(ProcessDisposition disposition) {
-        WarProcess war = (WarProcess) disposition.getProcess();
-        int commitment = disposition.getCommitment().getPax();
-        int magnitude = war.getInvolvement().getPax();
-        int extent = war.getProcessDispositionList().size();
-        return magnitude / extent < commitment;
+    public boolean evaluateAttackSuccess(ProcessDisposition pd) {
+        return false;
     }
 
     public Resources allocateResources(Resources request) {
