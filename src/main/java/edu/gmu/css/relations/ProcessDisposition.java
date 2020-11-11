@@ -4,7 +4,7 @@ import edu.gmu.css.agents.Process;
 import edu.gmu.css.data.SecurityObjective;
 import edu.gmu.css.entities.Institution;
 import edu.gmu.css.entities.Polity;
-import edu.gmu.css.entities.Resources;
+import edu.gmu.css.data.Resources;
 import org.neo4j.ogm.annotation.*;
 
 import java.io.Serializable;
@@ -54,6 +54,7 @@ public class ProcessDisposition implements Serializable {
         this.U = false;
         this.N = false;
         this.K = true;      // default state is for K to be true (otherwise there would be no process or relation to it
+        this.commitment = new Resources.ResourceBuilder().build();
     }
 
     public ProcessDisposition(Polity polity, Process process, int year) {

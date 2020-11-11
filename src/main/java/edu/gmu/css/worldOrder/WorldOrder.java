@@ -1,34 +1,27 @@
 package edu.gmu.css.worldOrder;
 
-import ec.util.MersenneTwisterFast;
 import edu.gmu.css.agents.*;
 import edu.gmu.css.agents.Process;
 import edu.gmu.css.data.DefaultWarParams;
 import edu.gmu.css.data.DataTrend;
 import edu.gmu.css.entities.*;
 import edu.gmu.css.queries.DataQueries;
-import edu.gmu.css.queries.StateQueries;
 import edu.gmu.css.queries.TerritoryQueries;
-
 import edu.gmu.css.queries.TimelineQueries;
 import edu.gmu.css.relations.Inclusion;
-import edu.gmu.css.relations.InstitutionParticipation;
 import sim.engine.SimState;
 import sim.engine.Steppable;
 import sim.engine.Stoppable;
 import sim.util.distribution.Poisson;
 
 import java.awt.*;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.*;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static sim.engine.Schedule.MAXIMUM_INTEGER;
 
 /**
- * Generator for Experiments on the Order and Relations in a Global Environment (GEORGE) using the Multi-Agent
+ * Generator for Experiments on Order and Relations in a Global Environment (GEORGE) using the Multi-Agent
  * Simulation On Networks (MASON). ...also, there's this: https://youtu.be/ArNz8U7tgU4?t=10
  *
  * In partial fulfillment of requirements for award of Doctor of Philosophy in Computational Social Science
@@ -39,30 +32,36 @@ import static sim.engine.Schedule.MAXIMUM_INTEGER;
 public class WorldOrder extends SimState {
     /**
      *
-     * @param args
+     *
      */
     public static void main(String[] args) {
         int jobs = 1;
         seed = System.currentTimeMillis();
-        SimState worldOrder = new WorldOrder(seed);
+        SimState worldOrder = new WorldOrder(seed, 1816);
         for (int job = 0; job < jobs; job++) {
             worldOrder.setJob(job);
             worldOrder.start();
             do
                 if (!worldOrder.schedule.step(worldOrder))
                     break;
-            while(worldOrder.schedule.getSteps() < 52 * 400);
+            while(worldOrder.schedule.getSteps() < 500 * 52);
             worldOrder.finish();
         }
         System.exit(0);
     }
 
 
-    // The simulation singleton self-manifest
+    // The simulation singleton
     public WorldOrder(long seed) {
         super(seed);
         WorldOrder.seed = seed;
         setup();
+    }
+
+    public WorldOrder(long seed, int y) {
+        super(seed);
+        WorldOrder.seed = seed;
+        setup(y);
     }
 
 
@@ -78,6 +77,7 @@ public class WorldOrder extends SimState {
      * Set the debugging flag to true to print out comments about what the setup is doing.
      *
      */
+
     private static int fromYear; // Choices are 1816, 1880, 1914, 1938, 1945, 1994
     private static int untilYear; // Depending on how generic you're willing to be, can be just below next year
     // The stabilityDuration is the number of weeks with no change in globalWarLikelihood before the system is "stable"
@@ -90,9 +90,9 @@ public class WorldOrder extends SimState {
     public double institutionInfluence;
     public static Poisson poisson;
     private static Long seed;
-    public Dataset modelRun;
+    public static Dataset modelRun;
     public Year dataYear;
-    public int weeksThisYear;
+    public int weeksThisYear = 52;
     public long dateIndex;
     public List<State> allTheStates = new ArrayList<>();
     public Color[] colorGradients;
@@ -108,6 +108,8 @@ public class WorldOrder extends SimState {
     public Set<Institution> allTheInstitutions = new HashSet<>();
     public boolean configChosen = false;
     public ProbabilisticCausality conflictCause;
+    public static long stepNo;
+
 
     /**
      * Some parameters for war strategy thresholds.
@@ -115,7 +117,7 @@ public class WorldOrder extends SimState {
      * THREAT is the opposing military expenditures while RISK is own military expenditures
      * Goals for each conflict are PUNISH, COERCE, DEFEAT, or CONQUER
      * A polity uses these coefficients to plan their offensive war strategies
-     * The four strategies roughly correspond to military activities: strike, show of force, swiftly defeat,
+     * The four strategies roughly correspond to military missions: strike, show of force, swiftly defeat,
      * and win decisively
      */
     public boolean setup() {
@@ -125,11 +127,20 @@ public class WorldOrder extends SimState {
 
     public boolean setup(int fy) {
         setup(fy, fy + 2);
-        return true;
+        return false;
     }
 
     public boolean setup(int fy, int uy) {
         // new dataset node in graph to track this data will be saved only if this run get started.
+        // set model run parameters
+        modelRun = new Dataset(this);
+        modelRun.setWarParameters(new DefaultWarParams().getWarParams());
+        overallDuration = 27013;    // about 500 years
+        stabilityDuration = 10805;  // about 200 years
+        initializationPeriod = 2 * 52;
+        globalWarLikelihood = DataQueries.getWarAndConflictAverages().get("onset") * 10;
+        globalHostility = new DataTrend(stabilityDuration);
+        institutionInfluence = 0.0001;
         fromYear = fy;
         untilYear = uy;
         allTheStates.clear();
@@ -137,34 +148,22 @@ public class WorldOrder extends SimState {
         weeksThisYear = dataYear.getWeeksThisYear();
         dateIndex = TimelineQueries.getFirstWeek(dataYear).getStepNumber();
         territories = TerritoryQueries.getStateTerritories(fromYear, this);
-        territories.values().forEach(Territory::loadTileFacts);
-        territories.values().forEach(Territory::initiateGraph);
+//        territories.values().parallelStream().forEach(e -> e.loadWithRelations(this));
+        territories.values().parallelStream().forEach(e -> e.findCommonWeal());
+        territories.values().parallelStream().forEach(Territory::loadTileFacts);
+        allTheStates.stream().forEach(s -> s.loadInstitutionData(fy,this));
+//        allTheStates.stream().forEach(s -> allTheInstitutions.addAll(copyOverInstitutions(s.getInstitutionList())));
+//        territories.values().forEach(Territory::initiateGraph);
         // allTheStates gets loaded inside the territories query stream and their institution and leadership data gets
         // loaded, too. AFTER that, we add water territories so that no new Polity() is made for them.
         territories.putAll(TerritoryQueries.getWaterTerritories());
         colorGradients = allTheStates.stream().map(Polity::getPolColor).toArray(Color[]::new);
-
-        // set model run parameters
-        modelRun = new Dataset(seed());
-        modelRun.setWarParameters(new DefaultWarParams().getWarParams());
-        overallDuration = 500 * 52;
-        stabilityDuration = 80 * 52;
-        initializationPeriod = 10 * 52;
-        globalWarLikelihood = DataQueries.getWarAndConflictAverages().get("onset");
-        globalHostility = new DataTrend(stabilityDuration);
-        institutionInfluence = 0.0001;
-
         return true;
     }
 
 
     public void start() {
         super.start();
-        if (configChosen) {
-            setup(fromYear, untilYear);
-        } else {
-            setup();
-        }
         // new dataset node in graph to track this data
         // save this model run to the database for later analysis
 //        Neo4jSessionFactory.getInstance().getNeo4jSession().save(modelRun, 0);
@@ -173,8 +172,11 @@ public class WorldOrder extends SimState {
         for (State s : allTheStates) {
             schedule.scheduleRepeating(s);
             schedule.scheduleRepeating(s.getLeadership());
-            for (InstitutionParticipation ip : s.getInstitutionList()) {
-                schedule.scheduleRepeating(ip.getInstitution());
+            for (BorderFact bf : s.getBordersWith()) {
+                schedule.scheduleRepeating(bf.getBorder());
+            }
+            for (AllianceParticipationFact ap : s.getAlliances()) {
+
             }
             for (Inclusion i : s.getTerritory().getTileLinks()) {
                 schedule.scheduleRepeating(i.getTile());
@@ -193,30 +195,40 @@ public class WorldOrder extends SimState {
             @Override
             public void step(SimState simState) {
                 WorldOrder worldOrder = (WorldOrder) simState;
+                if(DEBUG) {
+                    System.out.println("-------------------------------------- STEP " + getStepNumber() + " -------------------------------");
+                }
 
                 // Record the global probability of war whether it's prescribed or calculated
                 globalHostility.add(globalWarLikelihood);
                 long stepNo = getStepNumber();
                 // TODO: set this equal the current step count minus the last week of the current year.
-                if ((worldOrder.getStepNumber() + dataYear.getBegan() - dataYear.getLast()) == 0) {
+                long countdown = getStepNumber() + dataYear.getBegan() - dataYear.getLast();
+                if (countdown == 0) {
                     dataYear = dataYear.getNextYear();
-                    territories.values().stream().filter(t -> t.getMapKey() == "World Oceans")
-                            .forEach(Territory::updateTotals);
+                    weeksThisYear = dataYear.getWeeksThisYear();
+//                    territories.values().parallelStream().filter(t -> t.getMapKey() != "World Oceans")
+//                            .forEach(Territory::updateTotals);
                 }
                 // End the simulation after (about) 400 years
                 if (stepNo == overallDuration) {
+                    System.out.println("The Overall Duration condition has been met, so the world stops now.");
                     externalWarStopper.stop();
+                    System.exit(0);
                 }
                 // End the simulation if the global probability of war is stagnate or stable at zero
                 if (globalWarLikelihood <= 0) {
+                    System.out.println("The Global War Likelihood has gone to zero, so the world stops now.");
                     System.exit(0);
                 }
                 // End the simulation if hostility gets stuck in a local minimum/maximum
                 if (globalHostility.average() == globalWarLikelihood && stepNo > stabilityDuration) {
+                    System.out.println("The average Global Hostility has stabilised, so the world stops now.");
                     System.exit(0);
                 }
             }
         };
+
         schedule.scheduleRepeating(world);
     }
 
@@ -266,6 +278,10 @@ public class WorldOrder extends SimState {
 
     public void setGlobalWarLikelihood(double l) {
         globalWarLikelihood = l;
+    }
+
+    public void adjustGlobalWarLikelihood(double l) {
+        this.globalWarLikelihood += l;
     }
 
     public void updateGlobalWarLikelihood(double effect) {
@@ -320,16 +336,26 @@ public class WorldOrder extends SimState {
         return allTheInstitutions;
     }
 
-    public void addInstitution(Institution i) {
-        allTheInstitutions.add(i);
-    }
+//    public void addInstitution(Institution i) {
+//        allTheInstitutions.add(i);
+//    }
+//
+//    public void removeInstitution(Institution i) {
+//        allTheInstitutions.remove(i);
+//    }
 
-    public void removeInstitution(Institution i) {
-        allTheInstitutions.remove(i);
-    }
+//    public Collection<Institution> copyOverInstitutions(List<InstitutionParticipation> ipl) {
+//        return ipl.stream().map(InstitutionParticipation::getInstitution)
+//                .collect(Collectors.toCollection(ArrayList::new));
+//    }
 
     public long getInitializationPeriod() {
         return initializationPeriod;
     }
+
+    public static Map<String, Double> getModelRunWarParameters(){
+        return modelRun.getWarParameters();
+    }
+
 
 }

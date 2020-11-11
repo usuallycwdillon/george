@@ -84,8 +84,8 @@ public class WorldOrderWithUI extends GUIState {
         Steppable treasuriesUpdater = new Steppable() {
             @Override
             public void step(SimState simState) {
-                List<State> states = worldOrder.getAllTheStates();
-                for (State s : states) {
+//                List<State> states = worldOrder.getAllTheStates();
+                for (State s : worldOrder.getAllTheStates()) {
                     treasuryBars.addValue(s.getTreasury() / 1000000.0, "Wealth", s.getName());
                 }
             }
@@ -95,8 +95,8 @@ public class WorldOrderWithUI extends GUIState {
         Steppable milperUpdater = new Steppable() {
             @Override
             public void step(SimState simState) {
-                List<State> states = worldOrder.getAllTheStates();
-                for (State s : states) {
+//                List<State> states = worldOrder.getAllTheStates();
+                for (State s : worldOrder.getAllTheStates()) {
                     milperBars.addValue(s.getForces(),"Military Strength",s.getName());
                 }
             }
@@ -107,7 +107,11 @@ public class WorldOrderWithUI extends GUIState {
             @Override
             public void step(SimState simState) {
                 Map<String, Long> procCounts =
-                        worldOrder.allTheProcs.stream().collect(Collectors.groupingBy(e -> e.getName(), Collectors.counting()));
+                        worldOrder.allTheProcs.stream().collect(Collectors
+                                .groupingBy(e -> e.getName(), Collectors.counting()));
+//                if (procCounts.size() == 0) {
+//                    System.out.println("Processes are churning.");
+//                }
                 for (Map.Entry<String, Long> e : procCounts.entrySet()) {
                     processBars.addValue(e.getValue().intValue(), "Process Counts by Type", e.getKey() );
                 }
@@ -120,7 +124,11 @@ public class WorldOrderWithUI extends GUIState {
             @Override
             public void step(SimState simState) {
                 Map<String, Long> instCounts =
-                        worldOrder.allTheInstitutions.stream().collect(Collectors.groupingBy(e -> e.getName(), Collectors.counting()));
+                        worldOrder.allTheInstitutions.stream().collect(Collectors
+                                .groupingBy(e -> e.getName(), Collectors.counting()));
+//                if (instCounts.size() == 0) {
+//                    System.out.println("institutions are forming");
+//                }
                 for (Map.Entry<String, Long> e : instCounts.entrySet()) {
                     instituBars.addValue(e.getValue(), "Institution Counts by Type", e.getKey());
                 }
@@ -253,9 +261,9 @@ public class WorldOrderWithUI extends GUIState {
 
     private CategoryDataset createInstDataset(String label) {
         String[] size = new String[]{label};
-        // TODO: add these institutions: , "Statehood", "Trade", "Diplomatic Exchange",
-        String[] names = new String[]{"Alliance", "Border", "Peace", "War"};
-        final double[][] data = new double[1][4];
+        // TODO: add these institutions: , "Statehood", "Trade"
+        String[] names = new String[]{"Alliance", "Border", "Peace", "War", "Diplomatic Exchange"};
+        final double[][] data = new double[1][5];
         return DatasetUtils.createCategoryDataset(size, names, data);
     }
 

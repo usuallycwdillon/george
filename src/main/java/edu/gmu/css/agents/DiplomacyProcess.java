@@ -2,16 +2,23 @@ package edu.gmu.css.agents;
 
 import edu.gmu.css.data.Domain;
 import edu.gmu.css.data.Issue;
+import edu.gmu.css.entities.DipExFact;
 import edu.gmu.css.entities.DiplomaticExchange;
 import edu.gmu.css.entities.Institution;
 import edu.gmu.css.entities.Polity;
+import edu.gmu.css.relations.Participation;
 import edu.gmu.css.relations.ProcessDisposition;
 import edu.gmu.css.worldOrder.WorldOrder;
 import sim.engine.SimState;
+import sim.engine.Stoppable;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class DiplomacyProcess extends Process {
 
-    private Domain domain = Domain.DIPLOMACY;
+    private final Domain domain = Domain.DIPLOMACY;
+    private DiplomaticExchange dipEx;
 
 
     public DiplomacyProcess() {
@@ -89,8 +96,32 @@ public class DiplomacyProcess extends Process {
         }
     }
 
-
-    public Institution createInstitution() {
-        return new DiplomaticExchange();
+    public DiplomaticExchange createDipEx(WorldOrder wo) {
+        WorldOrder worldOrder = wo;
+        Stoppable stoppable;
+        ended = worldOrder.getStepNumber();
+        String[] subjects = new String[processParticipantLinks.size()];
+        int i = 0;
+        DiplomaticExchange dx = new DiplomaticExchange(this);
+        for (ProcessDisposition d : processParticipantLinks) {
+            Polity thisOne = d.getOwner();
+            subjects[i] = thisOne.getName();
+            i++;
+            for(ProcessDisposition od : d.getProcess().getProcessDispositionList()) {
+                Polity thatOne = od.getOwner();
+                if(!thisOne.equals(thatOne)) {
+                    DipExFact fact = new DipExFact.FactBuilder().from(ended)
+                            .mission(thisOne).polity(thatOne).dataset(worldOrder.getModelRun())
+                            .institution(dx).build();
+                    thisOne.addRepresentation(fact);
+                    dx.addRepresentation(fact);
+                }
+            }
+        }
+        dx.setSubjects(subjects);
+        stoppable = worldOrder.schedule.scheduleRepeating(dipEx);
+        dipEx.setStopper(stoppable);
+        return dipEx;
     }
+
 }

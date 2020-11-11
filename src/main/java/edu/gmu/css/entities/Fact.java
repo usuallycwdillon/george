@@ -1,22 +1,15 @@
 package edu.gmu.css.entities;
 
-import com.fasterxml.jackson.databind.annotation.JsonAppend;
 import edu.gmu.css.service.DateConverter;
-import org.neo4j.ogm.annotation.GeneratedValue;
-import org.neo4j.ogm.annotation.Id;
-import org.neo4j.ogm.annotation.NodeEntity;
-import org.neo4j.ogm.annotation.Property;
+import edu.gmu.css.service.FactServiceImpl;
+import org.neo4j.ogm.annotation.*;
 import org.neo4j.ogm.annotation.typeconversion.Convert;
-
-import java.util.Date;
 
 @NodeEntity
 public class Fact extends Entity {
 
     @Id @GeneratedValue
     Long id;
-    @Property
-    Object value;
     @Property @Convert(DateConverter.class)
     Long from;
     @Property @Convert(DateConverter.class)
@@ -31,71 +24,16 @@ public class Fact extends Entity {
     String predicate;
     @Property
     String object;
+    @Property
+    String source;
+
+    @Relationship(type="CONTRIBUTES", direction = Relationship.INCOMING)
+    Dataset dataset;
+    @Relationship(type="DURING", direction = Relationship.INCOMING)
+    Year year;
 
 
     public Fact() {}
-
-    private Fact(FactBuilder builder) {
-
-    }
-
-    public static class FactBuilder {
-        private Object value = 0;
-        private Long from = 0L;
-        private Long until = 0L;
-        private Integer during = 0;
-        private String name = "unnamed";
-        private String subject = "none";
-        private String predicate = "NONE";
-        private String object = "none";
-
-        public FactBuilder() {}
-
-        public FactBuilder value(Object value) {
-            this.value = value;
-            return this;
-        }
-
-        public FactBuilder from(Long from) {
-            this.from = from;
-            return this;
-        }
-
-        public FactBuilder until(Long until) {
-            this.until = until;
-            return this;
-        }
-
-        public FactBuilder during(Integer during) {
-            this.during = during;
-            return this;
-        }
-
-        public FactBuilder name(String name) {
-            this.name = name;
-            return this;
-        }
-
-        public FactBuilder subject(String subject) {
-            this.subject = subject;
-            return this;
-        }
-
-        public FactBuilder predicate(String predicate) {
-            this.predicate = predicate;
-            return this;
-        }
-
-        public FactBuilder object(String object) {
-            this.object = object;
-            return this;
-        }
-
-        public Fact build() {
-            Fact fact = new Fact(this);
-            return fact;
-        }
-    }
 
 
     @Override
@@ -107,8 +45,16 @@ public class Fact extends Entity {
         return from;
     }
 
+    public void setFrom(Long from) {
+        this.from = from;
+    }
+
     public Long getUntil() {
         return until;
+    }
+
+    public void setUntil(Long until) {
+        this.until = until;
     }
 
     public Integer getDuring() {
@@ -123,28 +69,16 @@ public class Fact extends Entity {
         return name;
     }
 
-    public Object getValue() {
-        return value;
-    }
-
-    public void setValue(Double value) {
-        this.value = value;
-    }
-
-    public void setValue(Integer value) {
-        this.value = value;
-    }
-
-    public void setValue(String value) {
-        this.value = value;
-    }
-
-    public void setValue(Long value) {
-        this.value = value;
+    public void setName(String name) {
+        this.name = name;
     }
 
     public String getSubject() {
         return subject;
+    }
+
+    public void setPredicate(String predicate) {
+        this.predicate = predicate;
     }
 
     public String getPredicate() {
@@ -155,4 +89,67 @@ public class Fact extends Entity {
         return object;
     }
 
+    public void setObject(String object) {
+        this.object = object;
+    }
+
+    public String getSource() {
+        return source;
+    }
+
+    public void setDuring(Integer during) {
+        this.during = during;
+    }
+
+    public void setSubject(String subject) {
+        this.subject = subject;
+    }
+
+    public void setYear(Year year) {
+        this.year = year;
+    }
+
+    public Dataset getDataset() {
+        return dataset;
+    }
+
+    public void setDataset(Dataset dataset) {
+        this.dataset = dataset;
+    }
+
+    public void setSource(String s) {
+        this.source = s;
+    }
+
+    public Year getYear() {
+        if (this.year == null) {
+            return new FactServiceImpl().getRelatedYear(this);
+        }
+        return this.year;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Fact)) return false;
+        if (!super.equals(o)) return false;
+
+        Fact fact = (Fact) o;
+
+        if (!getId().equals(fact.getId())) return false;
+        if (!getName().equals(fact.getName())) return false;
+        if (getSubject() != null ? !getSubject().equals(fact.getSubject()) : fact.getSubject() != null) return false;
+        if (getPredicate() != null ? !getPredicate().equals(fact.getPredicate()) : fact.getPredicate() != null)
+            return false;
+        return getObject() != null ? getObject().equals(fact.getObject()) : fact.getObject() == null;
+    }
+
+//    @Override
+//    public int hashCode() {
+//        int result = getId().hashCode();
+//        result = 31 * result + (getSubject() != null ? getSubject().hashCode() : 0);
+//        result = 31 * result + (getPredicate() != null ? getPredicate().hashCode() : 0);
+//        result = 31 * result + (getObject() != null ? getObject().hashCode() : 0);
+//        return result;
+//    }
 }

@@ -1,6 +1,7 @@
 package edu.gmu.css.entities;
 
 import edu.gmu.css.service.DateConverter;
+import edu.gmu.css.worldOrder.WorldOrder;
 import org.neo4j.ogm.annotation.*;
 import org.neo4j.ogm.annotation.typeconversion.Convert;
 
@@ -34,7 +35,7 @@ public class Dataset extends Entity {
 
 
     @Relationship(type="CONTRIBUTES")
-    private Set<Entity> facts = new HashSet<>();
+    private final Set<Entity> facts = new HashSet<>();
 
     public Dataset() {
     }
@@ -46,10 +47,10 @@ public class Dataset extends Entity {
         this.version = version;
     }
 
-    public Dataset(long seed) {
-        this.name = "simulation_run";
-        this.seed = seed;
-        this.filename = name + "_" + seed;
+    public Dataset(WorldOrder wo) {
+        WorldOrder worldOrder = wo;
+        this.seed = WorldOrder.getSeed();
+        this.name = "simulation_run_" + seed;
     }
 
     @Override

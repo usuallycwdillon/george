@@ -1,5 +1,6 @@
 package edu.gmu.css.queries;
 
+import edu.gmu.css.data.Resources;
 import edu.gmu.css.entities.*;
 import edu.gmu.css.service.Neo4jSessionFactory;
 import edu.gmu.css.worldOrder.WorldOrder;
@@ -63,14 +64,14 @@ public class StateQueries {
         String exQuery = "MATCH (p:Polity)-[:MILEX]-(m:MilExFact)-[:DURING]-(y:Year{name:$name}) " +
                 "WHERE id(p) = $id RETURN m";
 
-        Fact milperfact = Neo4jSessionFactory.getInstance().getNeo4jSession().queryForObject(Fact.class, paxQuery, params);
+        MilPerFact milperfact = Neo4jSessionFactory.getInstance().getNeo4jSession().queryForObject(MilPerFact.class, paxQuery, params);
         if (milperfact != null) {
-            Long num = ((Long) milperfact.getValue()) * 1000;
+            Double num = milperfact.getValue();
             pax = num != null ? num.intValue() : 0;
         }
-        Fact milexfact = Neo4jSessionFactory.getInstance().getNeo4jSession().queryForObject(Fact.class, exQuery, params);
+        MilExFact milexfact = Neo4jSessionFactory.getInstance().getNeo4jSession().queryForObject(MilExFact.class, exQuery, params);
         if (milexfact != null) {
-            Long amt = ((Long) milexfact.getValue()) * 1000;
+            Double amt = milexfact.getValue();
             exp = amt != null ? amt.intValue() : 0;
         }
         return new Resources.ResourceBuilder().pax(pax).treasury(exp).build();
@@ -78,7 +79,7 @@ public class StateQueries {
 
 
     public static Territory getTerritoryFromDatabase(State s) {
-        String cowCode = s.getCowCode();
+        String cowCode = s.getCowcode();
         Map<String, Object> params = new HashMap<>();
         params.put("cowcode", cowCode);
         params.put("year", WorldOrder.getFromYear());

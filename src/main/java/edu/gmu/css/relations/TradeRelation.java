@@ -17,7 +17,7 @@ public class TradeRelation extends InstitutionParticipation {
     }
 
     @Override
-    public Polity getParticipant() {
+    public Polity getOwner() {
         return participant;
     }
 

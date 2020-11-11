@@ -4,12 +4,16 @@ import edu.gmu.css.data.Domain;
 import edu.gmu.css.entities.Polity;
 import edu.gmu.css.entities.Institution;
 import edu.gmu.css.entities.Statehood;
+import edu.gmu.css.relations.Participation;
 import edu.gmu.css.relations.ProcessDisposition;
+import edu.gmu.css.worldOrder.WorldOrder;
 import sim.engine.SimState;
+import sim.engine.Stoppable;
 
 public class StatehoodProcess extends Process {
 
-    private Domain domain = Domain.STATEHOOD;
+    private final Domain domain = Domain.STATEHOOD;
+    private Statehood statehood;
 
     public StatehoodProcess() {  }
 
@@ -66,8 +70,20 @@ public class StatehoodProcess extends Process {
         }
     }
 
-//    @Override
-    public Institution createInstitution() {
-        return new Statehood();
-    }
+//    public Statehood createInstitution(WorldOrder wo) {
+//        WorldOrder worldOrder = wo;
+//        long step = worldOrder.getStepNumber();
+//        double influence = worldOrder.getInstitutionInfluence();
+//        Stoppable stoppable;
+//        statehood = new Statehood(this, step);
+//        for (ProcessDisposition d : processParticipantLinks) {
+//            Participation p = new Participation(d, statehood, step);
+//            statehood.addParticipation(p);
+//            d.getOwner().addInstitution(p);
+//        }
+//        stoppable = worldOrder.schedule.scheduleRepeating(statehood);
+//        statehood.setStopper(stoppable);
+//        return statehood;
+//    }
+
 }

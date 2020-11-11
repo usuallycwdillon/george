@@ -1,25 +1,16 @@
 package edu.gmu.css.entities;
 
 import edu.gmu.css.agents.Tile;
-
-import edu.gmu.css.data.World;
-import edu.gmu.css.relations.BorderRelation;
 import edu.gmu.css.relations.Inclusion;
 import edu.gmu.css.relations.OccupiedRelation;
 import edu.gmu.css.service.*;
 import edu.gmu.css.worldOrder.WorldOrder;
 import org.neo4j.ogm.annotation.*;
-import org.neo4j.ogm.model.Result;
-import org.neo4j.register.Register;
 
 
 import java.io.Serializable;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.stream.Collectors;
 
 @NodeEntity
 public class Territory extends Entity implements Serializable {
@@ -43,13 +34,13 @@ public class Territory extends Entity implements Serializable {
     Integer year;
     @Property
     Integer resolution;
-    @Transient
-    Integer population;
-    @Transient
-    Integer urbanPopulation;
-    @Transient
-    Double wealth;
-    @Transient
+    @Property
+    Double centrality;
+    @Property
+    long[] linkedTileIds;
+
+
+    @Relationship
     CommonWeal commonWeal;
 
     @Relationship(type="OCCUPIED", direction = Relationship.INCOMING)
@@ -58,8 +49,8 @@ public class Territory extends Entity implements Serializable {
     @Relationship(type="INCLUDES")
     Set<Inclusion> tileLinks;
 
-    @Relationship(type="BORDERS", direction = Relationship.UNDIRECTED)
-    Set<BorderRelation> borderRelations;
+    @Relationship(type="BORDERS")
+    Set<Border> borders;
 
 
     public Territory() {
@@ -69,8 +60,6 @@ public class Territory extends Entity implements Serializable {
         this.year = year;
         this.name = name;
         this.mapKey = name + " " + year;
-        this.population = 0;
-        this.urbanPopulation = 0;
         this.area = 0.0;
         this.cowcode = "NA";
         this.tileLinks = new HashSet<>();
@@ -115,15 +104,23 @@ public class Territory extends Entity implements Serializable {
     }
 
     public Double getWealth() {
-        return wealth;
+        return tileLinks.stream().mapToDouble(Inclusion::geTileWealth).sum();
     }
 
-    public Integer getPopulation() {
-        return population;
+    public Double getPopulation() {
+        return tileLinks.stream().mapToDouble(Inclusion::getTilePopulation).sum();
     }
 
-    public void setPopulation(Integer population) {
-        this.population = population;
+    public Double getGrossDomesticProduct() {
+        return tileLinks.stream().mapToDouble(Inclusion::getGrossTileProductivity).sum();
+    }
+
+    public Double getGrossDomesticProductLastYear() {
+        return tileLinks.stream().mapToDouble(Inclusion::getGrossTileProductivityLastYear).sum();
+    }
+
+    public Double getUrbanPopulation() {
+        return (tileLinks.stream().mapToDouble(Inclusion::getTileUrbanPop).sum() / getPopulation());
     }
 
     public String getMapKey() {
@@ -134,16 +131,20 @@ public class Territory extends Entity implements Serializable {
         return tileLinks;
     }
 
+    public Set<Inclusion> getPopulatedTileLinks() {
+        return tileLinks.stream().filter(l -> l.getTile().getPopulation() > 0).collect(Collectors.toSet());
+    }
+
     public Polity getPolity() {
         if (polity == null) {
             return null;
         } else {
-            return polity.getPolity();
+            return polity.getOwner();
         }
     }
 
-    public void setGovernment(Polity government, Long step) {
-        this.polity = new OccupiedRelation(government, this, step);
+    public void setPolity(Polity p, Long step) {
+        this.polity = new OccupiedRelation(p, this, step);
     }
 
     public CommonWeal getCommonWeal() {
@@ -167,15 +168,15 @@ public class Territory extends Entity implements Serializable {
         }
     }
 
-    public Set<BorderRelation> getBorderRelations() {
-        return borderRelations;
+    public Set<Border> getBorders() {
+        return borders;
     }
 
     public void loadIncludedTiles(WorldOrder wo) {
         WorldOrder worldOrder = wo;
         Map<String, Object> params = new HashMap<>();
         params.put("mapKey", mapKey);
-        String query = "MATCH (t:Territory{mapKey:$mapKey})-[:INCLUDES]-(ti:Tile) RETURN ti";
+        String query = "MATCH (:Territory{mapKey:$mapKey})-[:INCLUDES]-(t:Tile) RETURN t";
         Iterable<Tile> result = Neo4jSessionFactory.getInstance()
                 .getNeo4jSession().query(Tile.class, query, params);
         Iterator it = result.iterator();
@@ -193,7 +194,7 @@ public class Territory extends Entity implements Serializable {
         State n = Neo4jSessionFactory.getInstance().getNeo4jSession()
                 .queryForObject(State.class, query, params);
         if (n != null) {
-            polity.setPolity(n);
+            polity.setOwner(n);
         } else {
             polity = null;
         }
@@ -202,24 +203,17 @@ public class Territory extends Entity implements Serializable {
     public void loadBorders() {
         Map<String, Object> params = new HashMap<>();
         params.put("mapKey", mapKey);
-        String query = "MATCH (t:Territory{mapKey:$mapKey})-[:BORDERS]->(b:Border) b";
-        Iterable<BorderRelation> result = Neo4jSessionFactory.getInstance()
-                .getNeo4jSession().query(BorderRelation.class, query, params);
+        String query = "MATCH (t:Territory{mapKey:$mapKey})-[:BORDERS]->(b:Border) RETURN b";
+        Iterable<Border> result = Neo4jSessionFactory.getInstance()
+                .getNeo4jSession().query(Border.class, query, params);
         Iterator it = result.iterator();
         while (it.hasNext()) {
-            result.forEach(t -> borderRelations.add(t));
+            result.forEach(t -> borders.add(t));
         }
     }
 
-//    public void loadRelations() {
-//        this.loadIncludedTiles();
-//        this.loadGovernment();
-//        this.loadBorders();
-//        this.loadTileFacts();
-//    }
-
     public void loadTileFacts() {
-        if (tileLinks.size() < 10) {
+        if (tileLinks.size() < 20) {
             tileLinks.stream().forEach(i -> loadFacts(i.getTile(), year));
         } else {
             tileLinks.parallelStream().forEach(i -> loadFacts(i.getTile(), year));
@@ -227,6 +221,9 @@ public class Territory extends Entity implements Serializable {
     }
 
     private static void loadFacts(Tile t, int y) {
+        /**
+         * Returns map of tile Id, tile population, urban population, and production capital (wealth) for the given year
+         */
         String query = "MATCH (t:Tile{h3Id:" + t.getH3Id() + "}) CALL wog.getTileDataMap(t, "+ y +") YIELD value RETURN value";
         Map<String, Object> params = new HashMap<>();
         params.put("h3Id", t.getH3Id());
@@ -236,14 +233,23 @@ public class Territory extends Entity implements Serializable {
     }
 
     public void updateTotals() {
-        System.out.println(mapKey + " at ");
-        population = tileLinks.stream().mapToInt(Inclusion::getTilePopulation).sum();
-        urbanPopulation = (tileLinks.stream().mapToInt(Inclusion::getTileUrbanPop).sum() / population);
-        wealth = tileLinks.stream().mapToDouble(Inclusion::geTileWealth).sum();
+        double population = tileLinks.stream().mapToDouble(Inclusion::getTilePopulation).sum();
+        double urbanPop = tileLinks.stream().mapToDouble(Inclusion::getTileUrbanPop).sum() / population;
+        double wealth = tileLinks.stream().mapToDouble(Inclusion::geTileWealth).sum();
     }
 
     public Double assessPopularWarSupport(Entity e) {
         return commonWeal.evaluateWarNeed(e);
+    }
+
+    public void findCommonWeal() {
+        Map<String, String> params = new HashMap<>();
+        params.put("mapKey", this.getMapKey());
+        params.put("name", "Residents of " + this.getMapKey());
+        String query = "MATCH (:Territory{mapKey:$mapKey})-[:REPRESENTS_POPULATION]-(c:CommonWeal{name:$name}) RETURN c";
+        this.commonWeal = Neo4jSessionFactory.getInstance().getNeo4jSession().queryForObject(CommonWeal.class, query, params);
+        commonWeal.setTerritory(this);
+        commonWeal.loadPersonMap();
     }
 
 

@@ -3,13 +3,16 @@ package edu.gmu.css.agents;
 import edu.gmu.css.data.Domain;
 import edu.gmu.css.entities.Institution;
 import edu.gmu.css.entities.Trade;
+import edu.gmu.css.relations.Participation;
 import edu.gmu.css.relations.ProcessDisposition;
 import edu.gmu.css.worldOrder.WorldOrder;
 import sim.engine.SimState;
+import sim.engine.Stoppable;
 
 public class TradeProcess extends Process {
 
-    private Domain domain = Domain.TRADE;
+    private final Domain domain = Domain.TRADE;
+    private Trade trade;
 
     public TradeProcess () {    }
 
@@ -80,6 +83,23 @@ public class TradeProcess extends Process {
                 return;
         }
     }
+
+//    public Trade createTrade(WorldOrder wo) {
+//        WorldOrder worldOrder = wo;
+//        long step = worldOrder.getStepNumber();
+//        double influence = worldOrder.getInstitutionInfluence();
+//        Stoppable stoppable;
+//        trade = new Trade(this, step);
+//        for (ProcessDisposition d : processParticipantLinks) {
+//
+//            Participation p = new Participation(d, trade, step);
+//            trade.addParticipation(p);
+//            d.getOwner().addInstitution(p);
+//        }
+//        stoppable = worldOrder.schedule.scheduleRepeating(trade);
+//        trade.setStopper(stoppable);
+//        return trade;
+//    }
 
 
 }

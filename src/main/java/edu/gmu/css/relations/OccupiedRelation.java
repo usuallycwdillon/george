@@ -1,6 +1,5 @@
 package edu.gmu.css.relations;
 
-import com.fasterxml.jackson.databind.annotation.JsonAppend;
 import edu.gmu.css.entities.Polity;
 import edu.gmu.css.entities.Territory;
 import org.neo4j.ogm.annotation.*;
@@ -8,12 +7,12 @@ import org.neo4j.ogm.annotation.*;
 import java.io.Serializable;
 
 @RelationshipEntity (type="OCCUPIED")
-public class OccupiedRelation implements Serializable {
+public class OccupiedRelation extends InstitutionParticipation implements Serializable {
 
     @Id @GeneratedValue
     private Long id;
     @StartNode
-    Polity polity;
+    Polity owner;
     @EndNode
     Territory territory;
     @Property
@@ -28,27 +27,29 @@ public class OccupiedRelation implements Serializable {
     }
 
     public OccupiedRelation (Polity p, Territory t, Long step) {
-        this.polity = p;
+        this.owner = p;
         this.territory = t;
         this.from = step;
     }
 
     public OccupiedRelation (Polity p, Territory t, Integer d) {
-        this.polity = p;
+        this.owner = p;
         this.territory = t;
         this.during = d;
     }
 
+    @Override
     public Long getId() {
         return id;
     }
 
-    public Polity getPolity() {
-        return polity;
+    @Override
+    public Polity getOwner() {
+        return owner;
     }
 
-    public void setPolity(Polity polity) {
-        this.polity = polity;
+    public void setOwner(Polity owner) {
+        this.owner = owner;
     }
 
     public Territory getTerritory() {

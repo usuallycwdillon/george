@@ -5,7 +5,6 @@ import edu.gmu.css.service.DateConverter;
 import org.neo4j.ogm.annotation.*;
 import org.neo4j.ogm.annotation.typeconversion.Convert;
 
-import java.time.LocalDate;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -26,7 +25,7 @@ public class Year extends Entity {
     @Convert(DateConverter.class)
     private Long firstWeekBegins; // Date of the first week of the year
     @Convert(DateConverter.class)
-    private Long lastWeekEnds;
+    private Long lastWeekBegins;
 
     @Relationship (direction = Relationship.INCOMING, type = "PART_OF")
     private LinkedList<Week> weeks;
@@ -74,8 +73,8 @@ public class Year extends Entity {
         return firstWeekBegins;
     }
 
-    public Long getLastWeekEnds() {
-        return lastWeekEnds;
+    public Long getLastWeekBegins() {
+        return lastWeekBegins;
     }
 
     public List<Week> getWeeks() {

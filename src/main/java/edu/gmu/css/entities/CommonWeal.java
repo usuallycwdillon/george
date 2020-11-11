@@ -2,6 +2,7 @@ package edu.gmu.css.entities;
 
 import edu.gmu.css.agents.Person;
 import edu.gmu.css.relations.ProcessDisposition;
+import edu.gmu.css.service.Neo4jSessionFactory;
 import edu.gmu.css.util.MTFWrapper;
 import edu.gmu.css.worldOrder.WorldOrder;
 import org.jgrapht.Graph;
@@ -11,25 +12,45 @@ import org.jgrapht.generate.WattsStrogatzGraphGenerator;
 import org.jgrapht.graph.DefaultEdge;
 import org.jgrapht.graph.SimpleGraph;
 import org.jgrapht.util.SupplierUtil;
+import org.neo4j.ogm.annotation.*;
+import org.neo4j.ogm.cypher.ComparisonOperator;
+import org.neo4j.ogm.cypher.Filter;
 import sim.engine.SimState;
 import sim.engine.Steppable;
 
+import java.nio.file.attribute.FileAttribute;
 import java.util.*;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
-public class CommonWeal implements Steppable {
+public class CommonWeal extends Entity implements Steppable {
 
+    @Id @GeneratedValue
+    private Long id;
+    @Property
     private String name;
-    private int size = 1000;
-    private Territory territory;
-    private Map<Entity, Double> entityPosition;
-    private Map<String, Person> personMap;
+    @Transient
+    private int size;
+    @Transient
+    private Map<Entity, Double> entityPosition = new HashMap<>();
+    @Transient
     private Graph<String, DefaultEdge> graph;
+    @Transient
     private MTFWrapper random = new MTFWrapper(WorldOrder.getSeed()); // JGraphT requires an implementation of Java's util.Random class
+    @Transient
     private WattsStrogatzGraphGenerator<String, DefaultEdge> wsg;
+    @Transient
     private Supplier<String> vSupplier;
+    @Transient
     private double rebel = 0.002;
+    @Transient
     public ConnectivityInspector<String, DefaultEdge> inspector;
+    @Relationship(type="REPRESENTS_POPULATION")
+    private Territory territory;
+    @Relationship(type="RESIDES_IN", direction = Relationship.INCOMING)
+    private List<Person> personList;
+    @Transient
+    private Map<String, Person> personMap;
 
 
     public CommonWeal() {
@@ -60,11 +81,78 @@ public class CommonWeal implements Steppable {
         }
     }
 
+    @Override
+    public Long getId() {
+        return id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public int getSize() {
+        return size;
+    }
+
+    public void setSize(int size) {
+        this.size = size;
+    }
+
+    public Map<Entity, Double> getEntityPositionMap() {
+        return entityPosition;
+    }
+
+    public void setEntityPositionMap(Map<Entity, Double> entityPosition) {
+        this.entityPosition = entityPosition;
+    }
+
+    public Graph<String, DefaultEdge> getGraph() {
+        return graph;
+    }
+
+    public void setGraph(Graph<String, DefaultEdge> graph) {
+        this.graph = graph;
+    }
+
+    public MTFWrapper getRandom() {
+        return random;
+    }
+
+    public void setRandom(MTFWrapper random) {
+        this.random = random;
+    }
+
+    public WattsStrogatzGraphGenerator<String, DefaultEdge> getWsg() {
+        return wsg;
+    }
+
+    public double getRebel() {
+        return rebel;
+    }
+
+    public void setRebel(double rebel) {
+        this.rebel = rebel;
+    }
+
+    public ConnectivityInspector<String, DefaultEdge> getInspector() {
+        return inspector;
+    }
+
+    public Territory getTerritory() {
+        return territory;
+    }
+
+    public void setTerritory(Territory territory) {
+        this.territory = territory;
+    }
 
     public void step(SimState simState) {
 
     }
-
 
     public Double evaluateWarNeed(Entity e) {
         // TODO: Change this from returning a random value to the average support after a week of public deliberation.
@@ -77,7 +165,7 @@ public class CommonWeal implements Steppable {
     public boolean evaluateWarWillingness(ProcessDisposition pd) {
         // TODO: Change this from returning a random value to returning the average support for the Institution/Process
         //  after a week of deliberation. Now that the State/Polity has asked for taxes/recruits, is the common weal willing?
-        return entityPosition.get(pd.getSubject()) > 0.34;
+        return entityPosition.get(pd.getProcess().getIssue()) > 0.333;
     }
 
     public Graph<String, DefaultEdge> newGraph(Territory t) {
@@ -87,7 +175,7 @@ public class CommonWeal implements Steppable {
         return localGraph;
     }
 
-    public void calculateBetweenness() {
+      public void calculateBetweenness() {
         BetweennessCentrality<String, DefaultEdge> bc = new BetweennessCentrality<>(graph);
         Map<String, Double> betweennessScores = bc.getScores();
         for (Map.Entry<String, Double> e : betweennessScores.entrySet()) {
@@ -140,7 +228,7 @@ public class CommonWeal implements Steppable {
         for (Person p : personMap.values()) {
             tally += p.getIssueOpinion(e);
         }
-        double avg = tally / personMap.size();
+        double avg = tally / personList.size();
 //        long pros = personMap.values().stream().filter(p -> p.getIssueOpinion(i)==1).count();
 //        long cons = personMap.values().stream().filter(person -> person.getIssueOpinion(i).equals(-1)).count();
 //        long neuts = personMap.values().stream().filter(person -> person.getIssueOpinion(i).equals(0)).count();
@@ -179,6 +267,14 @@ public class CommonWeal implements Steppable {
             }
             entry.setValue(getAvgSupport(e));
         }
+    }
+
+    public void loadPersonMap() {
+        Filter bp = new Filter("birthplace", ComparisonOperator.EQUALS, territory.getMapKey());
+//        Filter bp = new Filter("birthplace", ComparisonOperator.MATCHES, territory.getMapKey());
+        Collection<Person> pc = Neo4jSessionFactory.getInstance().getNeo4jSession().loadAll(Person.class, bp, 2);
+        personList = new ArrayList<>(pc);
+        personList.stream().collect(Collectors.toMap(Person::getName, a -> a));
     }
 
 }

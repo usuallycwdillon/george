@@ -4,11 +4,16 @@ import edu.gmu.css.data.Domain;
 import edu.gmu.css.data.Issue;
 import edu.gmu.css.entities.*;
 import edu.gmu.css.relations.InstitutionParticipation;
+import edu.gmu.css.relations.Participation;
 import edu.gmu.css.relations.ProcessDisposition;
 import edu.gmu.css.worldOrder.WorldOrder;
 import sim.engine.SimState;
+import sim.engine.Stoppable;
 
 public class PeaceProcess extends Process {
+
+    private Domain domain = Domain.PEACE;
+    private Peace peace;
 
     public PeaceProcess() {
     }
@@ -18,21 +23,21 @@ public class PeaceProcess extends Process {
         name = "Peace Process";
         began = from;
         issue = i;
-        for (InstitutionParticipation ip : i.getInstitution().getParticipation()) {
-            Polity participant = ip.getParticipant();
-            if (participant == owner) {
-                ProcessDisposition pdo = new ProcessDisposition(owner, this, began);
-                pdo.setSubject(i.getInstitution());
-                pdo.setN(true);
-                pdo.setU(true);
-                owner.addProcess(pdo);
-                processParticipantLinks.add(pdo);
-            } else {
-                ProcessDisposition pdp = new ProcessDisposition(participant, this, began);
-                participant.addProcess(pdp);
-                processParticipantLinks.add(pdp);
-            }
-        }
+//        for (InstitutionParticipation ip : i.getInstitution().getParticipations()) {
+//            Polity participant = ip.getOwner();
+//            if (participant == owner) {
+//                ProcessDisposition pdo = new ProcessDisposition(owner, this, began);
+//                pdo.setSubject(i.getInstitution());
+//                pdo.setN(true);
+//                pdo.setU(true);
+//                owner.addProcess(pdo);
+//                processParticipantLinks.add(pdo);
+//            } else {
+//                ProcessDisposition pdp = new ProcessDisposition(participant, this, began);
+//                participant.addProcess(pdp);
+//                processParticipantLinks.add(pdp);
+//            }
+//        }
         this.updateStatus();
     }
 
@@ -217,16 +222,31 @@ public class PeaceProcess extends Process {
                 Long step = worldOrder.schedule.getSteps();
                 // Assuming for now that peace insitutions are passive, only between participants
                 issue.conclude(worldOrder);
-                institution = createInstitution(worldOrder);
+                peace = createPeace(worldOrder);
                 worldOrder.getAllTheInstitutions().remove(issue);
-                worldOrder.getAllTheInstitutions().add(institution);
+                worldOrder.getAllTheInstitutions().add(peace);
                 conclude(worldOrder);
                 break;
         }
     }
 
-//    public Institution createInstitution(Long step) {
-//        return new Peace();
-//    }
+    public Peace createPeace(WorldOrder wo) {
+        WorldOrder worldOrder = wo;
+        long step = worldOrder.getStepNumber();
+        double influence = worldOrder.getInstitutionInfluence();
+        Stoppable stoppable;
+        peace = new Peace(this, step);
+        for (ProcessDisposition d : processParticipantLinks) {
+            PeaceFact p = new PeaceFact.FactBuilder().from(step).peace(peace).polity(d.getOwner()).
+                    commitment(d.getCommitment()).build();
+            peace.addPeaceFact(p);
+            p.setPolity(d.getOwner());
+            d.getOwner().addPeaceFact(p);
+        }
+        stoppable = worldOrder.schedule.scheduleRepeating(peace);
+        peace.setStopper(stoppable);
+        worldOrder.updateGlobalWarLikelihood(processParticipantLinks.size() * influence * -1);
+        return peace;
+    }
 
 }

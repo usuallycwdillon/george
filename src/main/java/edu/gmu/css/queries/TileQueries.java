@@ -2,6 +2,9 @@ package edu.gmu.css.queries;
 
 import edu.gmu.css.agents.Tile;
 import edu.gmu.css.entities.Fact;
+import edu.gmu.css.entities.PopulationFact;
+import edu.gmu.css.entities.UrbanPopulationFact;
+import edu.gmu.css.entities.WealthFact;
 import edu.gmu.css.service.Neo4jSessionFactory;
 import org.neo4j.ogm.model.Result;
 
@@ -11,38 +14,39 @@ import java.util.Map;
 
 public class TileQueries {
 
-    public int findPopulation(Tile t, int y) {
-        int pop = 0;
-        Map<String, Object> params = new HashMap<>();
-        params.put("h3Id", t.getH3Id());
-        params.put("year", y);
-        String query = "MATCH (t:Tile{h3Id:$h3Id})-[:SIM_POPULATION{during:$year}]-(f:Fact) RETURN f ";
-        Fact f = Neo4jSessionFactory.getInstance().getNeo4jSession().queryForObject(Fact.class, query, params);
-        pop = (Integer) f.getValue();
-        return pop;
-    }
-
-    public int findUrbanPop(Tile t, int y) {
-        int uPop = 0;
-        Map<String, Object> params = new HashMap<>();
-        params.put("h3Id", t.getH3Id());
-        params.put("year", y);
-        String query = "MATCH (t:Tile{h3Id:$h3Id})-[:SIM_URBAN_POPULATION{during:$year}]-(f:Fact) RETURN f ";
-        Fact f = Neo4jSessionFactory.getInstance().getNeo4jSession().queryForObject(Fact.class, query, params);
-        uPop = (Integer) f.getValue();
-        return uPop;
-    }
-
-    public Double findWealth(Tile t, int y) {
-        double wealth = 0;
-        Map<String, Object> params = new HashMap<>();
-        params.put("h3Id", t.getH3Id());
-        params.put("year", y);
-        String query = "MATCH (t:Tile{h3Id:$h3Id})-[:SIM_WEALTH{during:$year}]-(f:Fact) RETURN f ";
-        Fact f = Neo4jSessionFactory.getInstance().getNeo4jSession().queryForObject(Fact.class, query, params);
-        wealth = (Double) f.getValue();
-        return wealth;
-    }
+//    public double findPopulation(Tile t, int y) {
+//        double pop = 0;
+//        Map<String, Object> params = new HashMap<>();
+//        params.put("h3Id", t.getH3Id());
+//        params.put("year", y);
+//        String query = "MATCH (t:Tile{h3Id:$h3Id})-[:SIM_POPULATION{during:$year}]-(f:Fact) RETURN f ";
+//        PopulationFact f = Neo4jSessionFactory.getInstance().getNeo4jSession().queryForObject(PopulationFact.class, query, params);
+//        pop = f.getValue();
+//        return pop / 1000.0;
+//    }
+//
+//    public double findUrbanPop(Tile t, int y) {
+//        double uPop = 0;
+//        Map<String, Object> params = new HashMap<>();
+//        params.put("h3Id", t.getH3Id());
+//        params.put("year", y);
+//        String query = "MATCH (t:Tile{h3Id:$h3Id})-[:SIM_URBAN_POPULATION{during:$year}]-(f:Fact) RETURN f ";
+//        UrbanPopulationFact f = Neo4jSessionFactory.getInstance().getNeo4jSession()
+//                .queryForObject(UrbanPopulationFact.class, query, params);
+//        uPop = f.getValue();
+//        return uPop / 1000.0;
+//    }
+//
+//    public Double findWealth(Tile t, int y) {
+//        double wealth = 0;
+//        Map<String, Object> params = new HashMap<>();
+//        params.put("h3Id", t.getH3Id());
+//        params.put("year", y);
+//        String query = "MATCH (t:Tile{h3Id:$h3Id})-[:SIM_WEALTH{during:$year}]-(f:Fact) RETURN f ";
+//        Fact f = Neo4jSessionFactory.getInstance().getNeo4jSession().queryForObject(WealthFact.class, query, params);
+//        wealth = (Double) f.getValue();
+//        return wealth / 1000;
+//    }
 
     public static void loadTileData(Tile t, int y) {
         Tile tile = t;
@@ -71,7 +75,7 @@ public class TileQueries {
         }
 
         tile.setPopulation(pop);
-        tile.setUrbanization(uPop);
+        tile.setUrbanPopulation(uPop);
         tile.setWealth(wealth);
 
         // weal

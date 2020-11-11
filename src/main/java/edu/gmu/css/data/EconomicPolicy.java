@@ -18,6 +18,7 @@ public class EconomicPolicy implements Serializable {
     public EconomicPolicy(double[] policy) {
         this.capital = policy[0];
         this.labor = policy[1];
+        this.taxRate = policy[2];
     }
 
     public EconomicPolicy(double capital, double labor) {

@@ -4,7 +4,10 @@ import ec.util.MersenneTwisterFast;
 import edu.gmu.css.agents.Process;
 import edu.gmu.css.data.Domain;
 import edu.gmu.css.data.Issue;
+import edu.gmu.css.data.Resources;
 import edu.gmu.css.relations.InstitutionParticipation;
+import edu.gmu.css.relations.Participation;
+import edu.gmu.css.relations.ProcessDisposition;
 import edu.gmu.css.worldOrder.WorldOrder;
 import org.neo4j.ogm.annotation.*;
 import sim.engine.SimState;
@@ -30,9 +33,9 @@ public abstract class Institution extends Entity implements Steppable, Stoppable
     @Property
     protected double value;     // magnitude, etc. a cumulative/total measure; may be overridden to int
     @Property
-    protected int size;         // number of participants
+    protected int extent;         // number of participants
     @Property
-    protected int year;        // not always used
+    protected int during;        // not always used
     @Property
     protected Domain domain;
     @Property
@@ -41,8 +44,8 @@ public abstract class Institution extends Entity implements Steppable, Stoppable
     protected boolean stopped;
     @Transient
     protected Resources maintenance;
-    @Transient
-    protected MersenneTwisterFast random;
+//    @Transient
+//    protected MersenneTwisterFast random;
     @Transient
     protected Stoppable stopper = null;
     @Transient
@@ -54,10 +57,8 @@ public abstract class Institution extends Entity implements Steppable, Stoppable
     @Transient
     protected Resources cost;
 
-    @Relationship(direction=Relationship.INCOMING)
-    protected List<InstitutionParticipation> participation = new ArrayList<>();
     @Relationship
-    protected Process process;          // Countervailing process,  not the one that created it
+    protected Process process;          // The process that created this institution
     @Relationship
     protected Organization organization; // Only used if this institution spawned an organization
 
@@ -104,60 +105,28 @@ public abstract class Institution extends Entity implements Steppable, Stoppable
     }
 
     public int getSize() {
-        return size;
+        return extent;
     }
 
     public void setSize(int size) {
-        this.size = size;
+        this.extent = size;
     }
 
     public int getDuring() {
-        return year;
+        return during;
     }
 
     public void setDuring(int during) {
-        this.year = during;
+        this.during = during;
     }
 
-    public List<InstitutionParticipation> getParticipation() {
-        return participation;
+    public Resources getCost() {
+        return cost;
     }
 
-    public void setParticipation(List<InstitutionParticipation> participation) {
-        this.participation = participation;
+    public void setCost(Resources cost) {
+        this.cost = cost;
     }
-
-    public void addParticipation(InstitutionParticipation participation) {
-        this.participation.add(participation);
-    }
-
-    public Set<Polity> getParticipants() {
-        Set<Polity> participants = new HashSet<>();
-        for (InstitutionParticipation p : participation) {
-            participants.add(p.getParticipant());
-        }
-        return participants;
-    }
-
-    public Set<Polity> getOtherParticipants(Polity p) {
-        Set<Polity> others = new HashSet<>();
-        for (InstitutionParticipation i : participation) {
-            if (i.getParticipant() != p) {
-                others.add(i.getParticipant());
-            }
-        }
-        return others;
-    }
-
-    public boolean isParticipant(Polity t) {
-        for (InstitutionParticipation i : participation) {
-            if (i.getParticipant() == t) {
-                return true;
-            }
-        }
-        return false;
-    }
-
 
     public Process getProcess() {
         return process;

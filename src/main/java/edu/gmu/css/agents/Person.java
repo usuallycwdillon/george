@@ -1,20 +1,34 @@
 package edu.gmu.css.agents;
 
 import edu.gmu.css.entities.Entity;
+import edu.gmu.css.relations.KnowsRelation;
+import org.neo4j.ogm.annotation.*;
 import sim.engine.SimState;
 import sim.engine.Steppable;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class Person extends Entity implements Steppable {
 
+    @Id @GeneratedValue
+    private Long id;
+    @Property
     private String name;
-    private String homeTile;
-    private double sentiment;
+    @Property
+    private String address;
+    @Property
     private double bcScore;
+    @Property
     private boolean leaderRole;
+    @Property
+    private String birthplace;
+    @Transient
+    private double sentiment;
+    @Transient
     private Map<Entity, Integer> opinions = new HashMap<>();
+    @Relationship(type="KNOWS")
+    List<KnowsRelation> circle = new ArrayList<>();
 
 
     public Person() {
@@ -31,6 +45,11 @@ public class Person extends Entity implements Steppable {
     public void step(SimState simState) {
     }
 
+    @Override
+    public Long getId() {
+        return id;
+    }
+
     public String getName() {
         return this.name;
     }
@@ -43,12 +62,12 @@ public class Person extends Entity implements Steppable {
         this.bcScore = bcScore;
     }
 
-    public String getHomeTile() {
-        return homeTile;
+    public String getAddress() {
+        return address;
     }
 
-    public void setHomeTile(String homeTile) {
-        this.homeTile = homeTile;
+    public void setAddress(String address) {
+        this.address = address;
     }
 
     public boolean isLeaderRole() {
@@ -69,5 +88,47 @@ public class Person extends Entity implements Steppable {
 
     public void addIssue(Entity e, int o) {
         opinions.put(e,o);
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getBirthplace() {
+        return birthplace;
+    }
+
+    public void setBirthplace(String birthplace) {
+        this.birthplace = birthplace;
+    }
+
+    public double getSentiment() {
+        return sentiment;
+    }
+
+    public void setSentiment(double sentiment) {
+        this.sentiment = sentiment;
+    }
+
+    public Map<Entity, Integer> getOpinions() {
+        return opinions;
+    }
+
+    public void setOpinions(Map<Entity, Integer> opinions) {
+        this.opinions = opinions;
+    }
+
+    public List<Person> getCircle() {
+        return circle.stream().map(KnowsRelation::getKnown).collect(Collectors.toList());
+    }
+
+    public boolean addToCircle(Person p) {
+        this.circle.add(new KnowsRelation(this, p));
+        return true;
+    }
+
+    public boolean removeFromCircle(Person p) {
+        this.circle.remove(p);
+        return true;
     }
 }

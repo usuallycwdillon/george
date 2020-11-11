@@ -4,10 +4,14 @@ package edu.gmu.css.entities;
 import com.fasterxml.jackson.databind.annotation.JsonAppend;
 import edu.gmu.css.agents.Process;
 import edu.gmu.css.data.SecurityObjective;
+import edu.gmu.css.relations.InstitutionParticipation;
+import edu.gmu.css.relations.Participation;
 import edu.gmu.css.relations.ProcessDisposition;
 import org.neo4j.ogm.annotation.*;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 @NodeEntity
@@ -33,9 +37,10 @@ public class Dispute extends Entity {
     private int magnitude;
 
 
-    @Relationship
-//            (type = "PARTICIPATE_IN", direction = Relationship.INCOMING)
-    private Set<Polity> participants = new HashSet<>();
+    @Relationship(direction=Relationship.INCOMING)
+    protected List<InstitutionParticipation> participations = new ArrayList<>();
+    @Transient
+    private final Set<Polity> participants = new HashSet<>();
 
     public Dispute() {
 
@@ -47,7 +52,9 @@ public class Dispute extends Entity {
         until = process.getEnded();
         objective = highestLevel(process);
         for (ProcessDisposition pd : process.getProcessDispositionList()) {
+            Participation p = new Participation(pd.getOwner(), pd.getCommitment(), until);
             participants.add(pd.getOwner());
+            participations.add(p);
         }
     }
 

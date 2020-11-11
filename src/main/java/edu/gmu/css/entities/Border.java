@@ -1,9 +1,10 @@
 package edu.gmu.css.entities;
 
 import edu.gmu.css.agents.Process;
-import edu.gmu.css.relations.BorderAgreement;
-import edu.gmu.css.relations.BorderRelation;
+import edu.gmu.css.data.Resources;
+import edu.gmu.css.service.DateConverter;
 import org.neo4j.ogm.annotation.*;
+import org.neo4j.ogm.annotation.typeconversion.Convert;
 
 import java.util.Set;
 
@@ -14,20 +15,26 @@ public class Border extends Institution {
      */
     @Id @GeneratedValue
     private Long id;
-    @Property
-    private Long from;
-    @Property
-    private Long until;
+    @Property @Convert(DateConverter.class)
+    Long from;
+    @Property @Convert(DateConverter.class)
+    Long until;
     @Property
     private int during;
-    @Relationship (type = "BORDERS", direction=Relationship.INCOMING)
-    private Set<BorderRelation> borderRelationSet;
-    @Relationship (type="SHARES_BORDER", direction = Relationship.INCOMING)
-    private Set<BorderAgreement> borderPartners;
+    @Property
+    private String[] subjects;
+    @Transient
+    Resources maintenance;
+
+    @Relationship (type = "BORDERS_WITH", direction=Relationship.INCOMING)
+    private Set<BorderFact> borderFacts;
+    @Relationship (type = "BORDERS", direction = Relationship.INCOMING)
+    private Set<Territory> territoryNeighbors;
+
 
     // only for the OGM, don't use this otherwise
     public Border() {
-        name = "Border Agreement";
+        name = "Border";
     }
 
     public Border(Process proc, long s) {
@@ -37,45 +44,24 @@ public class Border extends Institution {
         cost = new Resources.ResourceBuilder().build();
     }
 
-    public Territory getNeighborTerritory(BorderRelation a) {
-        for (BorderRelation borderRelation : borderRelationSet) {
-            if (!borderRelation.equals(a)) {
-                return borderRelation.getSelf();
-            }
-        }
-        return null;
+    private Border(BorderBuilder builder) {
+        this.borderFacts = builder.borderFacts;
+        this.territoryNeighbors = builder.territoryNeighbors;
+        this.from = builder.from;
+        this.until = builder.until;
+        this.maintenance = builder.maintenance;
     }
-
-    public Polity findBorderPartner(BorderAgreement agreement) {
-        for (BorderAgreement partner : borderPartners) {
-            if (!partner.equals(agreement)) {
-                return partner.getParticipant();
-            }
-        }
-        return null;
-    }
-
 
     public static class BorderBuilder {
-        private Set<BorderAgreement> borderPartners;
-        private Set<BorderRelation> borderRelations;
+        private Set<BorderFact> borderFacts;
+        private Set<Territory> territoryNeighbors;
+        private String[] subjects;
         private Long from;
         private Long until;
-        private int during;
         private Resources maintenance;
 
         public BorderBuilder() {        }
 
-
-        public BorderBuilder borderRelations (Set<BorderRelation> neighbors) {
-            this.borderRelations = neighbors;
-            return this;
-        }
-
-        public BorderBuilder borderPartners (Set<BorderAgreement> partners) {
-            this.borderPartners = partners;
-            return this;
-        }
 
         public BorderBuilder from (Long from) {
             this.from = from;
@@ -87,13 +73,18 @@ public class Border extends Institution {
             return this;
         }
 
-        public BorderBuilder year (int year) {
-            this.during = year;
+        public BorderBuilder maintenance (Resources cost) {
+            this.maintenance = cost;
             return this;
         }
 
-        public BorderBuilder maintenance (Resources cost) {
-            this.maintenance = cost;
+        public BorderBuilder territoryNeighbors(Set<Territory> t) {
+            this.territoryNeighbors = t;
+            return this;
+        }
+
+        public BorderBuilder borderFacts(Set<BorderFact> f) {
+            this.borderFacts = f;
             return this;
         }
 
@@ -101,18 +92,10 @@ public class Border extends Institution {
             Border border = new Border();
             return border;
         }
-
     }
 
-    private Border(BorderBuilder builder) {
-        this.borderRelationSet = builder.borderRelations;
-        this.borderPartners = builder.borderPartners;
-        this.from = builder.from;
-        this.until = builder.until;
-        this.maintenance = builder.maintenance;
-        this.during = builder.during;
-    }
 
+    @Override
     public Long getId() {
         return id;
     }
@@ -125,44 +108,46 @@ public class Border extends Institution {
         this.maintenance = commitment;
     }
 
-    public Long getFrom() {
-        return from;
+//    @Override
+//    public Long getFrom() {
+//        return from;
+//    }
+//
+//    public void setFrom(Long from) {
+//        this.from = from;
+//    }
+//
+//    @Override
+//    public Long getUntil() {
+//        return until;
+//    }
+//
+//    public void setUntil(Long until) {
+//        this.until = until;
+//    }
+//
+//    @Override
+//    public int getDuring() {
+//        return during;
+//    }
+//
+//    public void setDuring(int during) {
+//        this.during = during;
+//    }
+
+    public String[] getSubjects() {
+        return subjects;
     }
 
-    public void setFrom(Long from) {
-        this.from = from;
+    public void setSubjects(String[] subjects) {
+        this.subjects = subjects;
     }
 
-    public Long getUntil() {
-        return until;
-    }
-
-    public void setUntil(Long until) {
-        this.until = until;
-    }
-
-    @Override
-    public int getDuring() {
-        return during;
-    }
-
-    public void setDuring(int during) {
-        this.during = during;
-    }
-
-    public Set<BorderRelation> getBorderRelationSet() {
-        return borderRelationSet;
-    }
-
-    public void setBorderRelationSet(Set<BorderRelation> borderRelationSet) {
-        this.borderRelationSet = borderRelationSet;
-    }
-
-    public Set<BorderAgreement> getBorderPartners() {
-        return borderPartners;
-    }
-
-    public void setBorderPartners(Set<BorderAgreement> borderPartners) {
-        this.borderPartners = borderPartners;
+    public Territory getTerritoryNeighbors(Territory me) {
+        for (Territory neighbor : territoryNeighbors) {
+            if (!neighbor.equals(me))
+                return neighbor;
+        }
+        return null;
     }
 }

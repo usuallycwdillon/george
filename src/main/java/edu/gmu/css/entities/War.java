@@ -1,18 +1,12 @@
 package edu.gmu.css.entities;
 
-import ec.util.MersenneTwisterFast;
-import edu.gmu.css.agents.PeaceProcess;
 import edu.gmu.css.agents.Process;
-import edu.gmu.css.data.World;
-import edu.gmu.css.relations.InstitutionParticipation;
-import edu.gmu.css.relations.Participation;
-import edu.gmu.css.util.MTFApache;
+import edu.gmu.css.data.Resources;
 import edu.gmu.css.worldOrder.WorldOrder;
 import org.neo4j.ogm.annotation.*;
 import sim.engine.SimState;
 
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
 @NodeEntity
 public class War extends Institution {
@@ -22,27 +16,31 @@ public class War extends Institution {
     @Id @GeneratedValue
     private Long id;
     @Transient
-    private Resources cost;          // Magnitude, cumulative for whole war, all sides
-    @Transient
     private Resources involvement;
-    @Property
-    private int size;
     @Property
     private double warCost = 0.0;
     @Property
-    private int magnitude = 0;
+    private double magnitude = 0.0;
 
-    @Relationship (type = "PARTICIPATE_IN", direction = Relationship.INCOMING)
-    private Set<Polity> participants = new HashSet<>();
+    @Relationship (type = "PARTICIPATED_IN", direction = Relationship.INCOMING)
+    private final List<WarParticipationFact> participations = new LinkedList<>();
+    @Relationship (type = "IS_WAR")
+    private WarFact warFact;
 
     public War() {
+        name = "War";
+        cost = new Resources.ResourceBuilder().build();
+        involvement = new Resources.ResourceBuilder().build();
     }
 
-    public War(Process proc, long s) {
-        from = s;
-        cost = new Resources.ResourceBuilder().build();
+    public War(Process proc) {
+        this();
+        Process p = proc;
+        from = p.getEnded();
+        cost.increaseBy(p.getCost());
+        involvement.increaseBy(p.getInvolvement());
         name = "War";
-        cause = proc;
+        cause = p;
     }
 
     @Override
@@ -52,13 +50,15 @@ public class War extends Institution {
             return;
         }
         WorldOrder worldOrder = (WorldOrder) simState;
-        random = worldOrder.random;
+        // 0. Consume resources at wartime rate = 2x peacetime
+        consumeResources(worldOrder);
         // 1. Do any participants want peace?
 
         // 2. Update war values
         updateValues();
         // 3. Will there be a battle?
-        if (random.nextGaussian() > 0.0) {
+        // TODO: This should probably be a Weibul distro, bur for now it's +1sd of Gaussian normal.
+        if (worldOrder.random.nextGaussian() > 0.681) {     // 1sd above mean
             battle(worldOrder);
         }
     }
@@ -68,54 +68,69 @@ public class War extends Institution {
         return this.id;
     }
 
-    public Resources getCost() {
-        return cost;
+    public void addParticipation(WarParticipationFact p) {
+        participations.add(p);
     }
 
-    public Set<Polity> getParticipants() {
-        return participants;
+    public void removeParticipation(WarParticipationFact p) {
+        participations.remove(p);
     }
 
-    public void addParticipant(Polity participant) {
-        this.participants.add(participant);
+    public WarFact getWarFact() {
+        return warFact;
+    }
+
+    public void setWarFact(WarFact warFact) {
+        this.warFact = warFact;
     }
 
     private void battle(WorldOrder wo) {
         WorldOrder worldOrder = wo;
+        extent = this.participations.size();
         // Take a part of the total force as a loss; split the loss between the participants
         // 1. How big was the battle? between [0, 0.5) of the current total commitment
-        Double battleSize = random.nextDouble() * 0.5;
-        Double m = (involvement.getPax() * battleSize);
-        int battleMagnitude = m.intValue(); 
+        Double battleSize = worldOrder.random.nextDouble() * 0.5;
+        Double battleMagnitude = (involvement.getPax() * battleSize);
         // 2. How to divide the losses?
         double divvy = 1.0;
-        double [] portions = new double [size];
-        for (int i=0; i< size - 1; i++) {
-            double share = random.nextDouble();
+        double [] portions = new double [extent];
+        for (int i = 0; i< extent-1; i++) {
+            double share = worldOrder.random.nextDouble();
             divvy -= share;
             portions[i] = share;
         }
-        portions[size-1] = divvy;
+        portions[extent - 1] = divvy;
         // 3. Move each participant's share of the battle magnitude from their participation to cost/magnitude
-        for (int i=0; i<size;i++) {
-            Participation p = (Participation) participation.get(i);
-            Double decr = portions[i];
-            Double pax = decr * battleMagnitude;
-            p.tallyLosses(pax.intValue(), worldOrder);
-            cost.addPax(pax.intValue());
+        for (int i = 0; i< extent; i++) {
+            WarParticipationFact p = participations.get(i);
+            Double loss = portions[i] * battleMagnitude * p.getCommitment().getPax();
+            p.tallyLosses(loss, worldOrder);
+            cost.incrementPax(loss);  // War cost, not Polity's cost in this battle
         }
     }
 
     private void updateValues() {
-        size = participation.size();
+        extent = participations.size();
         warCost = cost.getTreasury();
         magnitude = cost.getPax();
         Resources temp = new Resources.ResourceBuilder().build();
-        for (InstitutionParticipation ip : participation) {
-            Participation p = (Participation) ip;
-            temp.increaseBy(p.getCommitment());
+        for (WarParticipationFact wp : participations) {
+            temp.increaseBy(wp.getCommitment());
         }
         involvement = temp;
+    }
+
+    private void consumeResources(WorldOrder wo) {
+        int weeks = wo.dataYear.getWeeksThisYear();
+        for (WarParticipationFact wp : participations) {
+            Resources c = wp.getCommitment();
+            Polity p = wp.getPolity();
+            double myCost = (c.getTreasury() / weeks) * 2.0;
+            c.decrementTreasury(myCost);
+            cost.incrementTreasury(myCost);
+            Resources req = new Resources.ResourceBuilder().treasury(myCost).build();
+            p.getSecurityStrategy().addSupplemental(wp,req);
+        }
     }
 
 }

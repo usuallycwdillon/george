@@ -4,10 +4,11 @@ package edu.gmu.css.data;
 import one.util.streamex.DoubleStreamEx;
 
 import java.util.ArrayList;
+import java.util.List;
 
 public class DataTrend<T> extends ArrayList<T> {
 
-    private int duration; // duration of record in steps/weeks
+    private final int duration; // duration of record in steps/weeks
 
     public DataTrend(int size) {
         this.duration = size;
@@ -38,5 +39,60 @@ public class DataTrend<T> extends ArrayList<T> {
         return value;
     }
 
+    public double pastYearAverage() {
+        int from;
+        int until;
+        if(this.size()==0) {
+            return 0.0;
+        } else if (this.size() < 53) {
+            from = 0;
+            until = this.size() -1;
+        } else {
+            from = this.size() - 53;
+            until = this.size() - 1;
+        }
+        List<T> sublist = this.subList(from, until);
+        double total = sublist.stream().mapToDouble(v -> (Double) v).sum();
+        return total / 52.0;
+    }
+
+    public double pastYearDiff() {
+        int from;
+        int until;
+        if (this.size() > 53) {
+            from = this.size() - 53;
+            until = this.size() - 1;
+        } else {
+            from = 0;
+            until = this.size() -1;
+        }
+        Double first = (Double) this.get(from);
+        Double last = (Double) this.get(until);
+        return last / first;
+    }
+
+    public double pastYearTotal() {
+        int s = this.size();
+        if (this.size() > 53) {
+            List<T> sublist = this.subList(s - 53, s - 1);
+            return sublist.stream().mapToDouble(v -> (Double) v).sum();
+        } else {
+            return this.stream().mapToDouble(v -> (Double) v).sum();
+        }
+    }
+
+    public double yearAgoValue() {
+        int from;
+        if (this.size() > 53) {
+            from = this.size() - 53;
+        } else {
+            from = 0;
+        }
+        return (Double) this.get(from);
+    }
+
+    public Double mostRecent() {
+        return (Double) this.get(this.size() - 1);
+    }
 
 }

@@ -1,6 +1,7 @@
 package edu.gmu.css.entities;
 
 import edu.gmu.css.agents.Process;
+import edu.gmu.css.data.Resources;
 import sim.engine.SimState;
 
 public class Statehood extends Institution {

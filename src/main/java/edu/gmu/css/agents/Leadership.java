@@ -3,19 +3,15 @@ package edu.gmu.css.agents;
 import ec.util.MersenneTwisterFast;
 import edu.gmu.css.data.SecurityObjective;
 import edu.gmu.css.data.Issue;
-import edu.gmu.css.data.World;
-import edu.gmu.css.entities.Entity;
 import edu.gmu.css.entities.Polity;
 import edu.gmu.css.entities.War;
 import edu.gmu.css.relations.ProcessDisposition;
-import edu.gmu.css.entities.Resources;
+import edu.gmu.css.data.Resources;
 import edu.gmu.css.worldOrder.WorldOrder;
 import sim.engine.SimState;
 import sim.engine.Steppable;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 public class Leadership implements Steppable {
@@ -38,7 +34,7 @@ public class Leadership implements Steppable {
         WorldOrder worldOrder = (WorldOrder) simState;
         random = worldOrder.random;
         updateEconomicPolicy();
-        updateSecurityPolicy();
+//        updateSecurityPolicy();
 
     }
 
@@ -70,13 +66,13 @@ public class Leadership implements Steppable {
         this.leaders = leaders;
     }
 
-    private void updateSecurityPolicy() {
-        if (polity != null) {
-            Resources current = polity.getSecurityStrategy();
-        } else {
-
-        }
-    }
+//    private void updateSecurityPolicy() {
+//        if (polity != null) {
+//            Strategy current = polity.getSecurityStrategy();
+//        } else {
+//
+//        }
+//    }
 
     private void updateEconomicPolicy() {
         if(polity != null) {
@@ -91,8 +87,8 @@ public class Leadership implements Steppable {
         if (issue.getInstigator()==polity) { // I'm the instigator
             Polity target = issue.getTarget();
             int x = 0;
-            int opfor = target.getForces();
-            int myfor = polity.getForces();
+            double opfor = target.getForces();
+            double myfor = polity.getForces();
             double ratio = (myfor * 1.0) / (opfor * 1.0);
             if (ratio > 4.0) {
                 x = random.nextInt(15);
@@ -204,7 +200,7 @@ public class Leadership implements Steppable {
     public boolean evaluateWarWillingness(ProcessDisposition pd) {
         double respond = random.nextGaussian();
         // Ref Cioffi-Revilla (1998) Politics and Uncertainty, p 160. (P_B), there is some probability that...
-        return respond < 0.80;
+        return respond < 0.0;
     }
 
     private Resources warStrategy(Polity target, SecurityObjective objective, WorldOrder wo) {

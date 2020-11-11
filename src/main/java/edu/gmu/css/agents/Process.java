@@ -2,10 +2,8 @@ package edu.gmu.css.agents;
 
 import edu.gmu.css.data.Domain;
 import edu.gmu.css.data.Issue;
-import edu.gmu.css.data.World;
+import edu.gmu.css.data.Resources;
 import edu.gmu.css.entities.*;
-import edu.gmu.css.entities.Fact.FactBuilder;
-import edu.gmu.css.relations.Participation;
 import edu.gmu.css.relations.ProcessDisposition;
 import edu.gmu.css.worldOrder.*;
 import org.neo4j.ogm.annotation.*;
@@ -13,8 +11,6 @@ import sim.engine.SimState;
 import sim.engine.Steppable;
 import sim.engine.Stoppable;
 
-import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
@@ -46,10 +42,8 @@ public abstract class Process extends Entity implements Steppable, Stoppable {
 
     @Id @GeneratedValue
     protected Long id;
-//    @Transient
-//    protected WorldOrder worldOrder;
     @Property
-    protected boolean newNow;
+    protected boolean newNow; // The process fiat is newly set (has not been visited at this fiat already
     @Transient
     protected boolean S = false;
     @Transient
@@ -77,7 +71,9 @@ public abstract class Process extends Entity implements Steppable, Stoppable {
     @Property
     protected Long ended;
     @Transient
-    protected double cost;
+    protected Resources cost = new Resources.ResourceBuilder().build();
+    @Transient
+    protected Resources involvement = new Resources.ResourceBuilder().build();
     @Transient
     protected int[] status = new int[] {0, 0, 0};
     @Property
@@ -90,8 +86,8 @@ public abstract class Process extends Entity implements Steppable, Stoppable {
     protected String name;
     @Transient
     boolean stopped;
-    @Transient
-    protected Institution institution;
+//    @Transient
+//    protected Institution institution;
     @Relationship(direction = "INCOMING")
     protected List<ProcessDisposition> processParticipantLinks = new LinkedList<>();
 
@@ -135,8 +131,11 @@ public abstract class Process extends Entity implements Steppable, Stoppable {
     public int[] getStatus() {
         return status;
     }
-    public double getCost() {
+    public Resources getCost() {
         return cost;
+    }
+    public Resources getInvolvement() {
+        return involvement;
     }
     public long getBegan() {
         return began;
@@ -181,15 +180,18 @@ public abstract class Process extends Entity implements Steppable, Stoppable {
     public void setOutcome(boolean outcome) {
         this.outcome = outcome;
     }
+    public void setEquivalence(boolean eq) {
+        this.equivalence = true;
+    }
     public void setNewNow(boolean newNow) {
         this.newNow = newNow;
     }
-    public void setCost(double cost) {
+    public void setCost(Resources cost) {
         this.cost = cost;
     }
-    public void setInstitution(Institution i) {
-        institution = i;
-    }
+//    public void setInstitution(Institution i) {
+//        institution = i;
+//    }
     public void setIssue(Issue issue) {
         this.issue = issue;
     }
@@ -285,55 +287,80 @@ public abstract class Process extends Entity implements Steppable, Stoppable {
 
     }
 
-    public Institution createInstitution(WorldOrder wo) {
-        WorldOrder worldOrder = wo;
-        long step = worldOrder.getStepNumber();
-        double influence = worldOrder.getInstitutionInfluence();
-        switch (domain) {
-            case WAR:
-                // Create a new war out of this process; mirrors WarMakingFact
-                institution = new War(this, step);
-                // Create an Institution Participation link out of each Process Disposition link
-                for (ProcessDisposition d : processParticipantLinks) {
-                    institution.addParticipation(new Participation(d, institution, worldOrder.getStepNumber()));
-                }
-                worldOrder.updateGlobalWarLikelihood(processParticipantLinks.size() * influence);
-                return institution;
-            case PEACE:
-                institution = new Peace(this, step);
-                for (ProcessDisposition d : processParticipantLinks) {
-                    institution.addParticipation(new Participation(d, institution, worldOrder.getStepNumber()));
-                }
-                worldOrder.updateGlobalWarLikelihood(processParticipantLinks.size() * influence * -1);
-                return institution;
-            case TRADE:
-                institution = new Trade(this, step);
-                for (ProcessDisposition d : processParticipantLinks) {
-                    institution.addParticipation(new Participation(d, institution, worldOrder.getStepNumber()));
-                }
-                return institution;
-            case DIPLOMACY:
-                institution = new DiplomaticExchange(this, step);
-                for (ProcessDisposition d : processParticipantLinks) {
-                    institution.addParticipation(new Participation(d, institution, worldOrder.getStepNumber()));
-                }
-                return institution;
-            case ALLIANCE:
-                institution = new Alliance(this, step);
-                for (ProcessDisposition d : processParticipantLinks) {
-                    institution.addParticipation(new Participation(d, institution, worldOrder.getStepNumber()));
-                }
-                return institution;
-            case STATEHOOD:
-                institution = new Statehood(this, step);
-                for (ProcessDisposition d : processParticipantLinks) {
-                    institution.addParticipation(new Participation(d, institution, worldOrder.getStepNumber()));
-                }
-                return institution;
-            default:
-                return institution = null;
-        }
-    }
+//    public Institution createInstitution(WorldOrder wo) {
+//        WorldOrder worldOrder = wo;
+//        long step = worldOrder.getStepNumber();
+//        double influence = worldOrder.getInstitutionInfluence();
+//        Stoppable stoppable;
+//        switch (domain) {
+//            case WAR:
+//                // Create a new war out of this process; mirrors WarMakingFact
+//                institution = new War(this, step);
+//                // Create an Institution Participation link out of each Process Disposition link
+//                for (ProcessDisposition d : processParticipantLinks) {
+//                    Participation p = new Participation(d, institution, step);
+//                    institution.addParticipation(p);
+//                    d.getOwner().addInstitution(p);
+//                }
+//                stoppable = worldOrder.schedule.scheduleRepeating(institution);
+//                institution.setStopper(stoppable);
+//                worldOrder.updateGlobalWarLikelihood(processParticipantLinks.size() * influence);
+//                return institution;
+//            case PEACE:
+//                institution = new Peace(this, step);
+//                for (ProcessDisposition d : processParticipantLinks) {
+//                    Participation p = new Participation(d, institution, step);
+//                    institution.addParticipation(p);
+//                    d.getOwner().addInstitution(p);
+//                }
+//                stoppable = worldOrder.schedule.scheduleRepeating(institution);
+//                institution.setStopper(stoppable);
+//                worldOrder.updateGlobalWarLikelihood(processParticipantLinks.size() * influence * -1);
+//                return institution;
+//            case TRADE:
+//                institution = new Trade(this, step);
+//                for (ProcessDisposition d : processParticipantLinks) {
+//                    Participation p = new Participation(d, institution, step);
+//                    institution.addParticipation(p);
+//                    d.getOwner().addInstitution(p);
+//                }
+//                stoppable = worldOrder.schedule.scheduleRepeating(institution);
+//                institution.setStopper(stoppable);
+//                return institution;
+//            case DIPLOMACY:
+//                institution = new DiplomaticExchange(this, step);
+//                for (ProcessDisposition d : processParticipantLinks) {
+//                    Participation p = new Participation(d, institution, step);
+//                    institution.addParticipation(p);
+//                    d.getOwner().addInstitution(p);
+//                }
+//                stoppable = worldOrder.schedule.scheduleRepeating(institution);
+//                institution.setStopper(stoppable);
+//                return institution;
+//            case ALLIANCE:
+//                institution = new Alliance(this, step);
+//                for (ProcessDisposition d : processParticipantLinks) {
+//                    Participation p = new Participation(d, institution, step);
+//                    institution.addParticipation(p);
+//                    d.getOwner().addInstitution(p);
+//                }
+//                stoppable = worldOrder.schedule.scheduleRepeating(institution);
+//                institution.setStopper(stoppable);
+//                return institution;
+//            case STATEHOOD:
+//                institution = new Statehood(this, step);
+//                for (ProcessDisposition d : processParticipantLinks) {
+//                    Participation p = new Participation(d, institution, step);
+//                    institution.addParticipation(p);
+//                    d.getOwner().addInstitution(p);
+//                }
+//                stoppable = worldOrder.schedule.scheduleRepeating(institution);
+//                institution.setStopper(stoppable);
+//                return institution;
+//            default:
+//                return institution = null;
+//        }
+//    }
 
 
 
@@ -346,9 +373,9 @@ public abstract class Process extends Entity implements Steppable, Stoppable {
          */
         WorldOrder worldOrder = wo;
         Dataset d = worldOrder.getModelRun();
-        Fact f = new FactBuilder().name(this.name).from(began).until(worldOrder.getStepNumber())
-                .subject(d.getFilename()).build();
-        d.addFacts(f);
+//        Fact f = new FactBuilder().name(this.name).from(began).until(worldOrder.getStepNumber())
+//                .subject(d.getFilename()).build();
+//        d.addFacts(f);
         conclude(worldOrder);
 //        Neo4jSessionFactory.getInstance().getNeo4jSession().save(o, 1);
     }
@@ -360,3 +387,4 @@ public abstract class Process extends Entity implements Steppable, Stoppable {
     }
 
 }
+

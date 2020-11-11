@@ -2,18 +2,13 @@ package edu.gmu.css.entities;
 
 import ec.util.MersenneTwisterFast;
 import edu.gmu.css.agents.Leadership;
-import edu.gmu.css.agents.Tile;
-import edu.gmu.css.agents.WarProcess;
-import edu.gmu.css.data.Domain;
+import edu.gmu.css.data.*;
 import edu.gmu.css.agents.Process;
-import edu.gmu.css.data.EconomicPolicy;
-import edu.gmu.css.data.Issue;
 import edu.gmu.css.queries.StateQueries;
 import edu.gmu.css.relations.*;
 import edu.gmu.css.service.Neo4jSessionFactory;
 import edu.gmu.css.worldOrder.WorldOrder;
 import org.neo4j.ogm.annotation.*;
-import org.neo4j.ogm.model.Result;
 import sim.engine.SimState;
 import sim.engine.Steppable;
 
@@ -29,55 +24,68 @@ public class Polity extends Entity implements Steppable {
     private Long id;
     @Property
     protected int color;
+    @Property
+    protected String name;
     @Relationship (type = "OCCUPIED")
     protected Set<OccupiedRelation> allTerritories;
     @Transient
     protected Territory territory;
-    @Relationship (direction = Relationship.INCOMING)
-    protected Leadership leadership;
-    @Relationship(type = "SHARES_BORDER")
-    protected Set<BorderAgreement> bordersWith = new HashSet<>();
-    @Relationship
-    protected List<ProcessDisposition> processList = new ArrayList<>();
-    @Relationship(type = "REPRESENTATION")
-    protected Set<DiplomaticRepresentation> representedAt = new HashSet<>();
-    @Relationship(type = "ALLIANCE_PARTICIPATION")
-    protected Set<AllianceParticipation> alliances = new HashSet<>();
     @Transient
-    protected List<InstitutionParticipation> institutionList = new ArrayList<>();
-    // Resources, Strategies and Policies
-    @Transient                      // The actual resources available to this polity
+    protected List<Fact> factList = new ArrayList<>();
+//     Resources, Strategies and Policies
+    @Transient  // The actual resources available to this polity
     protected Resources resources = new Resources.ResourceBuilder().build();
-    @Transient                      // The amount of resources that ~should~ be available to this polity; the goal
-    protected Resources securityStrategy = new Resources.ResourceBuilder().build();
-    @Transient                      // The resources committed to processes
-    protected Resources militaryStrategy = new Resources.ResourceBuilder().build();
-    @Transient                      // The amount of resources to be available for foreign policy (alliances, etc)
-    protected Resources foreignStrategy = new Resources.ResourceBuilder().build();
-    @Transient                      // The shortfall between resources and securityStrategy to make up for this year
+    @Transient
+    protected SecurityStrategy securityStrategy;
+    @Transient
+    protected SecurityPolicy securityPolicy = new SecurityPolicy(0.9, 1.0);
+    @Transient  // The shortfall between resources and securityStrategy to make up for this year
     protected Resources economicStrategy = new Resources.ResourceBuilder().build();
     @Transient
-    protected EconomicPolicy economicPolicy = new EconomicPolicy(0.50, 0.50, 0.10);
+    protected EconomicPolicy economicPolicy = new EconomicPolicy(0.50, 0.50, 0.050);
     @Transient
     protected MersenneTwisterFast random = new MersenneTwisterFast();
     @Transient
     protected DiscretePolityFact polityFact;
     @Transient
     protected Color polColor = new Color(color);
+    @Transient
+    protected Map<String, Double> warParams;
+    @Transient
+    protected Year year;
 
+    @Relationship (direction = Relationship.INCOMING)
+    protected Leadership leadership;
+    @Relationship(type = "SHARES_BORDER")
+    protected Set<BorderFact> bordersWith = new HashSet<>();
+    @Relationship
+    protected List<ProcessDisposition> processList = new ArrayList<>();
+    @Relationship(type = "REPRESENTED")
+    protected Set<DipExFact> representedAt = new HashSet<>();
+    @Relationship(type = "ALLIANCE_PARTICIPATION")
+    protected Set<AllianceParticipationFact> alliances = new HashSet<>();
+    @Relationship(type = "PARTICIPATED")
+    protected Set<WarParticipationFact> warList = new HashSet<>();
+    @Relationship(type = "AGREED")
+    protected Set<PeaceFact> peaceList = new HashSet<>();
 
     public Polity () {
-    }
 
-    public Polity (int startYear) {
     }
 
 
     public void step(SimState simState) {
         WorldOrder worldOrder = (WorldOrder) simState;
-        adjustTaxRate(worldOrder);
+        updateEconomicPolicy(worldOrder);
     }
 
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
 
     public Long getId() {
         return id;
@@ -87,10 +95,11 @@ public class Polity extends Entity implements Steppable {
         return resources;
     }
 
-    public void setResources(Resources resources) {
-        this.resources = resources;
-        this.economicStrategy = resources;
-        this.securityStrategy = resources;
+    public void setResources(Resources r) {
+        this.resources = r;
+        // these must be new objects, not a reference to the resources
+        this.economicStrategy = (new Resources.ResourceBuilder().build()).evaluativeSum(resources);
+        this.securityStrategy = new SecurityStrategy((new Resources.ResourceBuilder().build()).evaluativeSum(resources));
     }
 
     public Territory getTerritory() {
@@ -122,16 +131,16 @@ public class Polity extends Entity implements Steppable {
         this.leadership = leadership;
     }
 
-    public List<InstitutionParticipation> getInstitutionList() {
-        return institutionList;
+    public List<Fact> getFactList() {
+        return factList;
     }
 
-    public void setInstitutionList(List<InstitutionParticipation> institutionList) {
-        this.institutionList = institutionList;
+    public void setFactList(List<Fact> facts) {
+        this.factList = facts;
     }
 
-    public void addInstitution(InstitutionParticipation i) {
-        institutionList.add(i);
+    public void addFact(Fact f) {
+        factList.add(f);
     }
 
     public List<ProcessDisposition> getProcessList() {
@@ -145,50 +154,37 @@ public class Polity extends Entity implements Steppable {
         Polity owner = disposition.getOwner();
     }
 
-    public Resources getSecurityStrategy() {
+    public SecurityStrategy getSecurityStrategy() {
         return securityStrategy;
     }
 
     public void setSecurityStrategy(Resources newStrategy) {
-        // Some portion of overall resources that can be used for wars
-        if (newStrategy.getTreasury() < resources.getTreasury()
-                && securityStrategy.getPax() < resources.getPax()) {
-            this.securityStrategy = newStrategy;
-        } else {
-            Integer pax = (int) (resources.getPax() * 0.90);
-            Double cost = resources.getTreasury() * 0.90;
-            this.securityStrategy = new Resources.ResourceBuilder()
-                    .pax(pax)
-                    .treasury(cost)
-                    .build();
-        }
+        this.securityStrategy = new SecurityStrategy(newStrategy);
     }
 
-    public Resources getEconomicStrategy() {
-        return economicStrategy;
-    }
-
-    public void setEconomicStrategy(Resources economicStrategy) {
-        this.economicStrategy = economicStrategy;
-    }
+//    public Resources getEconomicStrategy() {
+//        return economicStrategy;
+//    }
+//
+//    public void setEconomicStrategy(Resources economicStrategy) {
+//        this.economicStrategy = economicStrategy;
+//    }
 
     public Color getPolColor() {
         polColor = new Color(color);
         return polColor;
     }
 
-    public void setPolColor(Color polColor) {
-        this.polColor = polColor;
+    public Resources getMilitaryStrategy() {
+        return securityStrategy.getMilitaryStrategy();
     }
 
-    protected Resources requestNewStratgy(Resources proposed) {
-        if (resources.isSufficientFor(securityStrategy.evaluativeSum(proposed))) {
-            securityStrategy.increaseBy(proposed);
-            return proposed;
-        } else {
-            Resources available = resources.evaluativeAvailableDifference(proposed);
-            return available;
-        }
+    public Resources getForeignStrategy() {
+        return securityStrategy.getForeignStrategy();
+    }
+
+    public void setPolColor(Color polColor) {
+        this.polColor = polColor;
     }
 
     public EconomicPolicy getEconomicPolicy() {
@@ -203,28 +199,100 @@ public class Polity extends Entity implements Steppable {
         return resources.getTreasury();
     }
 
-    public int getPopulation() {
+    public double getPopulation() {
         return territory.getPopulation();
     }
 
-    public int getForces() {
+    public double geUrbanPopulation() {
+        return territory.getUrbanPopulation();
+    }
+
+    public double getGrossDomesticProduct() {
+        return territory.getGrossDomesticProduct();
+    }
+
+    public double getForces() {
         return resources.getPax();
     }
 
-    public Set<BorderAgreement> getBordersWith() {
+    public Set<BorderFact> getBordersWith() {
         return bordersWith;
     }
 
-    public Set<DiplomaticRepresentation> getRepresentedAt() {
+    public void addBorderFact(BorderFact f) {
+        bordersWith.add(f);
+    }
+
+    public void addBorderFacts(Set<BorderFact> facts) {
+        bordersWith.addAll(facts);
+    }
+
+    public Set<DipExFact> getRepresentedAt() {
         return representedAt;
     }
 
-    public Set<AllianceParticipation> getAlliances() {
+    public Set<AllianceParticipationFact> getAlliances() {
         return alliances;
+    }
+
+    public void addAllianceParticipationFact(AllianceParticipationFact f) {
+        alliances.add(f);
+    }
+
+    public void addAllianceParticipationFacts(Set<AllianceParticipationFact> facts) {
+        alliances.addAll(facts);
+    }
+
+    public Set<WarParticipationFact> getWarList() {
+        return this.warList;
+    }
+
+    public void addWarParticipationFact(WarParticipationFact f) {
+        warList.add(f);
+    }
+
+    public void removeWarParticipationFact(WarParticipationFact f) {
+        warList.remove(f);
+    }
+
+    public void addPeaceFact(PeaceFact f) {
+        peaceList.add(f);
+    }
+
+    public void removePeaceFact(PeaceFact f) {
+        peaceList.remove(f);
+    }
+
+    public Set<PeaceFact> getPeaceFacts() {
+        return peaceList;
+    }
+
+    public void addRepresentation(DipExFact f) {
+        representedAt.add(f);
+    }
+
+    public void removeRepresentation(DipExFact f) {
+        representedAt.remove(f);
+    }
+
+    public Set<DipExFact> getRepresentation() {
+        return representedAt;
+    }
+
+    public void addDiplomaticFacts(Set<DipExFact> facts) {
+        representedAt.addAll(facts);
     }
 
     public DiscretePolityFact getPolityFact() {
         return polityFact;
+    }
+
+    public Map<String, Double> getWarParams() {
+        return warParams;
+    }
+
+    public void setWarParams(Map<String, Double> warParams) {
+        this.warParams = warParams;
     }
 
     protected void recruit(int cohort) {
@@ -239,9 +307,16 @@ public class Polity extends Entity implements Steppable {
 
     }
 
+    protected void updateEconomicPolicy(WorldOrder wo) {
 
-    protected void adjustTaxRate(WorldOrder wo) {
+    }
 
+    public Year getYear() {
+        return year;
+    }
+
+    public void setYear(Year y) {
+        this.year = y;
     }
 
     protected void createWarStrategy(Process process, int size) {
@@ -272,15 +347,15 @@ public class Polity extends Entity implements Steppable {
     }
 
     public Resources allocateResources(Resources request) {
-        int force = Math.min(request.getPax(), resources.getPax());
+        double force = Math.min(request.getPax(), resources.getPax());
         double funds = Math.min(request.getTreasury(), resources.getTreasury());
-        resources.subtractPax(force);
-        resources.subtractTreasury(funds);
+        resources.incrementPax(force);
+        resources.incrementTreasury(funds);
         return new Resources.ResourceBuilder().pax(force).treasury(funds).build();
     }
 
     public Resources evaluateResources(Resources request) {
-        int force = Math.min(request.getPax(), resources.getPax());
+        double force = Math.min(request.getPax(), resources.getPax());
         double funds = Math.min(request.getTreasury(), resources.getTreasury());
         return new Resources.ResourceBuilder().pax(force).treasury(funds).build();
     }
@@ -294,11 +369,14 @@ public class Polity extends Entity implements Steppable {
         }
     }
 
+    public boolean considerIssue(Issue i) {
+        return random.nextDouble() < 0.5;
+    }
+
     public boolean willProbablyWin(Process process) {
 
         return true;
     }
-
 
     public boolean hasInsuficentResources(Institution war) {
         return true;
@@ -325,54 +403,18 @@ public class Polity extends Entity implements Steppable {
         territory = t;
     }
 
-    public void loadInstitutionData(int year) {
-        Map<String, Object> params = new HashMap<>();
-        params.put("year", year);
-        params.put("name", "" + year);
-        params.put("id", this.getId());
+    public void loadInstitutionData(int year, WorldOrder wo) {
 
         // Load Polity's Borders
-        String borderQuery = "MATCH (p:Polity)-[sb:SHARES_BORDER]-(b:Border)-[d:DURING]-(y:Year{name:$name}) " +
-                "WHERE id(p) = $id RETURN p, sb, b";
-        Iterable<BorderAgreement> borders = Neo4jSessionFactory.getInstance().getNeo4jSession()
-                .query(BorderAgreement.class, borderQuery, params);
-        for (BorderAgreement b : borders) {
-            bordersWith.add(b);
-            institutionList.add(b);
-        }
-        // Load dipEx missions
-        String dipQuery = "MATCH (p:Polity)-[r:REPRESENTATION]-(d:DiplomaticExchange)-[:DURING]-(y:Year{name:$name}) " +
-                "WHERE id(p) = $id RETURN r";
-        Iterable<DiplomaticRepresentation> dipEx = Neo4jSessionFactory.getInstance().getNeo4jSession()
-                .query(DiplomaticRepresentation.class, dipQuery, params);
-        for (DiplomaticRepresentation d : dipEx) {
-            representedAt.add(d);
-            institutionList.add(d);
-        }
-        // Load alliances
-        String allianceQuery = "MATCH (p:Polity)-[e:ENTERED]-(af:AllianceParticipationFact)-[:ENTERED_INTO]-(a:Alliance) " +
-                "WHERE id(p) = $id AND e.from.year <= $year AND e.until.year > $year RETURN p, af, a";
-        Result result = Neo4jSessionFactory.getInstance().getNeo4jSession()
-                .query(allianceQuery, params, true);
-        Iterator it = result.iterator();
-        while (it.hasNext()) {
-            Map<String, Object> item = (Map<String, Object>) it.next();
-            Polity p = (Polity) item.get("p");
-            Alliance a = (Alliance) item.get("a");
-            Fact af = (Fact) item.get("af");
-            AllianceParticipation ap = new AllianceParticipation(p, a);
-            ap.setFrom(af.getFrom());
-            a.addParticipations(ap);
-//            Neo4jSessionFactory.getInstance().getNeo4jSession().save(ap);
-            alliances.add(ap);
-            institutionList.add(ap);
-//            Neo4jSessionFactory.getInstance().getNeo4jSession().save(ap);
-        }
 
-        // trade
-//        String tradeQuery = "";
-        // igos
-//        String igoQuery = "";
+        // Load dipEx missions
+
+        // Load alliances
+
+        // Load trade partners
+
+        // Load IGO memberbership
+
     }
 
     public boolean isFriend(Polity p) {
@@ -380,8 +422,8 @@ public class Polity extends Entity implements Steppable {
          * returns true if given polity is my alliance partner
          */
         Polity polity = p;
-        for (AllianceParticipation ap : polity.getAlliances()) {
-            Alliance alliance = (Alliance) ap.getInstitution();
+        for (AllianceParticipationFact f : polity.getAlliances()) {
+            Alliance alliance = f.getAlliance();
             return alliance.findPartners().contains(p);
         }
         return false;
@@ -405,6 +447,10 @@ public class Polity extends Entity implements Steppable {
         f.setSource("World Order Simulation");
         f.setFrom(0L);
         this.polityFact = f;
+    }
+
+    public void surrender(WarParticipationFact p, WorldOrder wo) {
+
     }
 
 }

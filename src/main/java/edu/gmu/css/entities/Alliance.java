@@ -1,16 +1,14 @@
 package edu.gmu.css.entities;
 
-import com.fasterxml.jackson.databind.annotation.JsonAppend;
 import edu.gmu.css.agents.Process;
 import edu.gmu.css.data.AllianceType;
-import edu.gmu.css.relations.AllianceParticipation;
+import edu.gmu.css.data.Resources;
 import edu.gmu.css.service.DateConverter;
 import org.neo4j.ogm.annotation.*;
 import org.neo4j.ogm.annotation.typeconversion.Convert;
 import sim.engine.SimState;
 
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
 @NodeEntity
 public class Alliance extends Institution {
@@ -25,13 +23,13 @@ public class Alliance extends Institution {
     Long from;
     @Property @Convert(DateConverter.class)
     Long until;
+
     @Relationship(direction = Relationship.INCOMING, type = "ENTERED_INTO")
     Set<Fact> relatedFacts = new HashSet<>();
     @Relationship(type = "PART_OF")
     Set<CategoryList> categoryList = new HashSet<>();
-    @Transient
-    Set<AllianceParticipation> participations = new HashSet<>();
-
+    @Relationship
+    LinkedList<AllianceParticipationFact> participations = new LinkedList<>();
 
 
     public Alliance() {
@@ -41,9 +39,9 @@ public class Alliance extends Institution {
         name = "Alliance";
     }
 
-    public Alliance(Process process, long s) {
+    public Alliance(Process process) {
         name = "Alliance";
-        from = s;
+        from = process.getEnded();
         cause = process;
         cost = new Resources.ResourceBuilder().build();
     }
@@ -51,7 +49,6 @@ public class Alliance extends Institution {
 
     @Override
     public void step(SimState simState) {
-
     }
 
     @Override
@@ -97,25 +94,35 @@ public class Alliance extends Institution {
         return categoryList;
     }
 
-    public Set<AllianceParticipation> getParticipations() {
-        return this.participations;
-    }
-
-    public void addParticipations(AllianceParticipation ap) {
+    public void addParticipations(AllianceParticipationFact ap) {
         participations.add(ap);
     }
 
-    public void removeParticipations(AllianceParticipation ap) {
+    public LinkedList<AllianceParticipationFact> getAllianceParticipations() {
+        return this.participations;
+    }
+
+    public boolean isParticipant(Polity p) {
+        for (AllianceParticipationFact f : participations) {
+            if(f.getPolity().equals(p)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public void removeParticipations(AllianceParticipationFact ap) {
         participations.remove(ap);
     }
 
     public Set<Polity> findPartners() {
         Set<Polity> partners = new HashSet<>();
-        for (AllianceParticipation ap : participations) {
-            partners.add(ap.getParticipant());
+        for (AllianceParticipationFact f : participations) {
+            partners.add(f.getPolity());
         }
         return partners;
      }
+
 
     @Override
     public boolean equals(Object o) {

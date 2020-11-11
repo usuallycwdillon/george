@@ -1,11 +1,11 @@
 package edu.gmu.css.entities;
 
-import edu.gmu.css.service.DateConverter;
+import edu.gmu.css.service.FactServiceImpl;
 import org.neo4j.ogm.annotation.GeneratedValue;
 import org.neo4j.ogm.annotation.Id;
 import org.neo4j.ogm.annotation.Property;
 import org.neo4j.ogm.annotation.Relationship;
-import org.neo4j.ogm.annotation.typeconversion.Convert;
+
 
 public class DiscretePolityFact extends Fact {
 
@@ -16,25 +16,17 @@ public class DiscretePolityFact extends Fact {
     @Property
     private int participationRegulationRating;
     @Property
-    private String subject;
-    @Property
     private int executiveConstraintsConceptId;
     @Property
     private String executiveRecruitmentConcept;
     @Property
     private String executiveConstraints;
     @Property
-    private String source;
-    @Property
     private int politicalCompetitionConceptId;
     @Property
     private String executiveRecruitmentCompetitiveness;
     @Property
     private String compositeAutocracyRating;
-    @Property @Convert(DateConverter.class)
-    private Long from;
-    @Property @Convert(DateConverter.class)
-    private Long until;
     @Property
     private int executiveRecruitmentCompetitivenessRating;
     @Property
@@ -60,8 +52,6 @@ public class DiscretePolityFact extends Fact {
     @Property
     private String executiveRecruitmentOpenness;
     @Property
-    private String name;
-    @Property
     private int democracyRating;
     @Property
     private String participationCompetitiveness;
@@ -69,8 +59,6 @@ public class DiscretePolityFact extends Fact {
     private String compositePolityRating;
     @Property
     private String participationRegulation;
-    @Property
-    private String object;
     @Property
     private int polityScore;
     @Relationship (type = "DESCRIBES_POLITY_OF")
@@ -81,14 +69,87 @@ public class DiscretePolityFact extends Fact {
 
     }
 
+    public DiscretePolityFact(FactBuilder builder) {
+        this.from = builder.from;
+        this.until = builder.until;
+        this.polity = builder.polity;
+        this.name = builder.name;
+        this.subject = builder.subject;
+        this.predicate = builder.predicate;
+        this.object = builder.object;
+        this.source = builder.source;
+        this.dataset = builder.dataset;
+    }
+
+    public static class FactBuilder {
+        private Long from = 0L;
+        private Long until = 0L;
+        private Polity polity;
+        private String name = "Discrete Polity Fact";
+        private String subject = "GEORGE";
+        private String predicate = "DESCRIBES_POLITY_OF";
+        private String object = polity.getName() != null ? polity.getName() : "Not Collected";
+        private String source = "GEORGE_";
+        private Dataset dataset;
+
+        public FactBuilder from(Long from) {
+            this.from = from;
+            return this;
+        }
+
+        public FactBuilder until(Long until) {
+            this.until = until;
+            return this;
+        }
+
+        public FactBuilder name(String name) {
+            this.name = name;
+            return this;
+        }
+
+        public FactBuilder subject(String subject) {
+            this.subject = subject;
+            return this;
+        }
+
+        public FactBuilder predicate(String predicate) {
+            this.predicate = predicate;
+            return this;
+        }
+
+        public FactBuilder object(String object) {
+            this.object = object;
+            return this;
+        }
+
+        public FactBuilder source(String s) {
+            this.source = s;
+            return this;
+        }
+
+        public FactBuilder dataset(Dataset d) {
+            this.dataset = d;
+            return this;
+        }
+
+        public FactBuilder polity(Polity p) {
+            this.polity = p;
+            return this;
+        }
+
+        public DiscretePolityFact build() {
+            return new DiscretePolityFact(this);
+        }
+    }
+
+
+
     @Override
     public Long getId() {
         return id;
     }
 
-    public void setId(Long id) {
-        this.id = id;
-    }
+
 
     public boolean isPresentCondition() {
         return presentCondition;
@@ -104,15 +165,6 @@ public class DiscretePolityFact extends Fact {
 
     public void setParticipationRegulationRating(int participationRegulationRating) {
         this.participationRegulationRating = participationRegulationRating;
-    }
-
-    @Override
-    public String getSubject() {
-        return subject;
-    }
-
-    public void setSubject(String subject) {
-        this.subject = subject;
     }
 
     public int getExecutiveConstraintsConceptId() {
@@ -139,14 +191,6 @@ public class DiscretePolityFact extends Fact {
         this.executiveConstraints = executiveConstraints;
     }
 
-    public String getSource() {
-        return source;
-    }
-
-    public void setSource(String source) {
-        this.source = source;
-    }
-
     public int getPoliticalCompetitionConceptId() {
         return politicalCompetitionConceptId;
     }
@@ -169,24 +213,6 @@ public class DiscretePolityFact extends Fact {
 
     public void setCompositeAutocracyRating(String compositeAutocracyRating) {
         this.compositeAutocracyRating = compositeAutocracyRating;
-    }
-
-    @Override
-    public Long getFrom() {
-        return from;
-    }
-
-    public void setFrom(Long from) {
-        this.from = from;
-    }
-
-    @Override
-    public Long getUntil() {
-        return until;
-    }
-
-    public void setUntil(Long until) {
-        this.until = until;
     }
 
     public int getExecutiveRecruitmentCompetitivenessRating() {
@@ -285,15 +311,6 @@ public class DiscretePolityFact extends Fact {
         this.executiveRecruitmentOpenness = executiveRecruitmentOpenness;
     }
 
-    @Override
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
     public int getDemocracyRating() {
         return democracyRating;
     }
@@ -326,15 +343,6 @@ public class DiscretePolityFact extends Fact {
         this.participationRegulation = participationRegulation;
     }
 
-    @Override
-    public String getObject() {
-        return object;
-    }
-
-    public void setObject(String object) {
-        this.object = object;
-    }
-
     public int getPolityScore() {
         return polityScore;
     }
@@ -350,6 +358,40 @@ public class DiscretePolityFact extends Fact {
     public void setPolity(Polity polity) {
         this.polity = polity;
     }
+
+//    public Year getYear() {
+//        if (this.year==null) {
+//            this.year = new FactServiceImpl().getRelatedYear(this);
+//        }
+//        return this.year;
+//    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof DiscretePolityFact)) return false;
+        if (!super.equals(o)) return false;
+
+        DiscretePolityFact fact = (DiscretePolityFact) o;
+
+        if (!getId().equals(fact.getId())) return false;
+        if (!getName().equals(fact.getName())) return false;
+        if (getSubject() != null ? !getSubject().equals(fact.getSubject()) : fact.getSubject() != null) return false;
+        if (getPredicate() != null ? !getPredicate().equals(fact.getPredicate()) : fact.getPredicate() != null)
+            return false;
+        return getObject() != null ? getObject().equals(fact.getObject()) : fact.getObject() == null;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = getId().hashCode();
+        result = 31 * result + getName().hashCode();
+        result = 31 * result + (getSubject() != null ? getSubject().hashCode() : 0);
+        result = 31 * result + (getPredicate() != null ? getPredicate().hashCode() : 0);
+        result = 31 * result + (getObject() != null ? getObject().hashCode() : 0);
+        return result;
+    }
+
 }
 
 

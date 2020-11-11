@@ -1,14 +1,18 @@
 package edu.gmu.css.agents;
 
 import edu.gmu.css.data.Domain;
+import edu.gmu.css.entities.Alliance;
+import edu.gmu.css.entities.AllianceParticipationFact;
 import edu.gmu.css.entities.Polity;
 import edu.gmu.css.relations.ProcessDisposition;
 import edu.gmu.css.worldOrder.WorldOrder;
 import sim.engine.SimState;
+import sim.engine.Stoppable;
 
 public class AllianceProcess extends Process {
 
-    private Domain domain = Domain.ALLIANCE;
+    private final Domain domain = Domain.ALLIANCE;
+    private Alliance alliance;
 
     public AllianceProcess() {  }
 
@@ -77,6 +81,22 @@ public class AllianceProcess extends Process {
 
                 return;
         }
+    }
+
+
+    public Alliance createAlliance(WorldOrder wo) {
+        WorldOrder worldOrder = wo;
+        Stoppable stoppable;
+        ended = worldOrder.getStepNumber();
+        alliance = new Alliance(this);
+        for (ProcessDisposition d : processParticipantLinks) {
+            AllianceParticipationFact p = new AllianceParticipationFact.FactBuilder().build();
+            alliance.addParticipations(p);
+            d.getOwner().addAllianceParticipationFact(p);
+        }
+        stoppable = worldOrder.schedule.scheduleRepeating(alliance);
+        alliance.setStopper(stoppable);
+        return alliance;
     }
 
 }

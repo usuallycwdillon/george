@@ -10,7 +10,7 @@ import java.io.Serializable;
 public class Inclusion implements Serializable {
 
     @Id @GeneratedValue
-    private Long relationshipId;
+    private Long id;
     @Property
     private Integer during;
     @StartNode
@@ -25,6 +25,10 @@ public class Inclusion implements Serializable {
         this.territory = territory;
         this.tile = tile;
         this.during = during;
+    }
+
+    public long getId() {
+        return id;
     }
 
     public Integer getDuring() {
@@ -59,17 +63,28 @@ public class Inclusion implements Serializable {
         return this.tile.getAddress();
     }
 
-    public Integer getTilePopulation() {
+    public Double getTilePopulation() {
         return this.tile.getPopulation();
     }
 
-    public Integer getTileUrbanPop() {
-        Long lupop = Math.round(this.getTilePopulation() * this.tile.getUrbanization());
-        return lupop.intValue();
+    public Double getTileUrbanPop() {
+        return this.getTilePopulation() * this.tile.getUrbanPopulation();
     }
 
     public Double geTileWealth() {
         return this.getTile().getWealth();
+    }
+
+    public Double getGrossTileProductivity() {
+        return this.getTile().getGrossTileProduction();
+    }
+
+    public Double getGrossTileProductivityLastYear() {
+        return this.tile.getGrossTileProductionLastYear();
+    }
+
+    public Double getTileBuiltUpArea() {
+        return this.tile.getBuiltUpArea();
     }
 
     public Integer getTerritoryYear() {
