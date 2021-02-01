@@ -26,8 +26,6 @@ public class Polity extends Entity implements Steppable {
     protected int color;
     @Property
     protected String name;
-    @Relationship (type = "OCCUPIED")
-    protected Set<OccupiedRelation> allTerritories;
     @Transient
     protected Territory territory;
     @Transient
@@ -39,12 +37,8 @@ public class Polity extends Entity implements Steppable {
     protected SecurityStrategy securityStrategy;
     @Transient
     protected SecurityPolicy securityPolicy = new SecurityPolicy(0.9, 1.0);
-    @Transient  // The shortfall between resources and securityStrategy to make up for this year
-    protected Resources economicStrategy = new Resources.ResourceBuilder().build();
     @Transient
-    protected EconomicPolicy economicPolicy = new EconomicPolicy(0.50, 0.50, 0.050);
-    @Transient
-    protected MersenneTwisterFast random = new MersenneTwisterFast();
+    protected EconomicPolicy economicPolicy = new EconomicPolicy(0.4, 0.6, 0.0004);
     @Transient
     protected DiscretePolityFact polityFact;
     @Transient
@@ -54,6 +48,8 @@ public class Polity extends Entity implements Steppable {
     @Transient
     protected Year year;
 
+    @Relationship (type = "OCCUPIED")
+    protected Set<OccupiedRelation> allTerritories;
     @Relationship (direction = Relationship.INCOMING)
     protected Leadership leadership;
     @Relationship(type = "SHARES_BORDER")
@@ -98,7 +94,7 @@ public class Polity extends Entity implements Steppable {
     public void setResources(Resources r) {
         this.resources = r;
         // these must be new objects, not a reference to the resources
-        this.economicStrategy = (new Resources.ResourceBuilder().build()).evaluativeSum(resources);
+//        this.economicStrategy = (new Resources.ResourceBuilder().build()).evaluativeSum(resources);
         this.securityStrategy = new SecurityStrategy((new Resources.ResourceBuilder().build()).evaluativeSum(resources));
     }
 
@@ -152,6 +148,10 @@ public class Polity extends Entity implements Steppable {
         Process process = disposition.getProcess();
         Domain domain = process.getDomain();
         Polity owner = disposition.getOwner();
+    }
+
+    public void removeProcess(ProcessDisposition disposition) {
+        processList.remove(disposition);
     }
 
     public SecurityStrategy getSecurityStrategy() {
@@ -295,12 +295,18 @@ public class Polity extends Entity implements Steppable {
         this.warParams = warParams;
     }
 
-    protected void recruit(int cohort) {
+    protected void recruit(int force) {
         Resources draft = new Resources.ResourceBuilder().build();
     }
 
-    protected void recruit() {
+    protected double recruit(double force) {
+        double deficit = 0.0;
+        return deficit;
+    }
 
+    protected double recruit() {
+        double deficit = 0.0;
+        return deficit;
     }
 
     public void collectTax() {
@@ -334,7 +340,7 @@ public class Polity extends Entity implements Steppable {
         return false;
     }
 
-    public boolean evaluateWarNeed(ProcessDisposition pd, long step) {
+    public boolean evaluateWarNeed(ProcessDisposition pd, WorldOrder wo) {
         return false;
     }
 
@@ -342,6 +348,9 @@ public class Polity extends Entity implements Steppable {
         return evaluateAttackSuccess(disposition);
     }
 
+    public boolean evaluateWarWillingness(ProcessDisposition pd, WorldOrder wo) {
+        return false;
+    }
     public boolean evaluateAttackSuccess(ProcessDisposition pd) {
         return false;
     }
@@ -369,8 +378,28 @@ public class Polity extends Entity implements Steppable {
         }
     }
 
-    public boolean considerIssue(Issue i) {
-        return random.nextDouble() < 0.5;
+    public boolean evaluateAllianceNeed(WorldOrder wo, Issue i) {
+        return false;
+    }
+
+    public boolean evaluateForeignPolicyNeed(WorldOrder wo, Issue i) {
+        return false;
+    }
+
+    public boolean evaluateBorderAgreementNeed(WorldOrder wo, Issue i) {
+        return false;
+    }
+
+    public boolean evaluateTradeAgreementNeed(WorldOrder wo, Issue i) {
+        return false;
+    }
+
+    public boolean evaluateNeedForPeace(WorldOrder wo, Issue i) {
+        return false;
+    }
+
+    public boolean considerIssue(Issue i, WorldOrder wo) {
+        return wo.random.nextDouble() < 0.5;
     }
 
     public boolean willProbablyWin(Process process) {
@@ -382,12 +411,12 @@ public class Polity extends Entity implements Steppable {
         return true;
     }
 
-    public boolean evaluateNeedForPeace() {
-        return leadership.reconsiderPeace();
+    public boolean evaluateNeedForPeace(WorldOrder wo) {
+        return leadership.reconsiderPeace(wo);
     }
 
-    public void makeConcessionForPeace(ProcessDisposition p) {
-        if (random.nextDouble() < 0.50) {
+    public void makeConcessionForPeace(ProcessDisposition p, WorldOrder wo) {
+        if (wo.random.nextDouble() < 0.50) {
             p.setU(true);
         }
     }

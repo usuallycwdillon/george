@@ -4,12 +4,16 @@ import java.util.EnumMap;
 import java.util.Map;
 
 public enum IssueType {
-    ALLIANCE("Alliance Endurance"),
-    PEACE("Stability of Peace"),
-    TERRITORY("Territorial Claim"),
-    POLICY("Policy Difference"),
-    REGIME("Regime or Governance"),
-    TRADE("Trade Dispute");
+    ALLIANCE_PRO("Desire alliance with target"),
+    ALLIANCE_ANTI("Dispute over target's alliance"),
+    PEACE("Desire peace with target"),
+    TERRITORY_PRO("Agree to current territory boundaries"),
+    TERRITORY_ANTI("Dispute target's territorial claim"),
+    POLICY_PRO("Desire to new policy"),
+    POLICY_ANTI("Dispute over target's policy"),
+    REGIME("Dispute over target's regime"),
+    TRADE_PRO("Desire for new trade"),
+    TRADE_ANTI("Trade Dispute");
 
     public final String value;
 

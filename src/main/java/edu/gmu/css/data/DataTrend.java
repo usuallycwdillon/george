@@ -23,9 +23,9 @@ public class DataTrend<T> extends ArrayList<T> {
     }
 
     public double average() {
-        int yearsYet = this.size();
+        int count = this.size();
         double measure = this.stream().mapToDouble(h -> (Double) h).sum();
-        return measure / yearsYet;
+        return measure / count;
     }
 
     public double latestDiff() {
@@ -68,7 +68,19 @@ public class DataTrend<T> extends ArrayList<T> {
         }
         Double first = (Double) this.get(from);
         Double last = (Double) this.get(until);
-        return last / first;
+        return last - first;
+    }
+
+    public double averageSince(int d) {
+        int from = this.size() - d;
+        int until = this.size() - 1;
+        if (this.size() < d) {
+            from = 0;
+        }
+        List<T> sublist = this.subList(from, until);
+        int span = until - from;
+        double total = sublist.stream().mapToDouble(v -> (Double) v).sum();
+        return total / span;
     }
 
     public double pastYearTotal() {
@@ -79,6 +91,16 @@ public class DataTrend<T> extends ArrayList<T> {
         } else {
             return this.stream().mapToDouble(v -> (Double) v).sum();
         }
+    }
+
+    public int countBelowThreshold(double t, boolean i) {
+        int count = 0;
+        if (i) {
+            count = (int) (this.stream().filter(v -> (Double) v <= t).count()) ;
+        } else {
+            count = (int) (this.stream().filter(v -> (Double) v < t).count()) ;
+        }
+        return count;
     }
 
     public double yearAgoValue() {

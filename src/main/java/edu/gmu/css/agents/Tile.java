@@ -9,11 +9,14 @@ import edu.gmu.css.service.H3IdStrategy;
 import edu.gmu.css.data.DataTrend;
 
 import edu.gmu.css.service.TileFactServiceImpl;
+import edu.gmu.css.service.TileServiceImpl;
 import edu.gmu.css.worldOrder.WorldOrder;
 import one.util.streamex.DoubleStreamEx;
 import org.neo4j.ogm.annotation.*;
 import sim.engine.SimState;
 import sim.engine.Steppable;
+
+import javax.management.remote.rmi._RMIConnection_Stub;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.*;
@@ -43,16 +46,18 @@ public class Tile extends Entity implements Serializable, Steppable {
     private int naturalResources;
     @Transient
     private double wealth;
-    @Transient
-    private double productivity;
+//    @Transient
+//    private double productivity;
     @Transient
     private double grossTileProduction;
     @Transient
     private double builtUpArea;
     @Transient
-    private final TileFactServiceImpl svc = new TileFactServiceImpl();
+    private double taxPayment;
     @Transient // Seven year economic history using Joseph Kitchen (1923) Cycles and Trends in Economic Factors
-    private final DataTrend memory = new DataTrend(365);
+    private final DataTrend memory = new DataTrend(365);  // memory of wealth, not gtp
+    @Transient // maintain one year of gtp to measure annual gtp
+    private final DataTrend gtp = new DataTrend(53);
     @Transient // Fifteen year population history; half a generation according to Tremblay and Vézina (2000) New estimates of intergenerational time levels...
     private final DataTrend growth = new DataTrend(783);
     @Property
@@ -77,15 +82,15 @@ public class Tile extends Entity implements Serializable, Steppable {
         // * produce()
         // Each function records its data for the tile
         WorldOrder worldOrder = (WorldOrder) simState;
-        updateProductivity();
-        growPopulation(worldOrder.weeksThisYear);
-        produce(linkedTerritory.getTerritory().getPolity().getEconomicPolicy());
+        growPopulation(worldOrder);
+        produce(worldOrder);
 //        evenStep(worldOrder);
 //        weal.step(simState);
+//        updateProductivity();
 
     }
 
-    private void growPopulation(int w) {
+    private void growPopulation(WorldOrder wo) {
         // Population growth is a linear function of regional wealth (averaged over length of `memory`) and the proportion of the
         // population that is urban. It varies between 0.09795 for urban population with negative history of average wealth--
         // increasing toward 1.0 as proportion of urban population decreases--to 1.0205 for rural populations with positive
@@ -94,10 +99,14 @@ public class Tile extends Entity implements Serializable, Steppable {
         // publisher = {American Association for the Advancement of Science}, URL={http://science.sciencemag.org/content/269/5222/341},
         // journal = {Science} } and a linear model: urbanization [0.0, 0.3, 0.8] x growth [0.02, 0.01, 0.003], lm(growth ~ urbanization)
         //
+        WorldOrder worldOrder = wo;
+        int w = worldOrder.weeksThisYear;
+        double x = 1.0 / w;
+        if (this.population == 0.0) return;
         double urbanization = this.urbanPopulation / this.population;
-        double weeklyFactor = (Math.pow(1.0205, (1.0 / w)) - 1.0) * urbanization;
+        double weeklyFactor = (Math.pow(1.0205, x) - 1.0) * urbanization;
         if (0.0 < urbanization && urbanization <= 1.0) {
-            urbanization = Math.pow(urbanization, 0.85);
+            urbanization = urbanization * weeklyFactor;
         }
         if (growth.size() > 26) {
             double trend = DoubleStreamEx.of(memory).pairMap((a, b) -> b - a).sum();
@@ -113,78 +122,113 @@ public class Tile extends Entity implements Serializable, Steppable {
         growth.add(this.population);
     }
 
-    private void produce(EconomicPolicy economicPolicy) {
+    private void produce(WorldOrder wo) {
         // Crude Cobb-Douglass production function using urban/rural percentages to influence and capital and
         // labor elasticity based on estimates of employed population and estimated wealth available for production.
-        EconomicPolicy p = economicPolicy;
+        WorldOrder worldOrder = wo;
+        if (this.population <= 0.0) {
+            this.population = 0.0;
+            if (this.wealth <= 0.0) {
+                this.wealth = 0.0;
+            }
+            return;
+        }
+        if (this.population > 0.0 && this.wealth == 0.0) {
+            migrate();
+            return;
+        }
+        EconomicPolicy p = linkedTerritory.getTerritory().getPolity().getEconomicPolicy();
         double ruralPop = this.population - this.urbanPopulation;
         double urbanization = this.population > 0.0 ? this.urbanPopulation / this.population : 0.0;
         double labor = (this.urbanPopulation * 0.75) + (ruralPop * 0.65);
         double laborElasticity = 0.6 + (urbanization * 0.1);
         double kapitalElasticity = 1 - laborElasticity;
         double production = Math.exp( (Math.log(this.wealth) * kapitalElasticity) + (Math.log(labor) * laborElasticity) );
+        this.setGrossTileProduction(production);
+
         // Using Farris et al's $3/day min threshold as a minimum required for pop to survive and West's estimate that
         // urban dwellers require 11x the production of rural dwellers, urbanPop * 210 + pop * 21 is not taxable.
         // The Economic policy determines how much money becomes wealth and how much can be consumed as product.
         // Before any deductions, the whole of this week's gtp gets added to the memory. Remember money is in 1,000's.
-        this.setGrossTileProduction(production);
-        double survivalThreshold = ((this.urbanPopulation * 0.210) + (this.population * 0.021));
-        double savingsThreshold =  this.population * (75.0 / 52);
-        double minimumProduction = survivalThreshold + ((production - survivalThreshold) * p.getTaxRate());
-        if (production - minimumProduction > savingsThreshold) {
-            double excess = production - savingsThreshold;
-            this.wealth += 1.07 * excess;
-//            if (WorldOrder.DEBUG) {
-//                debugProduction(excess);
-//            }
+        double survivalThreshold = this.population * 0.021;
+        double savingsThreshold =  ((this.urbanPopulation * 0.280) + (this.population * 0.028));
+        double sufficient = Math.max((production - survivalThreshold), 0.0);
+        double excess = Math.max((production - savingsThreshold), 0.0);
+        double sxRatio = excess > 0.0 ? sufficient / excess : sufficient / production;
+        double wealthNow = this.wealth;
+
+        double margin = 0.0;
+        double x = 1.0/52.0;
+        if (excess > 0.0) {
+            margin = Math.min( (( Math.pow(1.15, x) ) - 1.0), sxRatio - 1.0 );
+            setWealth(wealthNow + (margin * excess) );
+            this.taxPayment = production * p.getTaxRate();
             // TODO: Add rules for increasing built environment and urbanization
-        } else if (production > minimumProduction) {
-            double margin = 1.03 * (production - minimumProduction);
-            this.wealth += margin;
-//            if (WorldOrder.DEBUG) {
-//                debugProduction(margin);
-//            }
+        } else if (sufficient > 0.0) {
+            margin = ( Math.pow(1.07, x) ) - 1.0;
+            setWealth(wealthNow + (margin * excess) );
+            this.taxPayment = sufficient * p.getTaxRate();
             // TODO: Add rules for increasing built environment and urbanization here too.
+        } else {
+
         }
-        this.memory.add(production);
+//        System.out.println(address + " has production: " + production + ", survival: " + survivalThreshold +
+//                ", savingsAbove: " + savingsThreshold + ", with s-x ratio: " + sxRatio +
+//                ". \nWealth changed from " + wealthNow + " to " + this.wealth + " (or " +
+//                (this.wealth - wealthNow) +  " after tax of " + this.taxPayment + ")");
+
+        if(this.taxPayment == 0.0 && this.population > 50.0) {
+            System.out.println("\n" + this.address + " has a pop but no $$\n");
+        }
     }
 
-    public void debugProduction(double newWealth) {
-        if (this.address.equals("840d99bffffffff")) {
-            System.out.println(this.address + " added " + newWealth + " and grew wealth by " + newWealth / this.wealth);
-        }
-    }
 
     // External (State) agents takes taxes
     public Double payTaxes(double taxRate) {
-        Double taxes = 0.0;
-        if (population > 0.0) {
-            double latest = Math.max(memory.mostRecent(), 0.0);
-            double survivalThreshold = ((this.urbanPopulation * 0.210) + (this.population * 0.021));
-            taxes = Math.max((latest - survivalThreshold) * taxRate, 0.0);
-            wealth -= taxes;
-            if (taxes.isNaN()) {
-                System.out.println("This one");
-            }
+        double taxBill = this.grossTileProduction * taxRate;
+        if (this.taxPayment >= taxBill) {
+            taxPayment -= taxBill;
+        } else {
+            double loss = taxBill - this.taxPayment;
+            double payment = Math.min(loss, this.wealth);
+            this.wealth -= payment;
+            this.taxPayment = 0.0;
+            taxBill = payment;
         }
-        return taxes;
+        return taxBill;
     }
 
-    public double payTaxes(double taxRate, long s) {
-        double increase =  Math.max(memory.latestDiff(), 0.0);
-        double taxes = increase * taxRate;
-        wealth -= taxes;
-        if (this.address.equals("840d99bffffffff") && s > 26L) {
-            System.out.println("This one");
+    public double supplySoldiers(double ratio) {
+        if (this.population > 250.0) {
+            double numSoldiers = (ratio * this.population);
+            this.population -= numSoldiers;
+            return numSoldiers;
+        } else {
+            return 0.0;
         }
-        return taxes;
     }
 
+    public void migrate() {
+        double capacity = this.getGrossTileProduction() / 0.021;
+        double migrants = Math.min((this.population - capacity), 50.0);
+        getNeighbors();
+        Tile richest = neighbors.get(0);
+        for (Tile n : neighbors) {
+            double gtp = n.grossTileProduction;
+            if (gtp > richest.getGrossTileProduction()) richest = n;
+        }
+        richest.setPopulation(richest.getPopulation() + migrants);
+        this.population -= migrants;
+    }
 
-    public double recruitSoldiers(double portion) {
-        double numSoldiers = (portion * this.population);
-        this.population =- numSoldiers;
-        return numSoldiers;
+    public void takeInvestment(double d) {
+        double investment = this.population * d;
+        if (this.builtUpArea > 0.0) {
+            double rate = builtUpArea / wealth;
+            double construction = rate * investment;
+            this.builtUpArea += construction;
+        }
+        this.wealth += investment;
     }
 
     public String getAddress() {
@@ -194,6 +238,9 @@ public class Tile extends Entity implements Serializable, Steppable {
     public Long getH3Id() {return h3Id; }
 
     public List<Tile> getNeighbors() {
+        if(neighbors==null || neighbors.size()==0) {
+            (new TileServiceImpl().findNeighbors(this)).forEach(neighbors::add);
+        }
         return neighbors;
     }
 
@@ -239,18 +286,23 @@ public class Tile extends Entity implements Serializable, Steppable {
 
     public void setWealth(double wealth) {
         this.wealth = wealth;
+        memory.add(wealth);
     }
 
     public double getGrossTileProduction() {
-        return grossTileProduction;
+        return this.grossTileProduction;
     }
 
     public double getGrossTileProductionLastYear() {
-        return memory.pastYearTotal();
+        double annualGtp = gtp.pastYearTotal();
+        this.gtp.clear();
+        return annualGtp;
     }
 
     public void setGrossTileProduction(double grossTileProduction) {
         this.grossTileProduction = grossTileProduction;
+        gtp.add(grossTileProduction);
+
     }
 
     public double getBuiltUpArea() {
@@ -297,30 +349,6 @@ public class Tile extends Entity implements Serializable, Steppable {
         return getLinkedTerritory().getTerritoryYear();
     }
 
-    public double getProductivity() {
-        return productivity;
-    }
-
-    public void setProductivity(double productivity) {
-        this.productivity = productivity;
-    }
-
-    private void updateProductivity() {
-        double trend = productivity / (memory.average());
-    }
-
-//    public double getTaxRate() {
-//        return taxRate;
-//    }
-//
-//    public void setTaxRate(double taxRate) {
-//        this.taxRate = taxRate;
-//    }
-
-//    public Double guageSupport(Entity e) {
-//        return weal.considerSupport(e);
-//    }
-
     private boolean evenStep(WorldOrder wo) {
         return wo.getStepNumber() % 2 == 1;
     }
@@ -338,19 +366,19 @@ public class Tile extends Entity implements Serializable, Steppable {
             this.setWealth(w);
             this.setGrossTileProduction(g);
             this.setBuiltUpArea(b);
-            memory.add(g);
             growth.add(p);
+            getNeighbors();
             return true;
         } else {
             return false;
         }
     }
 
+    private boolean loadFacts() {
 
+        return false;
+    }
 
-        // weal
-//        this.weal = new TileWeal(this);
-
-        // DataTrend elements 0 and 1
-
+    // weal
+    //   this.weal = new TileWeal(this);
 }

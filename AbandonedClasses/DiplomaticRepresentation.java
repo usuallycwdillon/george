@@ -1,11 +1,9 @@
 package edu.gmu.css.relations;
 
-import edu.gmu.css.agents.DiplomacyProcess;
 import edu.gmu.css.entities.DiplomaticExchange;
 import edu.gmu.css.entities.Institution;
 import edu.gmu.css.entities.Polity;
 import org.neo4j.ogm.annotation.*;
-import scala.Int;
 
 @RelationshipEntity(type="REPRESENTATION")
 public class DiplomaticRepresentation extends InstitutionParticipation {
@@ -13,9 +11,9 @@ public class DiplomaticRepresentation extends InstitutionParticipation {
     @Id @GeneratedValue
     private Long id;
     @StartNode
-    private Polity participant;
+    private Polity owner;
     @EndNode
-    private Institution institution;
+    private DiplomaticExchange institution;
     @Property
     private Integer during;
     @Property
@@ -26,7 +24,7 @@ public class DiplomaticRepresentation extends InstitutionParticipation {
     }
 
     public DiplomaticRepresentation(Polity self, DiplomaticExchange exchange, int year) {
-        this.participant = self;
+        this.owner = self;
         this.institution = exchange;
         this.during = year;
 
@@ -38,12 +36,12 @@ public class DiplomaticRepresentation extends InstitutionParticipation {
     }
 
     @Override
-    public Polity getParticipant() {
-        return participant;
+    public Polity getOwner() {
+        return owner;
     }
 
-    public void setParticipant(Polity participant) {
-        this.participant = participant;
+    public void setOwner(Polity owner) {
+        this.owner = owner;
     }
 
     @Override
@@ -51,7 +49,7 @@ public class DiplomaticRepresentation extends InstitutionParticipation {
         return institution;
     }
 
-    public void setInstitution(Institution institution) {
+    public void setInstitution(DiplomaticExchange institution) {
         this.institution = institution;
     }
 

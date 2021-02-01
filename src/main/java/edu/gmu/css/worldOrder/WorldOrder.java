@@ -9,6 +9,7 @@ import edu.gmu.css.queries.DataQueries;
 import edu.gmu.css.queries.TerritoryQueries;
 import edu.gmu.css.queries.TimelineQueries;
 import edu.gmu.css.relations.Inclusion;
+import edu.gmu.css.service.TerritoryServiceImpl;
 import sim.engine.SimState;
 import sim.engine.Steppable;
 import sim.engine.Stoppable;
@@ -44,7 +45,7 @@ public class WorldOrder extends SimState {
             do
                 if (!worldOrder.schedule.step(worldOrder))
                     break;
-            while(worldOrder.schedule.getSteps() < 500 * 52);
+            while(worldOrder.schedule.getSteps() < overallDuration);
             worldOrder.finish();
         }
         System.exit(0);
@@ -84,7 +85,7 @@ public class WorldOrder extends SimState {
     // and globalHostility is the collection of that data.
     public static int overallDuration;
     public static int stabilityDuration;
-    public static long initializationPeriod;
+    public static double initializationPeriod;
     public DataTrend globalHostility;
     public double globalWarLikelihood; // based on 136 wars in 10,017 weeks
     public double institutionInfluence;
@@ -133,12 +134,13 @@ public class WorldOrder extends SimState {
     public boolean setup(int fy, int uy) {
         // new dataset node in graph to track this data will be saved only if this run get started.
         // set model run parameters
+        long startTime = System.nanoTime();
         modelRun = new Dataset(this);
         modelRun.setWarParameters(new DefaultWarParams().getWarParams());
-        overallDuration = 27013;    // about 500 years
-        stabilityDuration = 10805;  // about 200 years
-        initializationPeriod = 2 * 52;
-        globalWarLikelihood = DataQueries.getWarAndConflictAverages().get("onset") * 10;
+        overallDuration = 26096;    // about 500 years
+        stabilityDuration = 10439;  // about 200 years
+        initializationPeriod = 52.0;
+        globalWarLikelihood = DataQueries.getWarAndConflictAverages().get("onset");
         globalHostility = new DataTrend(stabilityDuration);
         institutionInfluence = 0.0001;
         fromYear = fy;
@@ -147,17 +149,31 @@ public class WorldOrder extends SimState {
         dataYear = TimelineQueries.getYearFromIntVal(fromYear);
         weeksThisYear = dataYear.getWeeksThisYear();
         dateIndex = TimelineQueries.getFirstWeek(dataYear).getStepNumber();
+        long first = System.nanoTime();
+        System.out.println("Before loading territories at " +
+                (first - startTime)/1000000000.0);
         territories = TerritoryQueries.getStateTerritories(fromYear, this);
-//        territories.values().parallelStream().forEach(e -> e.loadWithRelations(this));
-        territories.values().parallelStream().forEach(e -> e.findCommonWeal());
-        territories.values().parallelStream().forEach(Territory::loadTileFacts);
+        long second = System.nanoTime();
+        System.out.println("1st, Territories and states have their data after " +
+                (second - first)/1000000000.0);
+        territories.values().spliterator().forEachRemaining(Territory::loadTileFacts);  //parallelStream().forEach(Territory::loadTileFacts);
+        long third = System.nanoTime();
+        System.out.println("2nd, TileFacts loaded after " +
+                (third - second)/1000000000.0);
+        territories.values().spliterator().forEachRemaining(Territory::findCommonWeal);
+        long fourth = System.nanoTime();
+        System.out.println("3rd, CommonWeals loaded after " +
+                (fourth - third)/1000000000.0);
         allTheStates.stream().forEach(s -> s.loadInstitutionData(fy,this));
-//        allTheStates.stream().forEach(s -> allTheInstitutions.addAll(copyOverInstitutions(s.getInstitutionList())));
-//        territories.values().forEach(Territory::initiateGraph);
-        // allTheStates gets loaded inside the territories query stream and their institution and leadership data gets
-        // loaded, too. AFTER that, we add water territories so that no new Polity() is made for them.
-        territories.putAll(TerritoryQueries.getWaterTerritories());
+        long fifth = System.nanoTime();
+        System.out.println("4th, Institutions loaded after " +
+                (fifth - fourth)/1000000000.0);
+        territories.putAll(new TerritoryServiceImpl().loadWaterTerritories());
+        long sixth = System.nanoTime();
+        System.out.println("5th, Water loaded after " +
+                (sixth - fifth)/1000000000.0);
         colorGradients = allTheStates.stream().map(Polity::getPolColor).toArray(Color[]::new);
+        System.out.println("All told, it took " + (System.nanoTime() - startTime) / 1000000000.0 + " to get started. ");
         return true;
     }
 
@@ -170,22 +186,22 @@ public class WorldOrder extends SimState {
 
         // Put it all the steppables on the schedule
         for (State s : allTheStates) {
-            schedule.scheduleRepeating(s);
-            schedule.scheduleRepeating(s.getLeadership());
-            for (BorderFact bf : s.getBordersWith()) {
-                schedule.scheduleRepeating(bf.getBorder());
-            }
-            for (AllianceParticipationFact ap : s.getAlliances()) {
-
-            }
             for (Inclusion i : s.getTerritory().getTileLinks()) {
                 schedule.scheduleRepeating(i.getTile());
             }
+            schedule.scheduleRepeating(0.5, s);
+//            schedule.scheduleRepeating(s.getLeadership());
+//            for (BorderFact bf : s.getBordersWith()) {
+//                schedule.scheduleRepeating(bf.getBorder());
+//            }
+//            for (AllianceParticipationFact ap : s.getAlliances()) {
+//
+//            }
         }
 
         // TODO: Add Data Collection to the Schedule
         conflictCause = new ProbabilisticCausality(this);
-        Stoppable externalWarStopper = schedule.scheduleRepeating(conflictCause);
+        Stoppable externalWarStopper = schedule.scheduleRepeating(initializationPeriod, conflictCause);
         conflictCause.setStopper(externalWarStopper);
 
         Steppable world = new Steppable() {
@@ -198,13 +214,13 @@ public class WorldOrder extends SimState {
                 if(DEBUG) {
                     System.out.println("-------------------------------------- STEP " + getStepNumber() + " -------------------------------");
                 }
-
                 // Record the global probability of war whether it's prescribed or calculated
                 globalHostility.add(globalWarLikelihood);
                 long stepNo = getStepNumber();
                 // TODO: set this equal the current step count minus the last week of the current year.
                 long countdown = getStepNumber() + dataYear.getBegan() - dataYear.getLast();
                 if (countdown == 0) {
+                    allTheStates.stream().forEach(s -> s.recordEconomicHistory(weeksThisYear));
                     dataYear = dataYear.getNextYear();
                     weeksThisYear = dataYear.getWeeksThisYear();
 //                    territories.values().parallelStream().filter(t -> t.getMapKey() != "World Oceans")
@@ -228,8 +244,17 @@ public class WorldOrder extends SimState {
                 }
             }
         };
-
         schedule.scheduleRepeating(world);
+
+        Steppable stateSetup = new Steppable() {
+            @Override
+            public void step(SimState simState) {
+                for (State s : allTheStates) {
+                    s.establishEconomicPolicy((WorldOrder) simState);
+                }
+            }
+        };
+        schedule.scheduleOnce(0.1, stateSetup);
     }
 
     public static long getSeed() {
@@ -349,7 +374,7 @@ public class WorldOrder extends SimState {
 //                .collect(Collectors.toCollection(ArrayList::new));
 //    }
 
-    public long getInitializationPeriod() {
+    public double getInitializationPeriod() {
         return initializationPeriod;
     }
 

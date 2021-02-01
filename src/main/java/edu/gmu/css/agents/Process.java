@@ -384,6 +384,9 @@ public abstract class Process extends Entity implements Steppable, Stoppable {
         stopper.stop();
         stopped = true;
         wo.getAllTheProcs().remove(this);
+        for (ProcessDisposition pd : processParticipantLinks) {
+            pd.getOwner().removeProcess(pd);
+        }
     }
 
 }

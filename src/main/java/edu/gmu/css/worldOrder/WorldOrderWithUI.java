@@ -57,7 +57,7 @@ public class WorldOrderWithUI extends GUIState {
     private Color[] instGradients;
 
 
-    // The simulation singleton self-manifest
+    // The simulation singleton
     public WorldOrderWithUI() {
         super(new WorldOrder(System.currentTimeMillis()));
     }
@@ -84,9 +84,8 @@ public class WorldOrderWithUI extends GUIState {
         Steppable treasuriesUpdater = new Steppable() {
             @Override
             public void step(SimState simState) {
-//                List<State> states = worldOrder.getAllTheStates();
                 for (State s : worldOrder.getAllTheStates()) {
-                    treasuryBars.addValue(s.getTreasury() / 1000000.0, "Wealth", s.getName());
+                    treasuryBars.addValue(s.getTreasury() / 1000.0, "Wealth", s.getName());
                 }
             }
         };
@@ -95,7 +94,6 @@ public class WorldOrderWithUI extends GUIState {
         Steppable milperUpdater = new Steppable() {
             @Override
             public void step(SimState simState) {
-//                List<State> states = worldOrder.getAllTheStates();
                 for (State s : worldOrder.getAllTheStates()) {
                     milperBars.addValue(s.getForces(),"Military Strength",s.getName());
                 }
@@ -109,9 +107,6 @@ public class WorldOrderWithUI extends GUIState {
                 Map<String, Long> procCounts =
                         worldOrder.allTheProcs.stream().collect(Collectors
                                 .groupingBy(e -> e.getName(), Collectors.counting()));
-//                if (procCounts.size() == 0) {
-//                    System.out.println("Processes are churning.");
-//                }
                 for (Map.Entry<String, Long> e : procCounts.entrySet()) {
                     processBars.addValue(e.getValue().intValue(), "Process Counts by Type", e.getKey() );
                 }
@@ -123,12 +118,8 @@ public class WorldOrderWithUI extends GUIState {
         Steppable instUpdater = new Steppable() {
             @Override
             public void step(SimState simState) {
-                Map<String, Long> instCounts =
-                        worldOrder.allTheInstitutions.stream().collect(Collectors
-                                .groupingBy(e -> e.getName(), Collectors.counting()));
-//                if (instCounts.size() == 0) {
-//                    System.out.println("institutions are forming");
-//                }
+                Map<String, Long> instCounts = worldOrder.allTheInstitutions.stream()
+                        .collect(Collectors.groupingBy(e -> e.getName(), Collectors.counting()));
                 for (Map.Entry<String, Long> e : instCounts.entrySet()) {
                     instituBars.addValue(e.getValue(), "Institution Counts by Type", e.getKey());
                 }
@@ -152,13 +143,13 @@ public class WorldOrderWithUI extends GUIState {
         // Wealth
         treasuryBars = (DefaultCategoryDataset) createStatesDataset("Wealth");
         treasuriesChart = ChartFactory.createBarChart(
-                "",
+                "Wealth Chart",
                 "State",
                 "Wealth",
                 treasuryBars,
                 PlotOrientation.VERTICAL,
                 false,
-                false,
+                true,
                 false
         );
         final CategoryPlot treasuryPlot = treasuriesChart.getCategoryPlot();
@@ -190,7 +181,7 @@ public class WorldOrderWithUI extends GUIState {
         CategoryAxis xAxisM = milperPlot.getDomainAxis();
         xAxisM.setCategoryLabelPositionOffset(15);
         final CategoryItemRenderer milperRenderer = new CustomRenderer(colorGradients);
-        treasuryPlot.setRenderer(milperRenderer);
+        milperPlot.setRenderer(milperRenderer);
 
         milperFrame = new ChartFrame("State Military", milpersChart);
         c.registerFrame(milperFrame);
@@ -284,7 +275,6 @@ public class WorldOrderWithUI extends GUIState {
     @Override
     public void load(SimState state) {
         super.load(state);
-
     }
 
     @Override

@@ -5,6 +5,7 @@ import edu.gmu.css.data.SecurityObjective;
 import edu.gmu.css.data.Issue;
 import edu.gmu.css.entities.Polity;
 import edu.gmu.css.entities.War;
+import edu.gmu.css.entities.WarParticipationFact;
 import edu.gmu.css.relations.ProcessDisposition;
 import edu.gmu.css.data.Resources;
 import edu.gmu.css.worldOrder.WorldOrder;
@@ -12,6 +13,7 @@ import sim.engine.SimState;
 import sim.engine.Steppable;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class Leadership implements Steppable {
@@ -20,22 +22,13 @@ public class Leadership implements Steppable {
     private int type;
     private Polity polity;
     private Map<String, Person> leaders = new HashMap<>();
-    public MersenneTwisterFast random;
 
     public Leadership() {
 
     }
 
-    public Leadership(MersenneTwisterFast mtf) {
-        random = mtf;
-    }
-
     public void step(SimState simState) {
         WorldOrder worldOrder = (WorldOrder) simState;
-        random = worldOrder.random;
-        updateEconomicPolicy();
-//        updateSecurityPolicy();
-
     }
 
     public Long getId() {
@@ -66,24 +59,14 @@ public class Leadership implements Steppable {
         this.leaders = leaders;
     }
 
-//    private void updateSecurityPolicy() {
-//        if (polity != null) {
-//            Strategy current = polity.getSecurityStrategy();
-//        } else {
-//
-//        }
-//    }
-
     private void updateEconomicPolicy() {
-        if(polity != null) {
-
-        }
 
     }
 
-    public SecurityObjective chooseSecurityObjective(Issue i) {
+    public SecurityObjective chooseSecurityObjective(Issue i, WorldOrder wo) {
         // This method of arbitrarily selecting a strategic objective is a placeholder for some realistic logic
         Issue issue = i;
+        WorldOrder worldOrder = wo;
         if (issue.getInstigator()==polity) { // I'm the instigator
             Polity target = issue.getTarget();
             int x = 0;
@@ -91,44 +74,55 @@ public class Leadership implements Steppable {
             double myfor = polity.getForces();
             double ratio = (myfor * 1.0) / (opfor * 1.0);
             if (ratio > 4.0) {
-                x = random.nextInt(15);
+                x = worldOrder.random.nextInt(15);
             } else if (ratio > 2.0) {
-                x = random.nextInt(14);
+                x = worldOrder.random.nextInt(14);
             } else if (ratio >= 1.0) {
-                x = random.nextInt(12);
+                x = worldOrder.random.nextInt(12);
             } else {
-                x = random.nextInt(8);
+                x = worldOrder.random.nextInt(8);
             }
             if (x > 14) return SecurityObjective.name(6);
             else if (x > 12) return SecurityObjective.name(4);
             else if (x > 8) return SecurityObjective.name(2);
             else return SecurityObjective.name(0);
         } else {
+        // Match or elevate security objective of instigator
+            List<ProcessDisposition> participants = issue.getProcess().getProcessDispositionList();
+            for (ProcessDisposition p : participants) {
+                if (!p.getOwner().equals(polity)) {
+                    int challenge = p.getObjective().value;
+                    if (polity.getResources().getPax() > p.getOwner().getResources().getPax() && challenge < 5) {
+                        return SecurityObjective.name(challenge + 3);
+                    } else {
+                        return SecurityObjective.name(challenge + 1);
+                    }
+                }
+            }
             return null;
         }
     }
 
-    public Double evaluateWarNeed(Issue i) {
+    public Double evaluateWarNeed(Issue i, WorldOrder wo) {
         // TODO: Leadership's evaluation of need to go to war over an issue should be extended with threat assessment, but
         //  for now, it's just a random double value.
-        return random.nextDouble();
+        return wo.random.nextDouble();
     }
 
-    public PeaceProcess considerPeace(War war, WorldOrder wo) {
-        WorldOrder worldOrder = wo;
-        Long step = worldOrder.getStepNumber();
-        Issue i = new Issue.IssueBuilder().institution(war).duration(2).build();
-        i.setStopper(worldOrder.schedule.scheduleRepeating(i));
-        // TODO: Wars need a duration or the Issue's step method needs to handle null for wars.
-        PeaceProcess pp = new PeaceProcess(polity, i, step);
-        worldOrder.getAllTheProcs().add(pp);
-        pp.setStopper(worldOrder.schedule.scheduleRepeating(pp));
-        return pp;
+    public double considerPeace(WarParticipationFact f, WorldOrder wo) {
+        WarParticipationFact participation = f;
+        double tMetric = participation.getCost().getTreasury() / participation.getCommitment().getTreasury();
+        double pMetric = participation.getCost().getPax() / participation.getCommitment().getPax();
+        double threshold = wo.random.nextDouble(true, false);
+        if (tMetric > 1.0) threshold += 0.1;
+        if (pMetric > 0.5) threshold += 0.1;
+        return Math.min(threshold, 0.9999999);
     }
 
-    public boolean reconsiderPeace() {
+
+    public boolean reconsiderPeace(WorldOrder wo) {
         boolean decision = false;
-        if (random.nextDouble() < 0.50) {
+        if (wo.random.nextDouble() < 0.50) {
             decision = true;
         }
         return decision;
@@ -188,17 +182,14 @@ public class Leadership implements Steppable {
 
     }
 
-
-
-
     public Resources respondToThreat(ProcessDisposition disposition, Resources threat) {
         // commit resources in response to threat upto twice the threat
         Resources available = polity.getResources().evaluativeAvailableDifference(threat.multipliedBy(2.0));
         return available;
     }
 
-    public boolean evaluateWarWillingness(ProcessDisposition pd) {
-        double respond = random.nextGaussian();
+    public boolean evaluateWarWillingness(ProcessDisposition pd, WorldOrder wo) {
+        double respond = wo.random.nextGaussian();
         // Ref Cioffi-Revilla (1998) Politics and Uncertainty, p 160. (P_B), there is some probability that...
         return respond < 0.0;
     }

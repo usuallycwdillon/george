@@ -40,19 +40,19 @@ public class SimWealth implements Serializable {
         return during;
     }
 
-    public Double getWealth() {
-        return (Double)fact.getValue();
-    }
-
-    public boolean assignTileWealth() {
-        Double wealth = (Double) fact.getValue();
-        if (wealth != null) {
-            tile.setWealth(wealth);
-            return true;
-        } else {
-            return false;
-        }
-    }
+//    public Double getWealth() {
+//        return (Double)fact.getValue();
+//    }
+//
+//    public boolean assignTileWealth() {
+//        Double wealth = (Double) fact.getValue();
+//        if (wealth != null) {
+//            tile.setWealth(wealth);
+//            return true;
+//        } else {
+//            return false;
+//        }
+//    }
 
     @Override
     public boolean equals(Object o) {

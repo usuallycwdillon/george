@@ -5,6 +5,7 @@ import edu.gmu.css.data.SecurityObjective;
 import edu.gmu.css.entities.Institution;
 import edu.gmu.css.entities.Polity;
 import edu.gmu.css.data.Resources;
+import edu.gmu.css.worldOrder.WorldOrder;
 import org.neo4j.ogm.annotation.*;
 
 import java.io.Serializable;
@@ -69,6 +70,95 @@ public class ProcessDisposition implements Serializable {
         this.owner = polity;
         this.process = process;
         this.from = from;
+    }
+
+    protected ProcessDisposition(Builder builder) {
+        this.S = false;
+        this.P = false;
+        this.C = true;
+        this.N = builder.N;
+        this.U = builder.commitment != null && builder.commitment.getPax() >= 0;
+        this.K = true;
+        this.from = builder.from;
+        this.until = builder.until;
+        this.during = builder.during;
+        this.owner = builder.owner;
+        this.process = builder.process;
+        this.commitment = builder.commitment;
+        this.objective = builder.objective;
+        this.subject = builder.subject;
+        this.side = builder.side;
+    }
+
+
+    public static class Builder {
+        private boolean N;
+        private Long from;
+        private Long until;
+        private Integer during;
+        private Polity owner;
+        private Process process;
+        private Resources commitment;
+        private SecurityObjective objective;
+        private Institution subject;
+        private int side;
+
+        public Builder from(Long f) {
+            this.from = f;
+            return this;
+        }
+
+        public Builder until(Long u) {
+            this.until = u;
+            return this;
+        }
+
+        public Builder owner(Polity o) {
+            this.owner = o;
+            return this;
+        }
+
+        public Builder process(Process p) {
+            this.process = p;
+            return this;
+        }
+
+        public Builder during(Integer d) {
+            this.during = d;
+            return this;
+        }
+
+        public Builder need(Boolean n) {
+            this.N = n;
+            return this;
+        }
+
+        public Builder commitment(Resources r) {
+            this.commitment = r;
+            return this;
+        }
+
+        public Builder objective(SecurityObjective o) {
+            this.objective = o;
+            return this;
+        }
+
+        public Builder subject(Institution i) {
+            this.subject = i;
+            return this;
+        }
+
+        public Builder side(Integer s) {
+            this.side = s;
+            return this;
+        }
+
+        public ProcessDisposition build() {
+            ProcessDisposition pd = new ProcessDisposition(this);
+            owner.addProcess(pd);
+            process.addProcessParticipant(pd);
+            return pd;
+        }
     }
 
     public void commit(Resources resources) {
@@ -192,9 +282,8 @@ public class ProcessDisposition implements Serializable {
         this.side = side;
     }
 
-    public void learnPolityWarNeed() {
-        if (owner.getLeadership().evaluateWarNeed(process.getIssue()) +
-                owner.getTerritory().getCommonWeal().evaluateWarNeed(process.getIssue()) > 1.0)
+    public void learnPolityWarNeed(WorldOrder wo) {
+        if (owner.evaluateWarNeed(this, wo))
             setN(true);
     }
 }

@@ -76,33 +76,34 @@ public class Participation extends InstitutionParticipation implements Serializa
         commitment.increaseBy(additional);
     }
 
-    @Override
-    public void tallyLosses(double rate, WorldOrder wo) {
-        WorldOrder worldOrder = wo;
-        int pLoss = (int) Math.round(rate * commitment.getPax());
-        double tLoss = rate * commitment.getTreasury();
-        Resources loss = new Resources.ResourceBuilder().pax(pLoss).treasury(tLoss).build();
-        commitment.reduceBy(loss);
-        cost.increaseBy(loss);
-        owner.getSecurityStrategy().addSupplemental(this, loss);
-        magnitude += pLoss;
-//        if (commitment.getPax() < 0) {
-//            // TODO: implement consequences for losing the war; for now, just end it.
-//            institution.conclude(worldOrder);
-//            owner.surrender(this, worldOrder);
+//    @Override
+//    public void tallyLosses(double rate, WorldOrder wo) {
+//        WorldOrder worldOrder = wo;
+//        int pLoss = (int) Math.round(rate * commitment.getPax());
+//        double tLoss = rate * commitment.getTreasury();
+//        Resources loss = new Resources.ResourceBuilder().pax(pLoss).treasury(tLoss).build();
+//        commitment.reduceBy(loss);
+//        cost.increaseBy(loss);
+//        owner.getSecurityStrategy().addSupplemental(this, loss);
+//        magnitude += pLoss;
+////        if (commitment.getPax() < 0) {
+////            // TODO: implement consequences for losing the war; for now, just end it.
+////            institution.conclude(worldOrder);
+////            owner.surrender(this, worldOrder);
+////        }
+//
+//        ProcessDisposition pd = owner.getProcessList().stream()
+//                .filter(d -> institution.equals(d.getSubject()))
+//                .findAny().orElse(null);
+//        if (pLoss * 2 > commitment.getPax()) {
+//            if (pd == null) {
+//                owner.evaluateNeedForPeace(worldOrder, )
+//                owner.considerPeace(institution, worldOrder);
+//            } else {
+//                pd.setN(true);
+//            }
 //        }
-
-        ProcessDisposition pd = owner.getProcessList().stream()
-                .filter(d -> institution.equals(d.getSubject()))
-                .findAny().orElse(null);
-        if (pLoss * 2 > commitment.getPax()) {
-            if (pd == null) {
-                owner.getLeadership().considerPeace(institution, worldOrder);
-            } else {
-                pd.setN(true);
-            }
-        }
-    }
+//    }
 
 
 

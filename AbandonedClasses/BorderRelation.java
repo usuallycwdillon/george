@@ -28,6 +28,7 @@ public class BorderRelation implements Serializable {
         this.during = year;
     }
 
+
     public Long getId() {
         return id;
     }

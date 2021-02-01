@@ -12,6 +12,7 @@ public class Issue extends Entity implements Steppable, Stoppable {
     private Territory territory;
     private Resources resources;
     private Institution institution;
+    private Institution cause;
     private Process process;
     private Integer duration;
     private Long from;
@@ -28,6 +29,7 @@ public class Issue extends Entity implements Steppable, Stoppable {
     private Issue(IssueBuilder builder) {
         this.duration = builder.duration;
         this.resources = builder.resources;
+        this.cause = builder.cause;             // What institution (if any) caused the issue?
         this.institution = builder.institution; // What results from the process (below)?
         this.process = builder.process;         // What process does this Issue initiate?
         this.from = builder.from;
@@ -40,6 +42,7 @@ public class Issue extends Entity implements Steppable, Stoppable {
     public static class IssueBuilder {
         private Territory territory ;
         private Institution institution;
+        private Institution cause;
         private Process process;
         private Integer duration;
         private Long from;
@@ -64,6 +67,11 @@ public class Issue extends Entity implements Steppable, Stoppable {
 
         public IssueBuilder institution(Institution i) {
             this.institution = i;
+            return this;
+        }
+
+        public IssueBuilder cause(Institution i) {
+            this.cause = i;
             return this;
         }
 
@@ -114,8 +122,30 @@ public class Issue extends Entity implements Steppable, Stoppable {
          */
         if (!stopped) {
             duration -= 1;
-            if (process == null) {
+            if(WorldOrder.DEBUG && instigator==null) {
+                System.out.println("How is the instigator null?");
+            }
+            if(WorldOrder.DEBUG && this==null) {
+                System.out.println("How can this be null if it's stepping?");
+            }
+
+            if (process == null && (
+                    issueType==IssueType.ALLIANCE_ANTI ||
+                    issueType==IssueType.POLICY_ANTI ||
+                    issueType==IssueType.TERRITORY_ANTI ||
+                    issueType==IssueType.TRADE_ANTI
+                ) ) {
                 instigator.evaluateWarNeed(worldOrder, this);
+            } else if (process == null && issueType==IssueType.ALLIANCE_PRO) {
+                instigator.evaluateAllianceNeed(worldOrder, this);
+            } else if (process == null && issueType==IssueType.POLICY_PRO) {
+                instigator.evaluateForeignPolicyNeed(worldOrder, this);
+            } else if (process == null && issueType==IssueType.TERRITORY_PRO) {
+                instigator.evaluateBorderAgreementNeed(worldOrder, this);
+            } else if (process == null && issueType==IssueType.TRADE_PRO) {
+                instigator.evaluateTradeAgreementNeed(worldOrder, this);
+            } else if (process == null && issueType==IssueType.PEACE) {
+                instigator.evaluateNeedForPeace(worldOrder, this);
             } else {
                 if (duration <= 0) conclude((WorldOrder) simState);
             }
@@ -144,6 +174,10 @@ public class Issue extends Entity implements Steppable, Stoppable {
 
     public Institution getInstitution() {
         return institution;
+    }
+
+    public Institution getCause() {
+        return cause;
     }
 
     public void setInstitution(Institution institution) {
@@ -180,6 +214,10 @@ public class Issue extends Entity implements Steppable, Stoppable {
 
     public void setTarget(Polity target) {
         this.target = target;
+    }
+
+    public IssueType getIssueType() {
+        return issueType;
     }
 
     public Polity getInstigator() {

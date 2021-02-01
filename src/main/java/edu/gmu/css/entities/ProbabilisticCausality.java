@@ -14,7 +14,6 @@ import java.util.List;
 
 public class ProbabilisticCausality implements Steppable, Stoppable {
 
-    long initializationPeriod;
     double globalWarLikelihood;
     MersenneTwisterFast random;
     static Poisson poisson;
@@ -24,7 +23,6 @@ public class ProbabilisticCausality implements Steppable, Stoppable {
 
     public ProbabilisticCausality(SimState simState) {
         worldOrder = (WorldOrder) simState;
-        initializationPeriod = worldOrder.getInitializationPeriod();
         globalWarLikelihood = worldOrder.getGlobalWarLikelihood();
         random = worldOrder.random;
         poisson = new Poisson(globalWarLikelihood, random);
@@ -32,23 +30,21 @@ public class ProbabilisticCausality implements Steppable, Stoppable {
 
     public void step(SimState simState) {
         WorldOrder worldOrder = (WorldOrder) simState;
-        if (worldOrder.getStepNumber() >= worldOrder.getInitializationPeriod()) {
-            this.updateDistribution();
-            int freq = poisson.nextInt();
-            if (freq > 0) {
-                for (int f=0; f<freq; f++) {
-                    int numStates = worldOrder.getAllTheStates().size();
-                    int instigator = worldOrder.random.nextInt(numStates);
-                    State p = worldOrder.getAllTheStates().get(instigator);
-                    List<Polity> potentialTargets = StateQueries.getNeighborhoodWithoutAllies(p, worldOrder);
-                    int numPotentials = potentialTargets.size();
-                    if (numPotentials > 0) {
-                        State t = (State) potentialTargets.get(random.nextInt(numPotentials));
-                        if (p != t) {
-                            int d = random.nextInt(870);
-                            Issue i = new Issue.IssueBuilder().instigator(p).duration(d).target(t).issueType(pickIssueType(p,t)).build();
-                            i.setStopper(worldOrder.schedule.scheduleRepeating(i));
-                        }
+        this.updateDistribution();
+        int freq = poisson.nextInt();
+        if (freq > 0) {
+            for (int f=0; f<freq; f++) {
+                int numStates = worldOrder.getAllTheStates().size();
+                int instigator = worldOrder.random.nextInt(numStates);
+                State p = worldOrder.getAllTheStates().get(instigator);
+                List<Polity> potentialTargets = StateQueries.getNeighborhoodWithoutAllies(p, worldOrder);
+                int numPotentials = potentialTargets.size();
+                if (numPotentials > 0) {
+                    State t = (State) potentialTargets.get(random.nextInt(numPotentials));
+                    if (p != t) {
+                        int d = random.nextInt(870);
+                        Issue i = new Issue.IssueBuilder().instigator(p).duration(d).target(t).issueType(pickIssueType(p,t)).build();
+                        i.setStopper(worldOrder.schedule.scheduleRepeating(i));
                     }
                 }
             }
@@ -75,7 +71,7 @@ public class ProbabilisticCausality implements Steppable, Stoppable {
          *                              P("Regime/Governance")      "               Strike, SD
          *
          *   initialStrategies, initialTroopDeployments and escalation
-         *   No goal    |       correct     |   overcome    |           destroy
+         *   No goal      |       correct     |   overcome           |      destroy
          *
          *                 / 1 Strike  (10^2) \
          *   0 preIssue (0)         |          3 Swiftly Defeat (10^4)
@@ -91,9 +87,9 @@ public class ProbabilisticCausality implements Steppable, Stoppable {
          */
         double chance = random.nextDouble();
         if (chance > 0.63) {
-            return IssueType.TERRITORY;
+            return IssueType.TERRITORY_ANTI;
         } else if (chance < 0.24) {
-            return IssueType.POLICY;
+            return IssueType.POLICY_ANTI;
         } else {
             return IssueType.REGIME;
         }

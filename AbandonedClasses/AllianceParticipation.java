@@ -1,8 +1,8 @@
 package edu.gmu.css.relations;
 
 import edu.gmu.css.entities.Alliance;
-import edu.gmu.css.entities.Institution;
 import edu.gmu.css.entities.Polity;
+import edu.gmu.css.data.Resources;
 import org.neo4j.ogm.annotation.*;
 
 @RelationshipEntity(type="ALLIANCE_PARTICIPATION")
@@ -11,59 +11,50 @@ public class AllianceParticipation extends InstitutionParticipation {
     @Id @GeneratedValue
     Long id;
     @StartNode
-    Polity participant;
+    Polity owner;
     @EndNode
     Alliance institution;
     @Property
     Long from;
     @Property
     Long until;
+    @Transient
+    private Resources commitment;
 
     public AllianceParticipation() {
-
     }
 
-    public AllianceParticipation(Polity p, Alliance a) {
-        this.participant = p;
+    public AllianceParticipation(ProcessDisposition pd, Alliance a) {
+        this.owner = pd.getOwner();
         this.institution = a;
         this.from = a.getFrom();
     }
 
+    @Override
     public Long getId() {
         return id;
     }
 
-    public Polity getParticipant() {
-        return participant;
+    @Override
+    public Resources getCommitment() {
+        return commitment;
     }
 
-    public Institution getInstitution() {
-        return institution;
+    @Override
+    public void setCommitment(Resources commitment) {
+        this.commitment = commitment;
     }
 
-    public Long getFrom() {
-        return from;
-    }
-
-    public void setFrom(Long from) {
-        this.from = from;
-    }
-
-    public Long getUntil() {
-        return until;
-    }
-
-    public void setUntil(Long until) {
-        this.until = until;
+    @Override
+    public void commitMore(Resources additional) {
+        commitment.increaseBy(additional);
     }
 
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-
         AllianceParticipation that = (AllianceParticipation) o;
-
         return getId().equals(that.getId());
     }
 

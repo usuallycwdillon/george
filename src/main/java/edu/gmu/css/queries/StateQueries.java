@@ -74,7 +74,17 @@ public class StateQueries {
             Double amt = milexfact.getValue();
             exp = amt != null ? amt.intValue() : 0;
         }
+
         return new Resources.ResourceBuilder().pax(pax).treasury(exp).build();
+    }
+
+    public static Double getInitialTaxRate(State s, int y) {
+        Map<String, Object> params = new HashMap<>();
+        params.put("cowcode", s.getCowcode());
+        params.put("during", y);
+        String query = "MATCH (s:State{cowcode:$cowcode})-[:SIM_TAX_RATE{during:$during}]->(f:TaxRateFact) RETURN f";
+        TaxRateFact f = Neo4jSessionFactory.getInstance().getNeo4jSession().queryForObject(TaxRateFact.class, query,params);
+        return f.getValue() * 1.1; // Accounting for 10% bump on policy costs other than military
     }
 
 

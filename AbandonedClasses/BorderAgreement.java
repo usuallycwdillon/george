@@ -3,17 +3,18 @@ package edu.gmu.css.relations;
 import edu.gmu.css.entities.Border;
 import edu.gmu.css.entities.Institution;
 import edu.gmu.css.entities.Polity;
-import edu.gmu.css.entities.Territory;
 import org.neo4j.ogm.annotation.*;
 
+import java.io.Serializable;
+
 @RelationshipEntity(type="SHARES_BORDER")
-public class BorderAgreement extends InstitutionParticipation{
+public class BorderAgreement extends InstitutionParticipation implements Serializable {
 
     @Id
     @GeneratedValue
     Long id;
     @StartNode
-    Polity participant;
+    Polity owner;
     @EndNode
     Border institution;
     @Property
@@ -24,27 +25,32 @@ public class BorderAgreement extends InstitutionParticipation{
     }
 
     public BorderAgreement(Polity self, Border border, int year) {
-        this.participant = self;
+        this.owner = self;
         this.institution = border;
         this.during = year;
     }
 
+    @Override
     public Long getId() {
         return id;
     }
 
-    public Polity getParticipant() {
-        return participant;
+    @Override
+    public Polity getOwner() {
+        return owner;
     }
 
+    @Override
     public Institution getInstitution() {
         return institution;
     }
 
+    @Override
     public Integer getDuring() {
         return during;
     }
 
+    @Override
     public void setDuring(Integer during) {
         this.during = during;
     }

@@ -23,21 +23,7 @@ public class PeaceProcess extends Process {
         name = "Peace Process";
         began = from;
         issue = i;
-//        for (InstitutionParticipation ip : i.getInstitution().getParticipations()) {
-//            Polity participant = ip.getOwner();
-//            if (participant == owner) {
-//                ProcessDisposition pdo = new ProcessDisposition(owner, this, began);
-//                pdo.setSubject(i.getInstitution());
-//                pdo.setN(true);
-//                pdo.setU(true);
-//                owner.addProcess(pdo);
-//                processParticipantLinks.add(pdo);
-//            } else {
-//                ProcessDisposition pdp = new ProcessDisposition(participant, this, began);
-//                participant.addProcess(pdp);
-//                processParticipantLinks.add(pdp);
-//            }
-//        }
+
         this.updateStatus();
     }
 
@@ -97,6 +83,7 @@ public class PeaceProcess extends Process {
                 if (count >= processParticipantLinks.size()) {
                     this.N = true;
                     this.equivalence = false;
+
                 } else {
                     this.equivalence = true;
                 }
@@ -112,7 +99,7 @@ public class PeaceProcess extends Process {
                 // If not, have the participants even decided on the mutual need for peace?
                 if (equivalence) {
                     ProcessDisposition pd  = processParticipantLinks.get(0);
-                    if (pd.getOwner().evaluateNeedForPeace() ) {
+                    if (pd.getOwner().evaluateNeedForPeace(worldOrder) ) {
                         this.P = true;
                         this.outcome = true;        // result in 'X', sums to 7
                     } else {
@@ -126,7 +113,7 @@ public class PeaceProcess extends Process {
                         if (p.atU()) {
                             count += 1;
                         } else {
-                            p.getOwner().makeConcessionForPeace(p);
+                            p.getOwner().makeConcessionForPeace(p, worldOrder);
                             if (p.atU()) {
                                 count += 1;
                             }
@@ -148,7 +135,7 @@ public class PeaceProcess extends Process {
                     worldOrder.getAllTheProcs().remove(this);
                 } else {
                     ProcessDisposition pd = processParticipantLinks.get(0);
-                    if (pd.getOwner().evaluateNeedForPeace() ) {
+                    if (pd.getOwner().evaluateNeedForPeace(worldOrder) ) {
                         this.P = true;
                         this.equivalence = true;
                     } else {
@@ -222,6 +209,7 @@ public class PeaceProcess extends Process {
                 Long step = worldOrder.schedule.getSteps();
                 // Assuming for now that peace insitutions are passive, only between participants
                 issue.conclude(worldOrder);
+                issue.getCause().conclude(worldOrder);
                 peace = createPeace(worldOrder);
                 worldOrder.getAllTheInstitutions().remove(issue);
                 worldOrder.getAllTheInstitutions().add(peace);

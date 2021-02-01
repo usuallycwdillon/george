@@ -4,10 +4,9 @@ import edu.gmu.css.agents.Tile;
 import edu.gmu.css.entities.Fact;
 import org.neo4j.ogm.annotation.*;
 
-import java.io.Serializable;
 
-@RelationshipEntity(type = "SIM_URBAN_POPULATION")
-public class SimUrbanPopulation implements Serializable {
+@RelationshipEntity(type = "SIM_POPULATION")
+public class SimPopulation {
 
     @Id
     @GeneratedValue
@@ -19,14 +18,18 @@ public class SimUrbanPopulation implements Serializable {
     @Property
     private Integer during;
 
-    public SimUrbanPopulation() {
+    public SimPopulation() {
 
     }
 
-    public SimUrbanPopulation(Tile t, Fact f, Integer d) {
+    public SimPopulation(Tile t, Fact f, Integer d) {
         this.tile = t;
         this.fact = f;
         this.during = d;
+    }
+
+    public Long getRelationshipId() {
+        return relationshipId;
     }
 
     public Tile getTile() {
@@ -41,35 +44,31 @@ public class SimUrbanPopulation implements Serializable {
         return during;
     }
 
-    public Long getRelationshipId() {
-        return relationshipId;
-    }
-
-    public boolean assignTileUrbanPop() {
-        Integer pop = (Integer) fact.getValue();
-        if (pop != null) {
-            tile.setUrbanization(pop);
-            return true;
-        } else {
-            return false;
-        }
-    }
+//    public boolean assignTilePopulation() {
+//        Integer pop = (Integer) fact.getValue();
+//        if (pop != null) {
+//            tile.setPopulation(pop);
+//            return true;
+//        } else {
+//            return false;
+//        }
+//    }
 
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof SimUrbanPopulation)) return false;
+        if (!(o instanceof SimPopulation)) return false;
 
-        SimUrbanPopulation that = (SimUrbanPopulation) o;
+        SimPopulation that = (SimPopulation) o;
 
-        if (!relationshipId.equals(that.relationshipId)) return false;
+        if (!getRelationshipId().equals(that.getRelationshipId())) return false;
         if (!getTile().equals(that.getTile())) return false;
         return getFact().equals(that.getFact());
     }
 
     @Override
     public int hashCode() {
-        int result = relationshipId.hashCode();
+        int result = getRelationshipId().hashCode();
         result = 31 * result + getTile().hashCode();
         result = 31 * result + getFact().hashCode();
         return result;

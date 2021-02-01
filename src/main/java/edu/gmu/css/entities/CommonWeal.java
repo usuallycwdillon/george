@@ -3,6 +3,7 @@ package edu.gmu.css.entities;
 import edu.gmu.css.agents.Person;
 import edu.gmu.css.relations.ProcessDisposition;
 import edu.gmu.css.service.Neo4jSessionFactory;
+import edu.gmu.css.service.PersonServiceImpl;
 import edu.gmu.css.util.MTFWrapper;
 import edu.gmu.css.worldOrder.WorldOrder;
 import org.jgrapht.Graph;
@@ -165,7 +166,14 @@ public class CommonWeal extends Entity implements Steppable {
     public boolean evaluateWarWillingness(ProcessDisposition pd) {
         // TODO: Change this from returning a random value to returning the average support for the Institution/Process
         //  after a week of deliberation. Now that the State/Polity has asked for taxes/recruits, is the common weal willing?
-        return entityPosition.get(pd.getProcess().getIssue()) > 0.333;
+        return entityPosition.get(pd.getProcess().getIssue()) > 0.40;
+    }
+
+    public Double evaluateNeedForPeace(WarParticipationFact f) {
+        War war = f.getWar();
+        Double support = random.nextDouble();
+        entityPosition.put(war, support);
+        return support;
     }
 
     public Graph<String, DefaultEdge> newGraph(Territory t) {
@@ -270,11 +278,8 @@ public class CommonWeal extends Entity implements Steppable {
     }
 
     public void loadPersonMap() {
-        Filter bp = new Filter("birthplace", ComparisonOperator.EQUALS, territory.getMapKey());
-//        Filter bp = new Filter("birthplace", ComparisonOperator.MATCHES, territory.getMapKey());
-        Collection<Person> pc = Neo4jSessionFactory.getInstance().getNeo4jSession().loadAll(Person.class, bp, 2);
-        personList = new ArrayList<>(pc);
-        personList.stream().collect(Collectors.toMap(Person::getName, a -> a));
+        personList = new ArrayList<>(new PersonServiceImpl().loadAll(territory.getMapKey()));
+        personMap = personList.stream().collect(Collectors.toMap(Person::getName, a -> a));
     }
 
 }

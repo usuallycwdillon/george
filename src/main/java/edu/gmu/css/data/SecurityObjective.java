@@ -5,12 +5,13 @@ import java.util.Map;
 import java.util.Objects;
 
 public enum SecurityObjective {
+    ACCEPT(-1),
     PUNISH(0),
     COERCE(2),
     DEFEAT(4),
     CONQUER(6),
-    RESIST(1),
-    RETALIATE(3),
+    RETALIATE(1),
+    RESIST(3),
     DEFEND(5),
     RECONQUER(7);
 
