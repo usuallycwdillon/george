@@ -2,13 +2,9 @@ package edu.gmu.css.agents;
 
 import edu.gmu.css.data.Domain;
 import edu.gmu.css.entities.Polity;
-import edu.gmu.css.entities.Institution;
 import edu.gmu.css.entities.Statehood;
-import edu.gmu.css.relations.Participation;
 import edu.gmu.css.relations.ProcessDisposition;
-import edu.gmu.css.worldOrder.WorldOrder;
 import sim.engine.SimState;
-import sim.engine.Stoppable;
 
 public class StatehoodProcess extends Process {
 

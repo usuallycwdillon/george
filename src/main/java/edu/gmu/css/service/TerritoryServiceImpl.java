@@ -1,17 +1,12 @@
 package edu.gmu.css.service;
 
 import edu.gmu.css.agents.Tile;
-import edu.gmu.css.entities.CommonWeal;
 import edu.gmu.css.entities.Territory;
 import edu.gmu.css.entities.Ungoverned;
-//import edu.gmu.css.relations.Inclusion;
 import edu.gmu.css.worldOrder.WorldOrder;
-import org.neo4j.ogm.cypher.ComparisonOperator;
-import org.neo4j.ogm.cypher.Filter;
-import org.neo4j.ogm.cypher.Filters;
 import org.neo4j.ogm.model.Result;
+
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class TerritoryServiceImpl extends GenericService<Territory> implements TerritoryService {
 
@@ -41,7 +36,6 @@ public class TerritoryServiceImpl extends GenericService<Territory> implements T
             return territory;
         }
     }
-
 
     public Map<String, Territory> loadWaterTerritories(int y) {
         int year = y;

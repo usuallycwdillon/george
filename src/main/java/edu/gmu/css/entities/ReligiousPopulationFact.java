@@ -1,6 +1,5 @@
 package edu.gmu.css.entities;
 
-import com.fasterxml.jackson.databind.annotation.JsonAppend;
 import org.neo4j.ogm.annotation.GeneratedValue;
 import org.neo4j.ogm.annotation.Id;
 import org.neo4j.ogm.annotation.Property;

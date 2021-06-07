@@ -25,6 +25,9 @@ public class DefaultWarParams {
         WAR_PARAMS.put("RISK_COERCE", 0.01);
         WAR_PARAMS.put("RISK_DEFEAT", 0.01);
         WAR_PARAMS.put("RISK_CONQUER", 0.01);
+        WAR_PARAMS.put("MARCHING_PACE", 6.0);
+        WAR_PARAMS.put("WAR_NEED_MIN", 0.10);
+        WAR_PARAMS.put("WAR_WILLING_MIN", -0.10);
     }
 
     public Map<String, Double> getWarParams() {

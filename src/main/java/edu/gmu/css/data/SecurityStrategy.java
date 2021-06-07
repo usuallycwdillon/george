@@ -1,12 +1,10 @@
 package edu.gmu.css.data;
 
 import edu.gmu.css.entities.WarParticipationFact;
-import edu.gmu.css.relations.Participation;
-import edu.gmu.css.relations.ProcessDisposition;
 import org.apache.commons.lang3.tuple.ImmutablePair;
+
 import java.util.Deque;
 import java.util.LinkedList;
-import java.util.concurrent.RecursiveTask;
 
 
 public class SecurityStrategy {

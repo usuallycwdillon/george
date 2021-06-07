@@ -15,24 +15,19 @@ public class Fact extends Entity {
     Long from;
     @Property @Convert(DateConverter.class)
     Long until;
-    @Property
-    Long during;
-    @Property
-    String name;
-    @Property
-    String subject;
-    @Property
-    String predicate;
-    @Property
-    String object;
-    @Property
-    String source;
+    @Property Long during;
+    @Property String name;
+    @Property String subject;
+    @Property String predicate;
+    @Property String object;
+    @Property String source;
+    @Property String simulationRun;
     @Transient              //  weekly cost/commitment
     Resources maintenance = new Resources.ResourceBuilder().build();
 
     @Relationship(type="CONTRIBUTES", direction = Relationship.INCOMING)
     Dataset dataset;
-    @Relationship(type="DURING", direction = Relationship.INCOMING)
+    @Relationship(type="DURING")
     Year year;
 
 
@@ -100,10 +95,6 @@ public class Fact extends Entity {
         return source;
     }
 
-    public void setDuring(Long during) {
-        this.during = during;
-    }
-
     public void setSubject(String subject) {
         this.subject = subject;
     }
@@ -131,6 +122,14 @@ public class Fact extends Entity {
         return this.year;
     }
 
+    public String getSimulationRun() {
+        return simulationRun;
+    }
+
+    public void setSimulationRun(String simulationRun) {
+        this.simulationRun = simulationRun;
+    }
+
     public void setMaintenanceCost(Resources r) {
         maintenance = new Resources.ResourceBuilder().pax(r.getPax()).treasury(r.getTreasury()).build();
     }
@@ -139,27 +138,25 @@ public class Fact extends Entity {
         return this.maintenance;
     }
 
-
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof Fact)) return false;
+        if (o == null || getClass() != o.getClass()) return false;
         if (!super.equals(o)) return false;
 
         Fact fact = (Fact) o;
 
-        if (!getId().equals(fact.getId())) return false;
-        if (!getName().equals(fact.getName())) return false;
-        if (getSubject() != null ? !getSubject().equals(fact.getSubject()) : fact.getSubject() != null) return false;
-        if (getPredicate() != null ? !getPredicate().equals(fact.getPredicate()) : fact.getPredicate() != null)
-            return false;
+        if (getId() != null ? !getId().equals(fact.getId()) : fact.getId() != null) return false;
+        if (!getSubject().equals(fact.getSubject())) return false;
+        if (!getPredicate().equals(fact.getPredicate())) return false;
         return getObject() != null ? getObject().equals(fact.getObject()) : fact.getObject() == null;
     }
 
     @Override
     public int hashCode() {
-        int result = getSubject() != null ? getSubject().hashCode() : 0;
-        result = 31 * result + (getPredicate() != null ? getPredicate().hashCode() : 0);
+        int result = getId() != null ? getId().hashCode() : 0;
+        result = 31 * result + getSubject().hashCode();
+        result = 31 * result + getPredicate().hashCode();
         result = 31 * result + (getObject() != null ? getObject().hashCode() : 0);
         return result;
     }

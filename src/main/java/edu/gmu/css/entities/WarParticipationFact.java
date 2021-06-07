@@ -1,37 +1,29 @@
 package edu.gmu.css.entities;
 
-import com.fasterxml.jackson.databind.annotation.JsonAppend;
-import edu.gmu.css.data.*;
+import edu.gmu.css.agents.Issue;
+import edu.gmu.css.data.DataTrend;
+import edu.gmu.css.data.IssueType;
+import edu.gmu.css.data.Resources;
+import edu.gmu.css.data.SecurityObjective;
 import edu.gmu.css.relations.ProcessDisposition;
 import edu.gmu.css.service.FactServiceImpl;
 import edu.gmu.css.worldOrder.WorldOrder;
-import org.apache.commons.lang3.ObjectUtils;
 import org.neo4j.ogm.annotation.*;
 
 public class WarParticipationFact extends Fact {
 
-    @Id @GeneratedValue
-    Long id;
-    @Property
-    private double magnitude;
-    @Property
-    private double concentration;
-    @Property
-    private double durationMonths;
-    @Property
-    private double maxTroops;
-    @Property
-    private double finalCost;
-    @Property
-    private int side;
-    @Transient
-    private Resources commitment;
-    @Transient
-    private Resources cost;
-    @Transient
-    private final DataTrend battleHistory = new DataTrend(10);
-    @Transient
-    private SecurityObjective goal;
+    @Id @GeneratedValue private Long id;
+    @Property private double magnitude;
+    @Property private double concentration;
+    @Property private double durationMonths;
+    @Property private double maxTroops;
+    @Property private double finalCost;
+    @Property private int side;
+    @Transient private Resources commitment;
+    @Transient private Resources cost;
+    @Transient private final DataTrend battleHistory = new DataTrend(10);
+    @Transient private SecurityObjective goal;
+    @Transient private ProcessDisposition disposition;
 
     @Relationship (type="PARTICIPATED", direction = Relationship.INCOMING)
     private Polity polity;
@@ -56,6 +48,7 @@ public class WarParticipationFact extends Fact {
         this.side = builder.side;
         this.dataset = builder.dataset;
         this.goal = builder.goal;
+        this.disposition = builder.disposition;
     }
 
     public static class FactBuilder {
@@ -73,6 +66,7 @@ public class WarParticipationFact extends Fact {
         private Resources cost = new Resources.ResourceBuilder().build();
         private int side;
         private SecurityObjective goal;
+        private ProcessDisposition disposition;
 
 
         public FactBuilder from(Long from) {
@@ -117,6 +111,7 @@ public class WarParticipationFact extends Fact {
 
         public FactBuilder polity(Polity p) {
             this.polity = p;
+            this.subject = p.getName();
             return this;
         }
 
@@ -145,11 +140,13 @@ public class WarParticipationFact extends Fact {
             return this;
         }
 
+        public FactBuilder disposition(ProcessDisposition p) {
+            this.disposition = p;
+            return this;
+        }
+
         public WarParticipationFact build() {
-            WarParticipationFact wpf = new WarParticipationFact(this);
-            wpf.getWar().addParticipation(wpf);
-            wpf.getPolity().addWarParticipationFact(wpf);
-            return wpf;
+            return new WarParticipationFact(this);
         }
 
     }
@@ -230,6 +227,10 @@ public class WarParticipationFact extends Fact {
         this.durationMonths = durationMonths;
     }
 
+    public ProcessDisposition getDisposition() {
+        return disposition;
+    }
+
     public SecurityObjective getGoal() {
         return goal;
     }
@@ -254,6 +255,8 @@ public class WarParticipationFact extends Fact {
     public void tallyLosses(double l, boolean w, WorldOrder wo) {
         WorldOrder worldOrder = wo;
         double pLoss = l;
+        double lossRatio = l / commitment.getPax();
+        double forceRatio = l / polity.getMilitaryStrategy().getPax();
         double tLoss = commitment.getCostPerPax() * pLoss;
         boolean winner = w;
         if (winner) {
@@ -266,16 +269,14 @@ public class WarParticipationFact extends Fact {
         cost.increaseBy(loss);
         polity.getSecurityStrategy().addSupplemental(this, loss);
         magnitude += pLoss;
-        if (commitment.getPax() < 0) {
-            // TODO: implement consequences for losing the war; for now, just end it.
-            war.conclude(worldOrder);
-            polity.surrender(this, worldOrder);
+        if (lossRatio > 0.333 || forceRatio > 0.50 || commitment.getTreasury() <= 0.0) {
+            polity.surrender(disposition, worldOrder);
         }
         // If there isn't already a peace process for this war, the pd is null
         ProcessDisposition pd = polity.getProcessList().stream()
                 .filter(d -> war.equals(d.getSubject()))
                 .findAny().orElse(null);
-        if (pLoss * 2 > commitment.getPax() || !winner) {
+        if (pLoss * 8 > commitment.getPax() || !winner) {
             if (pd == null) {
                 createPeaceIssue(worldOrder);
             } else {
@@ -298,7 +299,7 @@ public class WarParticipationFact extends Fact {
                 }
             }
         }
-        Issue peace = new Issue.IssueBuilder().from(wo.getStepNumber()).instigator(polity).target(opponent)
+        Issue peace = new Issue.IssueBuilder().from(wo.getStepNumber()).claimant(polity).target(opponent)
                 .issueType(IssueType.PEACE).duration(2).cause(war).build();
         peace.setStopper(worldOrder.schedule.scheduleRepeating(peace));
     }

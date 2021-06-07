@@ -2,12 +2,10 @@ package edu.gmu.css.agents;
 
 import edu.gmu.css.data.Domain;
 import edu.gmu.css.entities.Alliance;
-import edu.gmu.css.entities.AllianceParticipationFact;
 import edu.gmu.css.entities.Polity;
 import edu.gmu.css.relations.ProcessDisposition;
 import edu.gmu.css.worldOrder.WorldOrder;
 import sim.engine.SimState;
-import sim.engine.Stoppable;
 
 public class AllianceProcess extends Process {
 
@@ -22,6 +20,7 @@ public class AllianceProcess extends Process {
 
 
     public void stop() {
+        if (issue != null) issue.setProcess(null);
         for (ProcessDisposition p : processParticipantLinks) {
             p.getOwner().getProcessList().remove(this);
         }
@@ -37,7 +36,6 @@ public class AllianceProcess extends Process {
     public void step(SimState simState) {
         WorldOrder worldOrder = (WorldOrder) simState;
         int count = 0;
-
         int statusSum = 0;
         for (int i : status) {
             statusSum = +i;
@@ -84,19 +82,21 @@ public class AllianceProcess extends Process {
     }
 
 
-    public Alliance createAlliance(WorldOrder wo) {
-        WorldOrder worldOrder = wo;
-        Stoppable stoppable;
-        ended = worldOrder.getStepNumber();
-        alliance = new Alliance(this);
-        for (ProcessDisposition d : processParticipantLinks) {
-            AllianceParticipationFact p = new AllianceParticipationFact.FactBuilder().build();
-            alliance.addParticipations(p);
-            d.getOwner().addAllianceParticipationFact(p);
-        }
-        stoppable = worldOrder.schedule.scheduleRepeating(alliance);
-        alliance.setStopper(stoppable);
-        return alliance;
-    }
+//    public Alliance createAlliance(WorldOrder wo) {
+//        WorldOrder worldOrder = wo;
+//        Stoppable stoppable;
+//        ended = worldOrder.getStepNumber();
+//        alliance = new Alliance(this);
+//        alliance.setStrength(0.50);
+//        for (ProcessDisposition d : processParticipantLinks) {
+//            AllianceParticipationFact p = new AllianceParticipationFact.FactBuilder().build();
+//            alliance.addParticipations(p);
+//            d.getOwner().addAllianceParticipationFact(p);
+//        }
+//        stoppable = worldOrder.schedule.scheduleRepeating(alliance);
+//        alliance.setStopper(stoppable);
+//        wo.allTheInstitutions.add(alliance);
+//        return alliance;
+//    }
 
 }

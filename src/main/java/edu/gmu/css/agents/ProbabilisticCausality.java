@@ -1,17 +1,22 @@
-package edu.gmu.css.entities;
+package edu.gmu.css.agents;
 
 import ec.util.MersenneTwisterFast;
-import edu.gmu.css.data.Issue;
 import edu.gmu.css.data.IssueType;
-import edu.gmu.css.queries.StateQueries;
-import edu.gmu.css.service.StateServiceImpl;
+import edu.gmu.css.entities.ClaimFact;
+import edu.gmu.css.entities.Polity;
+import edu.gmu.css.entities.State;
+import edu.gmu.css.service.ClaimFactServiceImpl;
+import edu.gmu.css.service.ThreatNetworkServiceImpl;
 import edu.gmu.css.worldOrder.WorldOrder;
 import sim.engine.SimState;
 import sim.engine.Steppable;
 import sim.engine.Stoppable;
 import sim.util.distribution.Poisson;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 public class ProbabilisticCausality implements Steppable, Stoppable {
 
@@ -34,22 +39,55 @@ public class ProbabilisticCausality implements Steppable, Stoppable {
         this.updateDistribution(worldOrder);
         int freq = poisson.nextInt();
         if (freq > 0) {
+            Map<String, State> theStates = worldOrder.getAllTheStates();
+            List<String> cowCodes = new ArrayList<>();
+            for (String s : theStates.keySet()) {
+                cowCodes.add(s);
+            }
             for (int f=0; f<freq; f++) {
                 int numStates = worldOrder.getAllTheStates().size();
-                int instigator = worldOrder.random.nextInt(numStates);
+                if (numStates <= 0) break;
+                String instigator = cowCodes.get(worldOrder.random.nextInt(numStates));
                 State p = worldOrder.getAllTheStates().get(instigator);
-                List<State> potentialTargets = new StateServiceImpl().getRiskyNeighbors(p.getId(), worldOrder.getFromYear());
-                int numPotentials = potentialTargets.size();
-                if (numPotentials > 0) {
-                    State t = potentialTargets.get(random.nextInt(numPotentials));
-                    if (p != t) {
-                        int d = random.nextInt(870);
-                        Issue i = new Issue.IssueBuilder().instigator(p).duration(d).target(t).issueType(pickIssueType(p,t)).build();
-                        i.setStopper(worldOrder.schedule.scheduleRepeating(i));
+//                List<String> potentialTargets = new ThreatNetworkServiceImpl().getRiskyNeighbors(p.getId(), worldOrder.getFromYear());
+                List<String> potentialTargets = new ThreatNetworkServiceImpl()
+                        .getAnyNeighbor(p.getId(), worldOrder.getFromYear());
+                State t = this.pickRandomState(worldOrder, p, potentialTargets);
+                if (p != t) {
+                    int d = random.nextInt(870);
+                    Long stepNo = worldOrder.getWeekNumber();
+                    Issue i = new Issue.IssueBuilder().claimant(p).duration(d).target(t)
+                            .issueType(pickIssueType(p,t)).from(stepNo).build();
+                    i.setStopper(worldOrder.schedule.scheduleRepeating(i));
+                    ClaimFact cf = new ClaimFact.FactBuilder().claimant(p).target(t).issue(i)
+                            .from(stepNo).until(stepNo + d).dataset(worldOrder.getModelRun()).build();
+                    i.setFact(cf);
+                    if (WorldOrder.RECORDING) {
+                        new ClaimFactServiceImpl().createOrUpdate(cf);
                     }
                 }
             }
         }
+    }
+
+    private State pickRandomState(WorldOrder wo, State a, List<String> p) {
+        WorldOrder worldOrder = wo;
+        State claimant = a;
+        State target;
+        List<String> potentialTargets = p;
+        int numPotentials = potentialTargets.size();
+        int e = 0;
+        if (numPotentials > 0) {
+            target = worldOrder.getAllTheStates().get(potentialTargets.get(random.nextInt(numPotentials)));
+            if (Objects.isNull(target) || claimant.equals(target)) {
+                target = pickRandomState(worldOrder, claimant, potentialTargets);
+                e++;
+                if (e > 4) return claimant;
+            }
+        } else {
+            target = claimant;
+        }
+        return target;
     }
 
     // Improved algorithm for conflict issues begat by this Causality agent

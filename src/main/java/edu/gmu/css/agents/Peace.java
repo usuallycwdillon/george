@@ -1,11 +1,13 @@
-package edu.gmu.css.entities;
+package edu.gmu.css.agents;
 
+import edu.gmu.css.agents.Process;
+import edu.gmu.css.data.Domain;
 import edu.gmu.css.data.Resources;
-import edu.gmu.css.relations.Participation;
+import edu.gmu.css.entities.Institution;
+import edu.gmu.css.entities.PeaceFact;
 import edu.gmu.css.worldOrder.WorldOrder;
 import org.neo4j.ogm.annotation.Relationship;
 import sim.engine.SimState;
-import edu.gmu.css.agents.Process;
 
 import java.util.LinkedList;
 import java.util.List;
@@ -16,6 +18,9 @@ public class Peace extends Institution {
     private final List<PeaceFact> participations = new LinkedList<>();
 
     public Peace() {
+        name = "Peace";
+        domain = Domain.PEACE;
+        cost = new Resources.ResourceBuilder().build();
     }
 
     public Peace(Process p, long s) {
@@ -23,6 +28,7 @@ public class Peace extends Institution {
         from = s;
         cause = p;
         cost = new Resources.ResourceBuilder().build();
+        domain = Domain.PEACE;
     }
 
     @Override

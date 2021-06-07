@@ -3,7 +3,6 @@ package edu.gmu.css.service;
 
 import edu.gmu.css.entities.Entity;
 import org.neo4j.ogm.session.Session;
-import edu.gmu.css.service.Neo4jSessionFactory;
 
 
 public abstract class GenericService<T extends Entity> implements Service<T> {

@@ -1,6 +1,5 @@
 package edu.gmu.css.entities;
 
-import org.neo4j.cypher.internal.v3_4.expressions.Or;
 import org.neo4j.ogm.annotation.GeneratedValue;
 import org.neo4j.ogm.annotation.Id;
 import org.neo4j.ogm.annotation.Relationship;
@@ -22,7 +21,7 @@ public class IgoFact extends Fact {
         this.from = builder.from;
         this.until = builder.until;
         this.igo = builder.igo;
-        this.subject = igo.getName();
+        this.subject = builder.subject;
         this.predicate = "FORMED";
         this.object = builder.object;
         this.name = builder.name;
@@ -83,6 +82,7 @@ public class IgoFact extends Fact {
 
         public FactBuilder igo(Organization o) {
             this.igo = o;
+            this.igo.getName();
             return this;
         }
 

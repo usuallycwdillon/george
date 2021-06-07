@@ -1,23 +1,16 @@
 package edu.gmu.css.entities;
 
-import ec.util.MersenneTwisterFast;
+import edu.gmu.css.agents.Issue;
 import edu.gmu.css.agents.Process;
 import edu.gmu.css.data.Domain;
-import edu.gmu.css.data.Issue;
 import edu.gmu.css.data.Resources;
-import edu.gmu.css.relations.InstitutionParticipation;
-import edu.gmu.css.relations.Participation;
-import edu.gmu.css.relations.ProcessDisposition;
+import edu.gmu.css.service.DateConverter;
 import edu.gmu.css.worldOrder.WorldOrder;
 import org.neo4j.ogm.annotation.*;
+import org.neo4j.ogm.annotation.typeconversion.Convert;
 import sim.engine.SimState;
 import sim.engine.Steppable;
 import sim.engine.Stoppable;
-
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
 
 @NodeEntity
 public abstract class Institution extends Entity implements Steppable, Stoppable {
@@ -26,9 +19,9 @@ public abstract class Institution extends Entity implements Steppable, Stoppable
      */
     @Id @GeneratedValue
     protected Long id;
-    @Property
+    @Convert(DateConverter.class)
     protected Long from;        // from or began
-    @Property
+    @Convert(DateConverter.class)
     protected Long until;       // until or ended
     @Property
     protected double value;     // magnitude, etc. a cumulative/total measure; may be overridden to int
@@ -55,10 +48,13 @@ public abstract class Institution extends Entity implements Steppable, Stoppable
     @Transient
     protected Resources cost;
 
+
     @Relationship
     protected Process process;          // The process that created this institution
     @Relationship
     protected Organization organization; // Only used if this institution spawned an organization
+
+
 
     public Institution() {
     }
@@ -148,6 +144,13 @@ public abstract class Institution extends Entity implements Steppable, Stoppable
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public String getDomainName() {
+        if (this.domain == null && WorldOrder.DEBUG) {
+            System.out.println("Why doesn't this institution have a domain name?");
+        }
+        return this.domain.value;
     }
 
     public Resources getMaintenance() {

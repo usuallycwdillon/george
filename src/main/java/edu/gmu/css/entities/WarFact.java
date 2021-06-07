@@ -1,6 +1,5 @@
 package edu.gmu.css.entities;
 
-import edu.gmu.css.data.Resources;
 import org.neo4j.ogm.annotation.GeneratedValue;
 import org.neo4j.ogm.annotation.Id;
 import org.neo4j.ogm.annotation.Property;
@@ -8,22 +7,14 @@ import org.neo4j.ogm.annotation.Relationship;
 
 public class WarFact extends Fact {
 
-    @Id
-    @GeneratedValue
-    Long id;
-    @Property
-    private double magnitude;
-    @Property
-    private double concentration;
-    @Property
-    private double durationMonths;
-    @Property
-    private double maxTroops;
-    @Property
-    private double finalCost;
-    @Property
-    private String name;
-
+    @Id @GeneratedValue Long id;
+    @Property private double magnitude;
+    @Property private double concentration;
+    @Property private double durationMonths;
+    @Property private double maxTroops;
+    @Property private int extent;
+    @Property private double finalCost;
+    @Property private char fiat;
 
     @Relationship (type = "IS_WAR", direction = Relationship.INCOMING)
     War war;
@@ -32,6 +23,7 @@ public class WarFact extends Fact {
     public WarFact() {
 
     }
+
 
     public WarFact(FactBuilder builder) {
         this.from = builder.from;
@@ -43,6 +35,10 @@ public class WarFact extends Fact {
         this.name = builder.name;
         this.source = builder.source;
         this.dataset = builder.dataset;
+        this.finalCost = builder.finalCost;
+        this.magnitude = builder.magnitude;
+        this.fiat = builder.fiat;
+
     }
 
     public static class FactBuilder {
@@ -55,6 +51,9 @@ public class WarFact extends Fact {
         private String object = "Simulated Inter-state Wars List";
         private String source = "GEORGE_";
         private Dataset dataset;
+        private double finalCost;
+        private double magnitude;
+        private char fiat;
 
         public FactBuilder from(Long from) {
             this.from = from;
@@ -96,8 +95,27 @@ public class WarFact extends Fact {
             return this;
         }
 
+        public FactBuilder fiat(char s) {
+            this.fiat = s;
+            return this;
+        }
+
+        public String getPredicate() {
+            return predicate;
+        }
+
         public FactBuilder war(War w) {
             this.war = w;
+            return this;
+        }
+
+        public FactBuilder finalCost(double d) {
+            this.finalCost = d;
+            return this;
+        }
+
+        public FactBuilder magnitude(double d) {
+            this.magnitude = d;
             return this;
         }
 
@@ -121,6 +139,61 @@ public class WarFact extends Fact {
         return this.war;
     }
 
+    public double getMagnitude() {
+        return magnitude;
+    }
+
+    public void setMagnitude(double magnitude) {
+        this.magnitude = magnitude;
+    }
+
+    public double getConcentration() {
+        return concentration;
+    }
+
+    public void setConcentration(double concentration) {
+        this.concentration = concentration;
+    }
+
+    public double getDurationMonths() {
+        return durationMonths;
+    }
+
+    public void setDurationMonths(double durationMonths) {
+        this.durationMonths = durationMonths;
+    }
+
+    public double getMaxTroops() {
+        return maxTroops;
+    }
+
+    public void setMaxTroops(double maxTroops) {
+        this.maxTroops = maxTroops;
+    }
+
+    public int getExtent() {
+        return extent;
+    }
+
+    public void setExtent(int extent) {
+        this.extent = extent;
+    }
+
+    public double getFinalCost() {
+        return finalCost;
+    }
+
+    public void setFinalCost(double finalCost) {
+        this.finalCost = finalCost;
+    }
+
+    public char getFiat() {
+        return fiat;
+    }
+
+    public void setFiat(char fiat) {
+        this.fiat = fiat;
+    }
 
     @Override
     public boolean equals(Object o) {

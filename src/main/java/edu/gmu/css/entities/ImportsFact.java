@@ -4,7 +4,6 @@ import org.neo4j.ogm.annotation.GeneratedValue;
 import org.neo4j.ogm.annotation.Id;
 import org.neo4j.ogm.annotation.Property;
 import org.neo4j.ogm.annotation.Relationship;
-import scala.reflect.internal.Trees;
 
 public class ImportsFact extends Fact {
 
@@ -30,7 +29,7 @@ public class ImportsFact extends Fact {
         this.from = builder.from;
         this.until = builder.until;
         this.polity = builder.polity;
-        this.subject = polity.getName();
+        this.subject = builder.subject;
         this.predicate = "IMPORTS";
         this.object = builder.object;
         this.value = builder.value;
@@ -98,6 +97,7 @@ public class ImportsFact extends Fact {
 
         public FactBuilder polity(Polity p) {
             this.polity = p;
+            this.subject = polity.getName();
             return this;
         }
 

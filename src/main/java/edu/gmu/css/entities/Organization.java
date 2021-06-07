@@ -1,6 +1,5 @@
 package edu.gmu.css.entities;
 
-import com.sun.org.apache.xpath.internal.operations.Bool;
 import edu.gmu.css.service.DateConverter;
 import org.neo4j.ogm.annotation.*;
 import org.neo4j.ogm.annotation.typeconversion.Convert;
@@ -8,7 +7,7 @@ import org.neo4j.ogm.annotation.typeconversion.Convert;
 import java.util.List;
 
 @NodeEntity
-public class Organization extends Institution {
+public class Organization {
     /**
      *
      */
@@ -48,7 +47,7 @@ public class Organization extends Institution {
 
     }
 
-    @Override
+
     public Long getId() {
         return id;
     }

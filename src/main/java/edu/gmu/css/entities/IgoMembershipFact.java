@@ -31,9 +31,9 @@ public class IgoMembershipFact extends Fact {
         this.until = builder.until;
         this.igo = builder.igo;
         this.polity = builder.polity;
-        this.subject = polity.getName();
+        this.subject = builder.subject;
         this.predicate = "FORMED";
-        this.object = igo.getName();
+        this.object = builder.object;
         this.name = builder.name;
         this.source = builder.source;
         this.dataset = builder.dataset;
@@ -93,11 +93,13 @@ public class IgoMembershipFact extends Fact {
 
         public FactBuilder igo(Organization o) {
             this.igo = o;
+            this.object = igo.getName();
             return this;
         }
 
         public FactBuilder polity(Polity p) {
             this.polity = p;
+            this.subject = polity.getName();
             return this;
         }
 
@@ -130,10 +132,6 @@ public class IgoMembershipFact extends Fact {
     }
 
     public Organization getIgo() {
-        return igo;
-    }
-
-    public Institution getInsitution() {
         return igo;
     }
 

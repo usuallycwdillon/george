@@ -1,10 +1,8 @@
-package edu.gmu.css.entities;
+package edu.gmu.css.agents;
 
-import edu.gmu.css.agents.Leadership;
-import edu.gmu.css.agents.Person;
+import edu.gmu.css.entities.*;
 import edu.gmu.css.relations.ProcessDisposition;
 import edu.gmu.css.service.LeadershipServiceImpl;
-import edu.gmu.css.service.Neo4jSessionFactory;
 import edu.gmu.css.service.PersonServiceImpl;
 import edu.gmu.css.util.MTFWrapper;
 import edu.gmu.css.worldOrder.WorldOrder;
@@ -17,12 +15,9 @@ import org.jgrapht.graph.DefaultEdge;
 import org.jgrapht.graph.SimpleGraph;
 import org.jgrapht.util.SupplierUtil;
 import org.neo4j.ogm.annotation.*;
-import org.neo4j.ogm.cypher.ComparisonOperator;
-import org.neo4j.ogm.cypher.Filter;
 import sim.engine.SimState;
 import sim.engine.Steppable;
 
-import java.nio.file.attribute.FileAttribute;
 import java.util.*;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -53,10 +48,9 @@ public class CommonWeal extends Entity implements Steppable {
     @Relationship(type="REPRESENTS_POPULATION")
     private Territory territory;
     @Relationship(type="RESIDES_IN", direction = Relationship.INCOMING)
-    private List<Person> personList;
+    private List<Person> personList = new ArrayList<>();
     @Relationship(type="LEADERSHIP_FROM", direction = Relationship.INCOMING)
     private Leadership leadership;
-//    @Relationship(type="COMPUTED", direction = Relationship.INCOMING)
     @Transient
     private Map<String, Person> personMap;
 
@@ -89,6 +83,135 @@ public class CommonWeal extends Entity implements Steppable {
         }
     }
 
+    @PostLoad
+    public void getPeople() {
+        this.personList.addAll(new PersonServiceImpl().loadAll(name.split("of ",2)[1]));
+        this.personList.stream().forEach(p -> p.setCommonWeal(this) );
+        this.leadership = new LeadershipServiceImpl().getCommonWealLeadership(this);
+        this.loadPersonMap();
+    }
+
+
+    @Override
+    public void step(SimState simState) {
+
+    }
+
+    public Double evaluateWarNeed(Entity e) {
+        // TODO: Change this from returning a random value to the average support after a week of public deliberation.
+        //  The common weal basically asks: can we afford this issue (in people or resources)?
+        Double support = random.nextDouble();
+        entityPosition.put(e, support);
+        return support;
+    }
+
+    public boolean evaluateWarWillingness(ProcessDisposition pd) {
+        // TODO: Change this from returning a random value to returning the average support for the Institution/Process
+        //  after a week of deliberation. Now that the State/Polity has asked for taxes/recruits, is the common weal willing?
+        return entityPosition.get(pd.getProcess().getIssue()) > 0.40;
+    }
+
+    public Double evaluateNeedForPeace(WarParticipationFact f) {
+        War war = f.getWar();
+        Double support = random.nextDouble();
+        entityPosition.put(war, support);
+        return support;
+    }
+
+    public void addIssue(Issue i, WorldOrder wo) {
+        Issue issue = i;
+        WorldOrder worldOrder = wo;
+        double neutral = (territory.getSatisfaction() / 2.0) + 0.17; // between 17-67% pop is ambivalent
+        double pro = ((1.0 - neutral) * (worldOrder.random.nextDouble() / 2.0) ) + neutral;
+        double o;
+        for (Person p : personMap.values()) {
+            if (p.isLeadershipRole()) {
+                o = leadership.takeInformedRandomOpinion(issue, worldOrder);
+            } else {
+                o = worldOrder.random.nextDouble();
+            }
+            if (o > pro) {
+                p.addIssue(issue,1);
+            } else if (o < neutral) {
+                p.addIssue(issue,-1);
+            } else {
+                p.addIssue(issue,0);
+            }
+        }
+        this.socialize(issue, worldOrder);
+        entityPosition.put(issue, getAvgSupport(issue));
+    }
+
+    public double getAvgSupport(Entity e) {
+        Entity i = e;
+        String name;
+        double tally = 0.0;
+        for (Person p : personMap.values()) {
+            tally += p.getIssueOpinion(i);
+        }
+        if (i.getClass().equals(Issue.class)) {
+            name = ((Issue) i).getFact().getName();
+        } else {
+            name = "unk cause";
+        }
+
+        double avg = tally / personList.size();
+//        if(DEBUG) {
+//            long pros = personMap.values().stream().filter(p -> p.getIssueOpinion(i)==1).count();
+//            long cons = personMap.values().stream().filter(person -> person.getIssueOpinion(i).equals(-1)).count();
+//            long neuts = personMap.values().stream().filter(person -> person.getIssueOpinion(i).equals(0)).count();
+//            System.out.println("issue: " + name + ":: pros: " + pros + "; cons: " + cons +
+//                    "; neuts: " + neuts + " -- average " + avg);
+//        }
+        return avg;
+    }
+
+    public void socialize(Entity e, WorldOrder wo) {
+        Entity entity = e;
+        WorldOrder worldOrder = wo;
+        double openness = worldOrder.random.nextDouble();
+        if (entityPosition.containsKey(entity)) {
+            for (int i=0;i<7;i++) {
+                for (Person p : personMap.values()) {
+                    p.shareOpinion(entity, worldOrder);
+                }
+            }
+        }
+        entityPosition.put(entity, getAvgSupport(entity));
+    }
+
+//    public void shareOpinion() {
+//        for (Map.Entry<Entity, Double> entry : entityPosition.entrySet()) {
+//            Entity e = entry.getKey();
+//            for (int days=0; days<7;days++) {
+//                for (Person p : personMap.values()) {
+//                    int po = p.getIssueOpinion(e);
+//                    double r = random.nextDouble();
+//                    if (r < rebel) {
+//                        int neighborhood = 0;
+//                        for (String v : inspector.connectedSetOf(p.getName())) {
+//                            Person target = personMap.get(v);
+//                            // TODO mitigate opinion sharing to leaders when democracy score is low
+//                            int to = target.getIssueOpinion(e);
+//                            neighborhood += to;
+//                        }
+//                        if (po < 0 && neighborhood > 0) {
+//                            p.setIssueOpinion(e, 0);
+//                        } else if (po == 0 && neighborhood < 0) {
+//                            p.setIssueOpinion(e, -1);
+//                        } else if (po == 0 && neighborhood > 0) {
+//                            p.setIssueOpinion(e, 1);
+//                        } else if (po > 0 && neighborhood < 0) {
+//                            p.setIssueOpinion(e, 0);
+//                        }
+//                        // otherwise, things stay the same
+//                    }
+//                }
+//            }
+//            entry.setValue(getAvgSupport(e));
+//        }
+//    }
+
     @Override
     public Long getId() {
         return id;
@@ -108,7 +231,7 @@ public class CommonWeal extends Entity implements Steppable {
     }
 
     public Map<String, Person> findLeaders() {
-       Map<String, Person> leaderMap = new HashMap<>();
+        Map<String, Person> leaderMap = new HashMap<>();
         for (Person p : personList) {
             if(p.isLeadershipRole()) leaderMap.put(p.getName(), p);
         }
@@ -179,31 +302,6 @@ public class CommonWeal extends Entity implements Steppable {
         this.territory = territory;
     }
 
-    public void step(SimState simState) {
-
-    }
-
-    public Double evaluateWarNeed(Entity e) {
-        // TODO: Change this from returning a random value to the average support after a week of public deliberation.
-        //  The common weal basically asks: can weFfind afford this issue (in people or resources)?
-        Double support = random.nextDouble();
-        entityPosition.put(e, support);
-        return support;
-    }
-
-    public boolean evaluateWarWillingness(ProcessDisposition pd) {
-        // TODO: Change this from returning a random value to returning the average support for the Institution/Process
-        //  after a week of deliberation. Now that the State/Polity has asked for taxes/recruits, is the common weal willing?
-        return entityPosition.get(pd.getProcess().getIssue()) > 0.40;
-    }
-
-    public Double evaluateNeedForPeace(WarParticipationFact f) {
-        War war = f.getWar();
-        Double support = random.nextDouble();
-        entityPosition.put(war, support);
-        return support;
-    }
-
     public Graph<String, DefaultEdge> newGraph(Territory t) {
         Graph<String, DefaultEdge> localGraph = new SimpleGraph<>(
                 vSupplier, SupplierUtil.createDefaultEdgeSupplier(), false);
@@ -211,7 +309,7 @@ public class CommonWeal extends Entity implements Steppable {
         return localGraph;
     }
 
-      public void calculateBetweenness() {
+    public void calculateBetweenness() {
         BetweennessCentrality<String, DefaultEdge> bc = new BetweennessCentrality<>(graph);
         Map<String, Double> betweennessScores = bc.getScores();
         for (Map.Entry<String, Double> e : betweennessScores.entrySet()) {
@@ -249,23 +347,12 @@ public class CommonWeal extends Entity implements Steppable {
         p.getLeadership().setLeaders(leaders);
     }
 
-    public void addIssue(Entity e, double d) {
-        // TODO: make this dependent on person's territorial economic history for costs and population growth for wars
-        double neutral = ((1.0 - d) * 0.5) + d;
-        entityPosition.put(e, d);
-
-        for (Person p : personMap.values()) {
-            double r = random.nextDouble();
-            if (r < d) {
-                p.addIssue(e,1);
-            } else if (r < neutral) {
-                p.addIssue(e,0);
-            } else {
-                p.addIssue(e,-1);
-            }
+    public void loadPersonMap() {
+        if(personList == null || personList.size() == 0) {
+            this.personList = new ArrayList<>(new PersonServiceImpl().loadAll(territory.getMapKey()));
         }
+        personMap = personList.stream().collect(Collectors.toMap(Person::getName, a -> a));
     }
-
 
     public static <K, V extends Comparable<? super V>> Map<K, V> sortByValue(Map<K, V> map, int n) {
         List<Map.Entry<K, V>> list = new ArrayList<>(map.entrySet());
@@ -278,60 +365,6 @@ public class CommonWeal extends Entity implements Steppable {
         return result;
     }
 
-    public double getAvgSupport(Entity e) {
-        double tally = 0.0;
-        for (Person p : personMap.values()) {
-            tally += p.getIssueOpinion(e);
-        }
-        double avg = tally / personList.size();
-//        long pros = personMap.values().stream().filter(p -> p.getIssueOpinion(i)==1).count();
-//        long cons = personMap.values().stream().filter(person -> person.getIssueOpinion(i).equals(-1)).count();
-//        long neuts = personMap.values().stream().filter(person -> person.getIssueOpinion(i).equals(0)).count();
-//        System.out.println("Tile: " + name + ", issue: " + i.getId() + ":: pros: " + pros + "; cons: " + cons + "; neuts: " +
-//                neuts + " -- average " + avg);
-        return avg;
-    }
-
-    public void shareOpinion() {
-        for (Map.Entry<Entity, Double> entry : entityPosition.entrySet()) {
-            Entity e = entry.getKey();
-            for (int days=0; days<7;days++) {
-                for (Person p : personMap.values()) {
-                    int po = p.getIssueOpinion(e);
-                    double r = random.nextDouble();
-                    if (r < rebel) {
-                        int neighborhood = 0;
-                        for (String v : inspector.connectedSetOf(p.getName())) {
-                            Person target = personMap.get(v);
-                            // TODO mitigate opinion sharing to leaders when democracy score is low
-                            int to = target.getIssueOpinion(e);
-                            neighborhood += to;
-                        }
-                        if (po < 0 && neighborhood > 0) {
-                            p.setIssueOpinion(e, 0);
-                        } else if (po == 0 && neighborhood < 0) {
-                            p.setIssueOpinion(e, -1);
-                        } else if (po == 0 && neighborhood > 0) {
-                            p.setIssueOpinion(e, 1);
-                        } else if (po > 0 && neighborhood < 0) {
-                            p.setIssueOpinion(e, 0);
-                        }
-                        // otherwise, things stay the same
-                    }
-                }
-            }
-            entry.setValue(getAvgSupport(e));
-        }
-    }
-
-    public void loadPersonMap() {
-        if(personList.equals(null) || personList.size() == 0) {
-            this.personList = new ArrayList<>(new PersonServiceImpl().loadAll(territory.getMapKey()));
-        }
-        personMap = personList.stream().collect(Collectors.toMap(Person::getName, a -> a));
-        Map<String, Person> leaders = findLeaders();
-        leadership.setLeaders(leaders);
-    }
 
     @Override
     public boolean equals(Object o) {

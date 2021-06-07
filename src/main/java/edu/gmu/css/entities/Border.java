@@ -1,11 +1,11 @@
 package edu.gmu.css.entities;
 
 import edu.gmu.css.agents.Process;
+import edu.gmu.css.data.Domain;
 import edu.gmu.css.data.Resources;
 import edu.gmu.css.service.DateConverter;
 import org.neo4j.ogm.annotation.*;
 import org.neo4j.ogm.annotation.typeconversion.Convert;
-import sim.engine.SimState;
 
 import java.util.Set;
 
@@ -36,6 +36,7 @@ public class Border extends Institution {
     // only for the OGM, don't use this otherwise
     public Border() {
         name = "Border";
+        domain = Domain.BORDER;
     }
 
     public Border(Process proc, long s) {
@@ -43,6 +44,7 @@ public class Border extends Institution {
         from = s;
         name = "Border";
         cost = new Resources.ResourceBuilder().build();
+        domain = Domain.BORDER;
     }
 
     private Border(BorderBuilder builder) {
@@ -51,6 +53,7 @@ public class Border extends Institution {
         this.from = builder.from;
         this.until = builder.until;
         this.maintenance = builder.maintenance;
+        this.domain = Domain.BORDER;
     }
 
 

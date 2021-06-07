@@ -1,6 +1,7 @@
-package edu.gmu.css.data;
+package edu.gmu.css.agents;
 
-import edu.gmu.css.agents.Process;
+import edu.gmu.css.data.IssueType;
+import edu.gmu.css.data.Resources;
 import edu.gmu.css.entities.*;
 import edu.gmu.css.worldOrder.WorldOrder;
 import sim.engine.SimState;
@@ -9,6 +10,7 @@ import sim.engine.Stoppable;
 
 public class Issue extends Entity implements Steppable, Stoppable {
 
+    private String claimType;
     private Territory territory;
     private Resources resources;
     private Institution institution;
@@ -17,10 +19,12 @@ public class Issue extends Entity implements Steppable, Stoppable {
     private Integer duration;
     private Long from;
     private Polity target;
-    private Polity instigator;
+    private Polity claimant;
     private IssueType issueType;
     private Stoppable stopper;
     private boolean stopped;
+    private boolean resolved;
+    private ClaimFact fact;
 
 
     private Issue() {
@@ -35,8 +39,9 @@ public class Issue extends Entity implements Steppable, Stoppable {
         this.from = builder.from;
         this.target = builder.target;
         this.territory = builder.territory;
-        this.instigator = builder.instigator;
+        this.claimant = builder.claimant;
         this.issueType = builder.issueType;
+        this.fact = builder.fact;
     }
 
     public static class IssueBuilder {
@@ -47,8 +52,9 @@ public class Issue extends Entity implements Steppable, Stoppable {
         private Integer duration;
         private Long from;
         private Polity target;
-        private Polity instigator;
+        private Polity claimant;
         private IssueType issueType;
+        private ClaimFact fact;
         private Resources resources = new Resources.ResourceBuilder().build();
 
         public IssueBuilder() {
@@ -100,8 +106,13 @@ public class Issue extends Entity implements Steppable, Stoppable {
             return this;
         }
 
-        public IssueBuilder instigator(Polity p) {
-            this.instigator = p;
+        public IssueBuilder claimant(Polity p) {
+            this.claimant = p;
+            return this;
+        }
+
+        public IssueBuilder fact(ClaimFact f) {
+            this.fact = f;
             return this;
         }
 
@@ -116,36 +127,31 @@ public class Issue extends Entity implements Steppable, Stoppable {
         WorldOrder worldOrder = (WorldOrder) simState;
         /*
          *  Always decrement steps remaining.
-         *  If there is not a process ongoing, ask instigator to evaluateWarNeed, which may create one.
+         *  If there is not a process ongoing, ask claimant/instigator to evaluateWarNeed, which may create one.
          *  If there is a process and time runs out, inform it that this Issue no longer persists then self-destruct;
          *  otherwise, there's nothing else to do.
          */
         if (!stopped) {
             duration -= 1;
-            if(WorldOrder.DEBUG && instigator==null) {
-                System.out.println("How is the instigator null?");
-            }
-            if(WorldOrder.DEBUG && this==null) {
-                System.out.println("How can this be null if it's stepping?");
-            }
-
             if (process == null && (
                     issueType==IssueType.ALLIANCE_ANTI ||
                     issueType==IssueType.POLICY_ANTI ||
                     issueType==IssueType.TERRITORY_ANTI ||
-                    issueType==IssueType.TRADE_ANTI
-                ) ) {
-                instigator.evaluateWarNeed(worldOrder, this);
+                    issueType==IssueType.TRADE_ANTI ||
+                    issueType==IssueType.REGIME
+                )
+            ) {
+                claimant.resolveIssue(worldOrder, this);
             } else if (process == null && issueType==IssueType.ALLIANCE_PRO) {
-                instigator.evaluateAllianceNeed(worldOrder, this);
+                claimant.evaluateAllianceNeed(worldOrder, this);
             } else if (process == null && issueType==IssueType.POLICY_PRO) {
-                instigator.evaluateForeignPolicyNeed(worldOrder, this);
+                claimant.evaluateForeignPolicyNeed(worldOrder, this);
             } else if (process == null && issueType==IssueType.TERRITORY_PRO) {
-                instigator.evaluateBorderAgreementNeed(worldOrder, this);
+                claimant.evaluateBorderAgreementNeed(worldOrder, this);
             } else if (process == null && issueType==IssueType.TRADE_PRO) {
-                instigator.evaluateTradeAgreementNeed(worldOrder, this);
+                claimant.evaluateTradeAgreementNeed(worldOrder, this);
             } else if (process == null && issueType==IssueType.PEACE) {
-                instigator.evaluateNeedForPeace(worldOrder, this);
+                claimant.evaluateNeedForPeace(worldOrder, this);
             } else {
                 if (duration <= 0) conclude((WorldOrder) simState);
             }
@@ -220,8 +226,8 @@ public class Issue extends Entity implements Steppable, Stoppable {
         return issueType;
     }
 
-    public Polity getInstigator() {
-        return instigator;
+    public Polity getClaimant() {
+        return claimant;
     }
 
     public void setStopper(Stoppable stopper)   {this.stopper = stopper;}
@@ -236,6 +242,40 @@ public class Issue extends Entity implements Steppable, Stoppable {
 
     public void setStopped(boolean stopped) {
         this.stopped = stopped;
+    }
+
+    public ClaimFact getFact() {
+        return fact;
+    }
+
+    public void setFact(ClaimFact fact) {
+        this.fact = fact;
+    }
+
+    public String getClaimType() {
+        return issueType.value;
+    }
+
+    public void setCause(Institution cause) {
+        this.cause = cause;
+    }
+
+    public void setClaimant(Polity claimant) {
+        this.claimant = claimant;
+    }
+
+    public void setIssueType(IssueType issueType) {
+        this.issueType = issueType;
+    }
+
+    public boolean isResolved() {
+        return resolved;
+    }
+
+    public void setResolved(boolean resolved) {
+        this.resolved = resolved;
+        this.setStopped(resolved);
+        if (resolved) stopper.stop();
     }
 
     public void conclude(WorldOrder wo) {

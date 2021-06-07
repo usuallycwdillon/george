@@ -1,37 +1,38 @@
 package edu.gmu.css.agents;
 
+import edu.gmu.css.entities.DiscretePolityFact;
 import edu.gmu.css.entities.Entity;
 import edu.gmu.css.relations.KnowsRelation;
+import edu.gmu.css.worldOrder.WorldOrder;
 import org.neo4j.ogm.annotation.*;
 import sim.engine.SimState;
 import sim.engine.Steppable;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @NodeEntity
 public class Person extends Entity implements Steppable {
 
-    @Id @GeneratedValue
+    @Id
+    @GeneratedValue
     private Long id;
-    @Property
-    private String name;
-    @Property
-    private String address;
-    @Property
-    private double bcScore;
-    @Property
-    private double ecScore;
-    @Property
-    private boolean leadershipRole;
-    @Property
-    private String birthplace;
-    @Transient
-    private double sentiment;
-    @Transient
-    private Map<Entity, Integer> opinions = new HashMap<>();
-    @Relationship(type="KNOWS")
+    @Property private String name;
+    @Property private String address;
+    @Property private double bcScore;
+    @Property private double ecScore;
+    @Property private boolean leadershipRole;
+    @Property private String birthplace;
+    @Transient private double sentiment;
+    @Transient private Map<Entity, Integer> opinions = new HashMap<>();
+    @Transient CommonWeal commonWeal;
+    @Relationship(type = "KNOWS")
     List<KnowsRelation> circle = new ArrayList<>();
+//    @Relationship(type = "RESIDES_IN")
+
 
 
     public Person() {
@@ -98,7 +99,7 @@ public class Person extends Entity implements Steppable {
     }
 
     public void addIssue(Entity e, int o) {
-        opinions.put(e,o);
+        opinions.put(e, o);
     }
 
     public void setName(String name) {
@@ -129,6 +130,10 @@ public class Person extends Entity implements Steppable {
         this.opinions = opinions;
     }
 
+    public void setCommonWeal(CommonWeal c) {
+        this.commonWeal = c;
+    }
+
     public List<Person> getCircle() {
         return circle.stream().map(KnowsRelation::getKnown).collect(Collectors.toList());
     }
@@ -142,4 +147,32 @@ public class Person extends Entity implements Steppable {
         this.circle.remove(p);
         return true;
     }
+
+    public void shareOpinion(Entity e, WorldOrder wo) {
+        Entity entity = e;
+        WorldOrder worldOrder = wo;
+        int opinion = opinions.get(entity);
+        DiscretePolityFact dp = commonWeal.getLeadership().getPolity().getPolityFact();
+        int democracy = dp != null ? dp.getDemocracyRating() + 1 : 2;
+        double pChance = worldOrder.random.nextDouble();
+        double lChance = (pChance / 11.0) * democracy;
+        for (KnowsRelation r : circle) {
+            Person friend = r.getKnown();
+            int friendOpinion = friend.getIssueOpinion(entity);
+            int opinionDiff = Math.abs(opinion - friendOpinion);
+            if (leadershipRole && friend.leadershipRole && worldOrder.random.nextBoolean(pChance)) {
+                if (opinionDiff == 2) friend.setIssueOpinion(entity, 0);
+                if (opinionDiff == 1) friend.setIssueOpinion(entity, opinion);
+            } else {
+                if (friend.leadershipRole && worldOrder.random.nextBoolean(lChance)) {
+                    if (opinionDiff == 2) friend.setIssueOpinion(entity, 0);
+                    if (opinionDiff == 1) friend.setIssueOpinion(entity, opinion);
+                } else if (!friend.leadershipRole && worldOrder.random.nextBoolean(pChance)) {
+                    if (opinionDiff == 2) friend.setIssueOpinion(entity, 0);
+                    if (opinionDiff == 1) friend.setIssueOpinion(entity, opinion);
+                }
+            }
+        }
+    }
+
 }

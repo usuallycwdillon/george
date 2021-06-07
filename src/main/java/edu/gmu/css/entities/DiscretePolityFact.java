@@ -1,6 +1,5 @@
 package edu.gmu.css.entities;
 
-import edu.gmu.css.service.FactServiceImpl;
 import org.neo4j.ogm.annotation.GeneratedValue;
 import org.neo4j.ogm.annotation.Id;
 import org.neo4j.ogm.annotation.Property;
@@ -79,6 +78,9 @@ public class DiscretePolityFact extends Fact {
         this.object = builder.object;
         this.source = builder.source;
         this.dataset = builder.dataset;
+        this.autocracyRating = builder.autocracyRating;
+        this.democracyRating = builder.democracyRating;
+        this.polityScore = builder.polityScore;
     }
 
     public static class FactBuilder {
@@ -88,9 +90,12 @@ public class DiscretePolityFact extends Fact {
         private String name = "Discrete Polity Fact";
         private String subject = "GEORGE";
         private String predicate = "DESCRIBES_POLITY_OF";
-        private String object = polity.getName() != null ? polity.getName() : "Not Collected";
+        private String object;
         private String source = "GEORGE_";
         private Dataset dataset;
+        private int autocracyRating;
+        private int democracyRating;
+        private int polityScore;
 
         public FactBuilder from(Long from) {
             this.from = from;
@@ -134,6 +139,22 @@ public class DiscretePolityFact extends Fact {
 
         public FactBuilder polity(Polity p) {
             this.polity = p;
+            this.object = p.getName();
+            return this;
+        }
+
+        public FactBuilder autocracyRating(int i) {
+            this.autocracyRating = i;
+            return this;
+        }
+
+        public FactBuilder democracyRating(int i) {
+            this.democracyRating = i;
+            return this;
+        }
+
+        public FactBuilder polityScore(int i) {
+            this.polityScore = i;
             return this;
         }
 

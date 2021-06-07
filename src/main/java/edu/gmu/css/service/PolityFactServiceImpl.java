@@ -11,11 +11,12 @@ import java.util.Set;
 public class PolityFactServiceImpl extends GenericService<Fact> implements FactService {
 
 
-    public void loadStateInstitutions(State s, WorldOrder wo, int y) {
+    public void loadStateInstitutions(State s, WorldOrder wo) {
         int institutionTally = 0;
         WorldOrder worldOrder = wo;
         State state = s;
-        Integer year = y;
+        Integer year = worldOrder.getFromYear();
+        Integer y = year;
         Integer roundDown = y - (y % 5);
         Integer roundUp = wo.getUntilYear();
 

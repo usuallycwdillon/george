@@ -1,20 +1,17 @@
 package edu.gmu.css.service;
 
-import com.uber.h3core.H3Core;
 import edu.gmu.css.agents.Tile;
 import edu.gmu.css.entities.Territory;
-import org.jetbrains.annotations.NotNull;
 import org.neo4j.ogm.cypher.ComparisonOperator;
 import org.neo4j.ogm.cypher.Filter;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class TileServiceImpl extends GenericService<Tile> implements TileService {
 
-    public final Set<Tile> findNeighbors(Tile t) {
+    public final List<Tile> findNeighbors(Tile t) {
         String ay = t.getAddressYear();
-        Set<Tile> neighbors = new HashSet<>();
+        List<Tile> neighbors = new ArrayList<>();
         Map<String, Object> params = new HashMap<>();
         params.put("addressYear", ay);
         String q = "MATCH (t:Tile{addressYear:$addressYear})-[:ABUTS]-(n:Tile)  RETURN n";
@@ -44,8 +41,6 @@ public class TileServiceImpl extends GenericService<Tile> implements TileService
         Map<String, Tile> tiles = new HashMap<>();
         session.loadAll(Tile.class, new Filter("year", ComparisonOperator.EQUALS, y))
                 .forEach(tile -> tiles.put(tile.getAddressYear(), tile));
-//        Tile t = tiles.get("840d837ffffffff.1816");
-//        System.out.println(t.toString());
         return tiles;
     }
 

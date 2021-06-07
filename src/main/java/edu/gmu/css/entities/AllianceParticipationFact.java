@@ -1,12 +1,19 @@
 package edu.gmu.css.entities;
 
 import edu.gmu.css.service.FactServiceImpl;
-import org.neo4j.ogm.annotation.*;
+import org.neo4j.ogm.annotation.GeneratedValue;
+import org.neo4j.ogm.annotation.Id;
+import org.neo4j.ogm.annotation.Property;
+import org.neo4j.ogm.annotation.Relationship;
 
 public class AllianceParticipationFact extends Fact {
 
     @Id @GeneratedValue
     Long id;
+    @Property
+    boolean priorTo1816;
+    @Property
+    boolean beyond2012;
 
     @Relationship(type="ENTERED", direction = Relationship.INCOMING)
     private Polity polity;
@@ -14,6 +21,11 @@ public class AllianceParticipationFact extends Fact {
     private Alliance alliance;
     @Relationship(type = "CONTRIBUTES", direction = Relationship.INCOMING)
     private Dataset dataset;
+    @Relationship(type = "FROM_WEEK")
+    private Week fromWeek;
+    @Relationship(type = "UNTIL_WEEK")
+    private Week untilWeek;
+
 
     public AllianceParticipationFact() {
 
@@ -126,6 +138,15 @@ public class AllianceParticipationFact extends Fact {
     public void setAlliance(Alliance alliance) {
         this.alliance = alliance;
     }
+
+    public Alliance findAllianceWithPartner(Polity t) {
+        Polity target = t;
+        for (Polity p : alliance.findPartners()) {
+            if (p.equals(target)) return alliance;
+        }
+        return null;
+    }
+
 
 
     @Override

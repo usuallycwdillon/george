@@ -1,8 +1,8 @@
 package edu.gmu.css.relations;
 
+import edu.gmu.css.data.Resources;
 import edu.gmu.css.entities.Institution;
 import edu.gmu.css.entities.Polity;
-import edu.gmu.css.data.Resources;
 import edu.gmu.css.worldOrder.WorldOrder;
 
 import java.io.Serializable;

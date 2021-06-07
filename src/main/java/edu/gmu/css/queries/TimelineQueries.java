@@ -3,11 +3,9 @@ package edu.gmu.css.queries;
 import edu.gmu.css.entities.Week;
 import edu.gmu.css.entities.Year;
 import edu.gmu.css.service.Neo4jSessionFactory;
-import org.neo4j.cypher.internal.frontend.v2_3.ast.functions.Has;
 
 import java.util.HashMap;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
@@ -42,7 +40,7 @@ public class TimelineQueries {
         String n = year.getName();
         Map<String, String> param = new HashMap<>();
         param.put("name", n);
-        String q = "MATCH (ty:Year{name:$name})<-[:NEXT_YEAR]->(py:Year) RETURN py";
+        String q = "MATCH (ty:Year{name:$name})<-[:NEXT_YEAR]-(py:Year) RETURN py";
         return Neo4jSessionFactory.getInstance().getNeo4jSession().queryForObject(Year.class, q, param);
     }
 

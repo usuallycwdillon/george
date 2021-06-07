@@ -2,7 +2,6 @@ package edu.gmu.css.data;
 
 import java.util.EnumMap;
 import java.util.Map;
-import java.util.Objects;
 
 public enum SecurityObjective {
     PUNISH(0),
@@ -10,6 +9,7 @@ public enum SecurityObjective {
     DEFEAT(4),
     CONQUER(6),
     ACCEPT(-1),
+    ABIDE(-2),
     RETALIATE(1),
     RESIST(3),
     DEFEND(5),

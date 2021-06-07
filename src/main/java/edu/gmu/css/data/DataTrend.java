@@ -1,8 +1,6 @@
 package edu.gmu.css.data;
 
 
-import one.util.streamex.DoubleStreamEx;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -84,6 +82,7 @@ public class DataTrend<T> extends ArrayList<T> {
     }
 
     public double pastYearTotal() {
+        // Sum of all stored values so far, or sum of 52 most recent values
         int s = this.size();
         if (this.size() > 53) {
             List<T> sublist = this.subList(s - 53, s - 1);
@@ -91,6 +90,12 @@ public class DataTrend<T> extends ArrayList<T> {
         } else {
             return this.stream().mapToDouble(v -> (Double) v).sum();
         }
+    }
+
+    public double pastYearTotal(int w) {
+        int s = this.size();
+        List<T> sublist = this.subList(s - w, s - 1);
+        return sublist.stream().mapToDouble(v -> (Double) v).sum();
     }
 
     public int countBelowThreshold(double t, boolean i) {

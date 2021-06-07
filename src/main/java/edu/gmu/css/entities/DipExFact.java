@@ -1,9 +1,7 @@
 package edu.gmu.css.entities;
 
-import edu.gmu.css.service.DateConverter;
 import edu.gmu.css.service.FactServiceImpl;
 import org.neo4j.ogm.annotation.*;
-import org.neo4j.ogm.annotation.typeconversion.Convert;
 
 @NodeEntity
 public class DipExFact extends Fact {
@@ -18,9 +16,9 @@ public class DipExFact extends Fact {
     double version;
 
     @Relationship(type = "REPRESENTED", direction = Relationship.INCOMING)
-    private Polity mission;
+    private Polity mission; // polity representing itself
     @Relationship(type = "REPRESENTED_AT")
-    private Polity polity;
+    private Polity polity; // polity where the mission represents their polity
 //    @Relationship(type = "CONTRIBUTES", direction = Relationship.INCOMING)
 //    private Dataset dataset;
     @Relationship(type = "REPRESENTATION_WITH")

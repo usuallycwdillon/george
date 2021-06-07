@@ -1,13 +1,12 @@
 package edu.gmu.css.worldOrder;
 
-import edu.gmu.css.entities.Polity;
 import edu.gmu.css.entities.State;
 import org.jcolorbrewer.ColorBrewer;
+import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartFrame;
+import org.jfree.chart.JFreeChart;
 import org.jfree.chart.axis.CategoryAxis;
 import org.jfree.chart.axis.NumberAxis;
-import org.jfree.chart.ChartFactory;
-import org.jfree.chart.JFreeChart;
 import org.jfree.chart.plot.CategoryPlot;
 import org.jfree.chart.plot.PlotOrientation;
 import org.jfree.chart.renderer.category.BarRenderer;
@@ -15,7 +14,6 @@ import org.jfree.chart.renderer.category.CategoryItemRenderer;
 import org.jfree.data.category.CategoryDataset;
 import org.jfree.data.category.DefaultCategoryDataset;
 import org.jfree.data.general.DatasetUtils;
-import scala.Char;
 import sim.display.Console;
 import sim.display.Controller;
 import sim.display.Display2D;
@@ -25,10 +23,9 @@ import sim.engine.Steppable;
 
 import javax.swing.*;
 import java.awt.*;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.stream.Collectors;
 
 public class WorldOrderWithUI extends GUIState {
@@ -84,7 +81,7 @@ public class WorldOrderWithUI extends GUIState {
         Steppable treasuriesUpdater = new Steppable() {
             @Override
             public void step(SimState simState) {
-                for (State s : worldOrder.getAllTheStates()) {
+                for (State s : worldOrder.getAllTheStates().values()) {
                     treasuryBars.addValue(s.getTreasury() / 1000.0, "Wealth", s.getName());
                 }
             }
@@ -94,7 +91,7 @@ public class WorldOrderWithUI extends GUIState {
         Steppable milperUpdater = new Steppable() {
             @Override
             public void step(SimState simState) {
-                for (State s : worldOrder.getAllTheStates()) {
+                for (State s : worldOrder.getAllTheStates().values()) {
                     milperBars.addValue(s.getForces(),"Military Strength",s.getName());
                 }
             }
@@ -119,7 +116,7 @@ public class WorldOrderWithUI extends GUIState {
             @Override
             public void step(SimState simState) {
                 Map<String, Long> instCounts = worldOrder.allTheInstitutions.stream()
-                        .collect(Collectors.groupingBy(e -> e.getName(), Collectors.counting()));
+                        .collect(Collectors.groupingBy(e -> e.getDomainName(), Collectors.counting()));
                 for (Map.Entry<String, Long> e : instCounts.entrySet()) {
                     instituBars.addValue(e.getValue(), "Institution Counts by Type", e.getKey());
                 }
@@ -236,7 +233,7 @@ public class WorldOrderWithUI extends GUIState {
 
     private CategoryDataset createStatesDataset(String label) {
         WorldOrder worldOrder = (WorldOrder) state;
-        List<State> states = worldOrder.getAllTheStates();
+        List<State> states = new ArrayList<State>(worldOrder.getAllTheStates().values());
         String[] size = new String[]{label};
         String[] names = states.stream().map(State::getName).toArray(String[]::new);
         final double[][] data = new double[1][numStates];
@@ -253,7 +250,7 @@ public class WorldOrderWithUI extends GUIState {
     private CategoryDataset createInstDataset(String label) {
         String[] size = new String[]{label};
         // TODO: add these institutions: , "Statehood", "Trade"
-        String[] names = new String[]{"Alliance", "Border", "Peace", "War", "Diplomatic Exchange"};
+        String[] names = new String[]{"Alliance", "Border", "Peace", "War", "Diplomacy"};
         final double[][] data = new double[1][5];
         return DatasetUtils.createCategoryDataset(size, names, data);
     }

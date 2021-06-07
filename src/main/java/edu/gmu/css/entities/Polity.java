@@ -1,20 +1,21 @@
 package edu.gmu.css.entities;
 
+import edu.gmu.css.agents.Issue;
 import edu.gmu.css.agents.Leadership;
-import edu.gmu.css.data.*;
 import edu.gmu.css.agents.Process;
-import edu.gmu.css.relations.*;
+import edu.gmu.css.data.*;
+import edu.gmu.css.relations.OccupiedRelation;
+import edu.gmu.css.relations.ProcessDisposition;
 import edu.gmu.css.service.DiscretePolityFactServiceImpl;
 import edu.gmu.css.service.FactServiceImpl;
-import edu.gmu.css.service.Neo4jSessionFactory;
 import edu.gmu.css.worldOrder.WorldOrder;
 import org.neo4j.ogm.annotation.*;
 import sim.engine.SimState;
 import sim.engine.Steppable;
 
 import java.awt.*;
-import java.util.*;
 import java.util.List;
+import java.util.*;
 
 
 @NodeEntity
@@ -49,36 +50,46 @@ public class Polity extends Entity implements Steppable {
     protected Year year;
 
     @Relationship (type = "OCCUPIED")
-    protected Set<OccupiedRelation> allTerritories;
+    protected Set<OccupiedRelation> allTerritories = new HashSet<>();
     @Relationship (type="LEADERSHIP_OF", direction = Relationship.INCOMING)
     protected Leadership leadership;
     @Relationship(type = "SHARES_BORDER")
     protected Set<BorderFact> bordersWith = new HashSet<>();
-    @Relationship
-    protected List<ProcessDisposition> processList = new ArrayList<>();
     @Relationship(type = "REPRESENTED")
     protected Set<DipExFact> representedAt = new HashSet<>();
     @Relationship(type = "ALLIANCE_PARTICIPATION")
     protected Set<AllianceParticipationFact> alliances = new HashSet<>();
     @Relationship(type = "PARTICIPATED")
     protected Set<WarParticipationFact> warList = new HashSet<>();
+    @Relationship(type = "DISPUTED")
+    protected Set<DisputeParticipationFact> disputeList = new HashSet<>();
     @Relationship(type = "AGREED")
     protected Set<PeaceFact> peaceList = new HashSet<>();
     @Relationship(type = "MEMBERSHIP")
     protected Set<IgoMembershipFact> organizations = new HashSet<>();
     @Relationship(type="PRODUCED")
     protected Set<GdpFact> gdpHistory = new HashSet<>();
+    @Relationship(type = "POPULATION")
+    protected Set<PopulationFact> populationHistory = new HashSet<>();
     @Transient
-    protected Map<Polity, Double> threats = new HashMap<>();
+    protected Map<Polity, Double> threatNet = new HashMap<>();
+    @Transient
+    protected List<ProcessDisposition> processList = new ArrayList<>();
+
 
     public Polity () {
 
     }
 
+
     @Override
     public void step(SimState simState) {
         WorldOrder worldOrder = (WorldOrder) simState;
-        updateEconomicPolicy(this.leadership, worldOrder);
+//        updateEconomicPolicy(this.leadership, worldOrder);
+    }
+
+    public Long getId() {
+        return id;
     }
 
     public String getName() {
@@ -89,8 +100,13 @@ public class Polity extends Entity implements Steppable {
         this.name = name;
     }
 
-    public Long getId() {
-        return id;
+    public Color getPolColor() {
+        polColor = new Color(color);
+        return polColor;
+    }
+
+    public void setPolColor(Color polColor) {
+        this.polColor = polColor;
     }
 
     public Resources getResources() {
@@ -173,10 +189,6 @@ public class Polity extends Entity implements Steppable {
 //        this.economicStrategy = economicStrategy;
 //    }
 
-    public Color getPolColor() {
-        polColor = new Color(color);
-        return polColor;
-    }
 
     public Resources getMilitaryStrategy() {
         return securityStrategy.getMilitaryStrategy();
@@ -184,10 +196,6 @@ public class Polity extends Entity implements Steppable {
 
     public Resources getForeignStrategy() {
         return securityStrategy.getForeignStrategy();
-    }
-
-    public void setPolColor(Color polColor) {
-        this.polColor = polColor;
     }
 
     public EconomicPolicy getEconomicPolicy() {
@@ -235,10 +243,6 @@ public class Polity extends Entity implements Steppable {
         bordersWith.addAll(facts);
     }
 
-    public Set<DipExFact> getRepresentedAt() {
-        return representedAt;
-    }
-
     public Set<AllianceParticipationFact> getAlliances() {
         return alliances;
     }
@@ -263,6 +267,18 @@ public class Polity extends Entity implements Steppable {
         warList.remove(f);
     }
 
+    public void addDisputeParticipationFact(DisputeParticipationFact f) {
+        this.disputeList.add(f);
+    }
+
+    public void removeDisputeParticipationFact(DisputeParticipationFact f) {
+        disputeList.remove(f);
+    }
+
+    public Set<DisputeParticipationFact> getDisputeList() {
+        return this.disputeList;
+    }
+
     public void addPeaceFact(PeaceFact f) {
         peaceList.add(f);
     }
@@ -285,10 +301,6 @@ public class Polity extends Entity implements Steppable {
 
     public Set<DipExFact> getRepresentation() {
         return representedAt;
-    }
-
-    public void addDiplomaticFacts(Set<DipExFact> facts) {
-        representedAt.addAll(facts);
     }
 
     public DiscretePolityFact getPolityFact() {
@@ -338,18 +350,24 @@ public class Polity extends Entity implements Steppable {
     }
 
     public void takeCensus(WorldOrder wo) {
-        WorldOrder worldOrder = wo;
-        Dataset run = wo.getModelRun();
         territory.updateTotals();
-        PopulationFact pf = new PopulationFact.FactBuilder().dataset(run).polity(this).value(territory.getPopulation())
-                .during(wo.getDataYear()).build();
-        run.addFacts(pf);
-        UrbanPopulationFact uf = new UrbanPopulationFact.FactBuilder().dataset(run). polity(this)
-                .value(territory.getUrbanPopulation()).during(wo.getDataYear()).build();
-        run.addFacts(uf);
-        FactServiceImpl factService = new FactServiceImpl();
-        factService.createOrUpdate(pf);
-        factService.createOrUpdate(uf);
+        if (WorldOrder.RECORDING) {
+            WorldOrder worldOrder = wo;
+            Dataset run = wo.getModelRun();
+            PopulationFact pf = new PopulationFact.FactBuilder().dataset(run).polity(this).value(territory.getCurrentPopulation())
+                    .during(wo.getDataYear()).build();
+            run.addFacts(pf);
+            UrbanPopulationFact uf = new UrbanPopulationFact.FactBuilder().dataset(run).polity(this)
+                    .value(territory.getCurrentUrbanPopulation()).during(wo.getDataYear()).build();
+            run.addFacts(uf);
+
+            new FactServiceImpl().createOrUpdate(pf);
+            new FactServiceImpl().createOrUpdate(uf);
+        }
+    }
+
+    public boolean willRelent(ProcessDisposition p, WorldOrder wo) {
+        return wo.random.nextBoolean();
     }
 
     public double getPublicSDP() {
@@ -364,7 +382,15 @@ public class Polity extends Entity implements Steppable {
 
     }
 
-    public boolean evaluateWarNeed(SimState simState, Issue i) {
+    public boolean resolveIssue(WorldOrder wo, Issue i) {
+        return false;
+    }
+
+    public boolean considerIssue(Issue i, WorldOrder wo) {
+        return wo.random.nextDouble() < 0.5;
+    }
+
+    public boolean evaluateWarNeed(WorldOrder wo, Issue i) {
         // The polity has a new Issue (Change occurs) and must decide whether they perceive a need to take action. Conceptually,
         // the ProbabilisticCausality agent creates the issue and the ProcessDisposition directly, and the ProcessDisposition
         // contains the logic about whether the polity perceives a need to take military action over the new Issue. In
@@ -375,19 +401,24 @@ public class Polity extends Entity implements Steppable {
         return false;
     }
 
-    public boolean evaluateWarNeed(ProcessDisposition pd, WorldOrder wo) {
+    public boolean defenseNeed(ProcessDisposition pd, WorldOrder wo) {
         return false;
     }
 
-    public boolean evaluateWarWillingness(ProcessDisposition disposition) {
-        return evaluateAttackSuccess(disposition);
+    public boolean evaluateWarNeed(ProcessDisposition pd, WorldOrder wo) {
+        return false;
     }
 
     public boolean evaluateWarWillingness(ProcessDisposition pd, WorldOrder wo) {
         return false;
     }
+
     public boolean evaluateAttackSuccess(ProcessDisposition pd) {
         return false;
+    }
+
+    public void surrender(ProcessDisposition p, WorldOrder wo) {
+
     }
 
     public Resources allocateResources(Resources request) {
@@ -413,7 +444,33 @@ public class Polity extends Entity implements Steppable {
         }
     }
 
-    public boolean evaluateAllianceNeed(WorldOrder wo, Issue i) {
+    public boolean evaluateBeginDipEx(WorldOrder wo, Issue i) {
+        return false;
+    }
+
+    public boolean existsDipEx(Polity p) {
+        Polity target = p;
+        for (DipExFact f : this.getRepresentation()) {
+            if(f.getMission()==this && f.getPolity() == target)  return true;
+        }
+        return false;
+    }
+
+    public DiplomaticExchange hasDipEx(Polity p) {
+        Polity target = p;
+        for (DipExFact f : this.getRepresentation()) {
+            if(f.getMission()==this && f.getPolity() == target) {
+                return f.getInstitution();
+            }
+        }
+        return null;
+    }
+
+    public void addDiplomaticFacts(Set<DipExFact> facts) {
+        representedAt.addAll(facts);
+    }
+
+    public boolean resolvedThroughDiplomacy(WorldOrder wo, Issue i, DiplomaticExchange d) {
         return false;
     }
 
@@ -433,31 +490,26 @@ public class Polity extends Entity implements Steppable {
         return false;
     }
 
-    public boolean considerIssue(Issue i, WorldOrder wo) {
-        return wo.random.nextDouble() < 0.5;
-    }
-
     public boolean willProbablyWin(Process process) {
 
         return true;
     }
 
-    public Map<Polity, Double> getThreats() {
-        return threats;
+    public Map<Polity, Double> getThreatNet() {
+        return threatNet;
     }
 
-    public void setThreats(Map<Polity, Double> t) {
-        this.threats = t;
+    public void setThreatNet(Map<Polity, Double> t) {
+        this.threatNet = t;
     }
 
     public void addThreat(Polity p, Double d) {
-        this.threats.put(p, d);
+        this.threatNet.put(p, d);
     }
 
     public void removeThreat(Polity p) {
-        this.threats.remove(p);
+        this.threatNet.remove(p);
     }
-
 
     public boolean hasInsuficentResources(Institution war) {
         return true;
@@ -485,31 +537,67 @@ public class Polity extends Entity implements Steppable {
 //    }
 
 
-    public void loadInstitutionData(int year, WorldOrder wo) {
-        this.polityFact = new DiscretePolityFactServiceImpl().getPolityData(this,year);
 
-        // Load Polity's Borders
-
-        // Load dipEx missions
-
-        // Load alliances
-
-        // Load trade partners
-
-        // Load IGO memberbership
-
+    public boolean evaluateAllianceNeed(WorldOrder wo, Issue i) {
+        return false;
     }
 
-
-    public boolean isFriend(Polity p) {
+    public boolean existsAlliance(Polity p) {
         /**
          * returns true if given polity is my alliance partner
          */
-        Polity polity = p;
-        for (AllianceParticipationFact f : polity.getAlliances()) {
+        Polity target = p;
+        for (AllianceParticipationFact f : this.getAlliances()) {
             Alliance alliance = f.getAlliance();
-            return alliance.findPartners().contains(p);
+            return alliance.findPartners().contains(target);
         }
+        return false;
+    }
+
+    public Alliance hasAlliance(Polity p) {
+        Polity target = p;
+        Alliance a = null;
+        Double strength = 0.0;
+        for (AllianceParticipationFact f : this.getAlliances()) {
+            Alliance alliance = f.getAlliance();
+            if (alliance.findPartners().contains(target) && alliance.getStrength() > strength) {
+                a = alliance;
+            }
+        }
+        return a;
+    }
+
+    public Map<Double, Alliance> findAlliancesAgainst(Polity p) {
+        Polity target = p;
+        Map<Double, Alliance> alliances = new HashMap<>();
+        for (AllianceParticipationFact f : this.getAlliances()) {
+            Alliance alliance = f.getAlliance();
+            if (!alliance.findPartners().contains(target))
+                alliances.put(alliance.getStrength(), alliance);
+        }
+        return alliances;
+    }
+//
+//    public AllianceParticipationFact getStrongestAllianceParticipationFact(Polity t) {
+//        Polity target = t;
+//        Alliance bestSoFar = null;
+//        AllianceParticipationFact apf = null;
+//        int index = 0;
+//        for (AllianceParticipationFact f : this.getAlliances()) {
+//            Alliance a = f.findAllianceWithPartner(target);
+//            if(index == 0) {
+//                bestSoFar = a;
+//                apf = f;
+//            }
+//            if(a.getStrength() > bestSoFar.getStrength() ) {
+//                bestSoFar = a;
+//                apf = f;
+//            }
+//        }
+//        return apf;
+//    }
+
+    public boolean resolvedThroughAlliance(WorldOrder wo, Issue i, Alliance a) {
         return false;
     }
 
@@ -533,7 +621,19 @@ public class Polity extends Entity implements Steppable {
         this.polityFact = f;
     }
 
-    public void surrender(WarParticipationFact p, WorldOrder wo) {
+    public void loadInstitutionData(WorldOrder wo) {
+        int year = wo.getFromYear();
+        this.polityFact = new DiscretePolityFactServiceImpl().getPolityData(this,year);
+
+        // Load Polity's Borders
+
+        // Load dipEx missions
+
+        // Load alliances
+
+        // Load trade partners
+
+        // Load IGO memberbership
 
     }
 

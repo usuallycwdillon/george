@@ -1,6 +1,5 @@
 package edu.gmu.css.entities;
 
-import com.fasterxml.jackson.databind.annotation.JsonAppend;
 import org.neo4j.ogm.annotation.GeneratedValue;
 import org.neo4j.ogm.annotation.Id;
 import org.neo4j.ogm.annotation.Property;
@@ -42,9 +41,9 @@ public class ImportFromFact extends Fact {
         this.from = builder.from;
         this.importer = builder.importer;
         this.exporter = builder.exporter;
-        this.subject = importer.getName();
+        this.subject = builder.subject;
         this.predicate = "IMPORTED";
-        this.object = exporter.getName();
+        this.object = builder.object;
         this.value = builder.value;
         this.name = builder.name;
         this.source = builder.source;
@@ -112,11 +111,13 @@ public class ImportFromFact extends Fact {
 
         public FactBuilder importer(Polity p) {
             this.importer = p;
+            this.source = importer.getName();
             return this;
         }
 
         public FactBuilder exporter(Polity p) {
             this.exporter = p;
+            this.object = exporter.getName();
             return this;
         }
 

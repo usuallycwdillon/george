@@ -1,11 +1,8 @@
 package edu.gmu.css.entities;
 
 import edu.gmu.css.service.DateConverter;
-import org.neo4j.cypher.internal.frontend.v2_3.ast.functions.Str;
 import org.neo4j.ogm.annotation.*;
 import org.neo4j.ogm.annotation.typeconversion.Convert;
-
-import javax.xml.crypto.Data;
 
 @NodeEntity
 public class MembershipFact {

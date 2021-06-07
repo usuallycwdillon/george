@@ -1,27 +1,21 @@
 package edu.gmu.css.worldOrder;
 
-import ec.util.MersenneTwisterFast;
-import edu.gmu.css.agents.*;
 import edu.gmu.css.agents.Process;
-import edu.gmu.css.data.DefaultWarParams;
+import edu.gmu.css.agents.*;
 import edu.gmu.css.data.DataTrend;
-import edu.gmu.css.data.EconomicPolicy;
-import edu.gmu.css.data.Resources;
+import edu.gmu.css.data.DefaultWarParams;
 import edu.gmu.css.entities.*;
 import edu.gmu.css.queries.DataQueries;
-import edu.gmu.css.queries.TerritoryQueries;
-import edu.gmu.css.queries.TimelineQueries;
-//import edu.gmu.css.relations.Inclusion;
 import edu.gmu.css.service.*;
 import org.apache.commons.math3.distribution.LogNormalDistribution;
 import sim.engine.SimState;
-import sim.engine.Steppable;
 import sim.engine.Stoppable;
 import sim.util.distribution.Gamma;
 import sim.util.distribution.Poisson;
+
 import java.awt.*;
-import java.util.*;
 import java.util.List;
+import java.util.*;
 
 import static sim.engine.Schedule.EPOCH;
 
@@ -42,10 +36,10 @@ public class WorldOrder extends SimState {
      *
      */
     public static void main(String[] args) {
-        int jobs = 1;
-        seed = System.currentTimeMillis();
-        SimState worldOrder = new WorldOrder(seed, 1816);
+        int jobs = 5;
         for (int job = 0; job < jobs; job++) {
+            seed = System.currentTimeMillis();
+            SimState worldOrder = new WorldOrder(seed, 1945);
             worldOrder.setJob(job);
             worldOrder.start();
             do
@@ -71,20 +65,21 @@ public class WorldOrder extends SimState {
         setup(y);
     }
 
-
-    public static boolean DEBUG = true;
-
     /**
      * Select a year for baseline data and initialize the global environment with empirical descriptions of States,
      * States have a territory, treasury, securityStrategy, economicStrategy, institutions, processes;
      * A territory represents a time-boxed collection of tiles, which also track the sums of tile attributes;
-     * Tiles contain a population, natural resources, economic production, according to NMC data. You can set the
+     * Tiles contain a population, natural resources, economic production, according to HYDE/ data. You can set the
      * 'resetBaselines' flag to true if you want to generate (simulate) new data for the tiles.
      *
      * Set the debugging flag to true to print out comments about what the setup is doing.
      *
-     */
-
+    */
+    public static boolean DEBUG = false;
+    public static boolean RECORDING = true;
+    public static boolean DIPEX = true;
+    public static boolean ALLIANCES = true;
+    public static boolean RANDOM = false;
     private int fromYear; // Choices are 1816, 1880, 1914, 1938, 1945, 1994
     private int untilYear; // Depending on how generic you're willing to be, can be just below next year
     // The stabilityDuration is the number of weeks with no change in globalWarLikelihood before the system is "stable"
@@ -95,6 +90,7 @@ public class WorldOrder extends SimState {
     public DataTrend globalHostility;
     public double globalWarLikelihood; // based on 136 wars in 10,017 weeks
     public double institutionInfluence;
+    public double institutionStagnationRate = 0.99980863; // 1.01^(1.0/52.0)
     public static Poisson poisson;
     public static Gamma gamma;
     public static LogNormalDistribution lognormal;
@@ -103,10 +99,12 @@ public class WorldOrder extends SimState {
     public Year dataYear;
     public int weeksThisYear;
     public long dateIndex;
-    public List<State> allTheStates = new ArrayList<>();
+    public double weekExp;
+    public int marchingPace;
+    public Map<String, State> allTheStates = new HashMap<>();
     public Color[] colorGradients;
     public List<Leadership> allTheLeaders = new ArrayList<>();
-    public Map<String, Territory> territories;
+    public Map<String, Territory> territories = new HashMap<>();
     public Set<War> allTheWars = new HashSet<>();
     public Set<Process> allTheProcs = new HashSet<>();
     public Set<PeaceProcess> allThePeaceProcs = new HashSet<>();
@@ -121,11 +119,12 @@ public class WorldOrder extends SimState {
     public double foRelMultiplier;
     public int ruralTiles;
     public Stoppable externalWarStopper;
+    public long simStartTime;
 
 
     /**
      * Some parameters for war strategy thresholds.
-     * RED is the opposing force size while BLUE is own force size
+     * RED is the opposing force size while BLUE is the state's own force size
      * THREAT is the opposing military expenditures while RISK is own military expenditures
      * Goals for each conflict are PUNISH, COERCE, DEFEAT, or CONQUER
      * A polity uses these coefficients to plan their offensive war strategies
@@ -149,7 +148,7 @@ public class WorldOrder extends SimState {
         modelRun = new Dataset(this);
         System.out.println("Data saved to " + modelRun.getName());
         modelRun.setWarParameters(new DefaultWarParams().getWarParams());
-        overallDuration = 26096;    // about 500 years
+        overallDuration = 20085;    // about 385 years
         stabilityDuration = 10439;  // about 200 years
         initializationPeriod = 52.0;
         globalWarLikelihood = DataQueries.getWarAndConflictAverages().get("onset");
@@ -159,57 +158,29 @@ public class WorldOrder extends SimState {
         fromYear = fy;
         untilYear = uy;
         allTheStates.clear();
-        dataYear = TimelineQueries.getYearFromIntVal(fromYear);
+        dataYear = new YearServiceImpl().getYearFromIntVal(fromYear);
         weeksThisYear = dataYear.getWeeksThisYear();
+        weekExp = 1.0 / weeksThisYear;
+        marchingPace  = this.pickMarchingPace(fromYear);
         dateIndex = dataYear.getBegan();
         ruralTiles = 0;
         long first = System.nanoTime();
 //        territories = TerritoryQueries.getStateTerritories(fromYear, this);
         tiles = new TileServiceImpl().loadAll(fromYear);
-        territories = new TerritoryServiceImpl().getStateTerritories(fromYear, this);
-        for(Territory t : territories.values()) {
-//            t.setTileLinks(new TileServiceImpl().loadIncludedTiles(t));
-            State s = new StateServiceImpl().findStateForTerritory(t);
-            t.setPolity(s, 0L);
-            CommonWeal cw = new CommonWealServiceImpl().findTerritoryCommonWeal(t);
-            cw = new CommonWealServiceImpl().find(cw.getId());
-            t.setCommonWeal(cw);
-            Leadership l = cw.getLeadership();
-            l.setCommonWeal(cw);
-            l.setPolity(s);
-            cw.loadPersonMap();
-            s.setLeadership(l);
-            s.setTerritory(t);
-            Resources r = new Resources.ResourceBuilder()
-                    .pax(((MilPerFact)(new FactServiceImpl().getMilPerFact(getDataYear().getName(), s))).getValue())
-                    .treasury(((MilExFact)(new FactServiceImpl().getMilExFact(getDataYear().getName(), s))).getValue())
-                    .build();
-            s.setResources(r);
-            s.setSecurityStrategy(r);
-            s.setEconomicPolicy(new EconomicPolicy(0.6, 0.4, (
-                    (TaxRateFact) (new FactServiceImpl().getInitialTaxRate(s, fromYear))).getValue() * 1.1));
-            s.setWarParams(getModelRun().getWarParameters());
-            allTheStates.add(s);
-            allTheLeaders.add(l);
-        }
+        tiles.values().spliterator().forEachRemaining(tile -> tile.calculatePopGrowthRate(this));
         long second = System.nanoTime();
-
-        System.out.println("1st, territories loaded in  " +
+        System.out.println("1st, ALL the " + fromYear + " tiles fully hydrated in  " +
                 (second - first)/1000000000.0);
-//        territories.values().spliterator().forEachRemaining(Territory::loadCommonWeal);
-//        long third = System.nanoTime();
-//        System.out.println("2nd, common weals loaded with leadership, leaders, people in " +
-//                (third - second)/1000000000.0);
-        allTheStates.stream().forEach(s -> s.loadInstitutionData(fy,this));
-//        long fourth = System.nanoTime();
-//        System.out.println("3rd, Institions loaded in  " +
-//                (fourth - third)/1000000000.0);
+        allTheStates = new StateServiceImpl().loadSystemMemberStatesAndTerritories(this);
+        territories.values().spliterator().forEachRemaining(Territory::findCommonWeal);
+        for (State s : allTheStates.values()) allTheLeaders.add(s.getLeadership());
+        long third = System.nanoTime();
+        System.out.println("2nd, common weals loaded with leadership, leaders, people, institutions... in " +
+                (third - second)/1000000000.0);
         territories.putAll(new TerritoryServiceImpl().loadWaterTerritories(fromYear));
-//        long sixth = System.nanoTime();
-//        System.out.println("4th, Water loaded after " +
-//                (sixth - fourth)/1000000000.0);
-        colorGradients = allTheStates.stream().map(Polity::getPolColor).toArray(Color[]::new);
-        System.out.println("All told, it took " + (System.nanoTime() - startTime) / 1000000000.0 + " to pull data from the WOKG. ");
+        colorGradients = allTheStates.values().stream().map(Polity::getPolColor).toArray(Color[]::new);
+        simStartTime = System.nanoTime();
+        System.out.println("All told, it took " + (simStartTime - startTime) / 1000000000.0 + " to pull data from the WOKG. ");
         return true;
     }
 
@@ -219,36 +190,30 @@ public class WorldOrder extends SimState {
         long startstart = System.nanoTime();
         // new dataset node in graph to track this data
         // save this model run to the database for later
-//        new DatasetServiceImpl().createOrUpdate(modelRun);
+        if (RECORDING) new DatasetServiceImpl().createOrUpdate(modelRun);
         // Put it all the steppables on the schedule
-        for (State s : allTheStates) {
+        for (State s : allTheStates.values()) {
             for (Tile tile : s.getTerritory().getTileLinks()) {
-//                if(tile.getAddressYear().equals("840d837ffffffff.1816")) {
-//                    System.out.println(tile.toString());
-//                }
                 tiles.put(tile.getAddressYear(), tile);
                 schedule.scheduleRepeating(EPOCH,0, tile,1);
                 tile.findGrid();
-                if (tile.getUrbanPop() == 0.0 ) ruralTiles++;
+                if (tile.getUrbanPopTrans() == 0.0 ) ruralTiles++;
             }
             s.establishEconomicPolicy(this);
+            s.setWarParams(getModelRunWarParameters());
             schedule.scheduleRepeating(s.getLeadership(), 1,1);
             schedule.scheduleRepeating(s, 2, 1);
-//            schedule.scheduleRepeating(s.getLeadership());
-//            for (BorderFact bf : s.getBordersWith()) {
-//                schedule.scheduleRepeating(bf.getBorder());
-//            }
-//            for (AllianceParticipationFact ap : s.getAlliances()) {
-//            }
         }
 
         for (Territory t : territories.values()) {
                 t.updateTotals();
                 // schedule after the tile and every half-year after that
-                schedule.scheduleRepeating(t, 1, 26);
+//                schedule.scheduleRepeating(t, 1, weeksThisYear);
         }
 
-        // TODO: Add Data Collection to the Schedule
+        // increment the marching pace every 30 years
+        schedule.scheduleRepeating(new Technology(), 1564);
+
         conflictCause = new ProbabilisticCausality(this);
         externalWarStopper = schedule.scheduleRepeating(initializationPeriod, conflictCause);
         conflictCause.setStopper(externalWarStopper);
@@ -257,7 +222,12 @@ public class WorldOrder extends SimState {
         schedule.scheduleRepeating(world);
 
         long endstart = System.nanoTime();
-        System.out.println("Start proc took " + (endstart - startstart)/1000000000);
+        System.out.println("Start proc took " + (endstart - startstart)/1000000000.0 + " to load agents onto the schedule");
+    }
+
+
+    public Long getWeekNumber() {
+        return dateIndex + getStepNumber();
     }
 
     public static long getSeed() {
@@ -316,7 +286,7 @@ public class WorldOrder extends SimState {
         globalWarLikelihood += effect;
     }
 
-    public List<State> getAllTheStates() {
+    public Map<String, State> getAllTheStates() {
         return allTheStates;
     }
 
@@ -380,6 +350,10 @@ public class WorldOrder extends SimState {
         WorldOrder.DEBUG = DEBUG;
     }
 
+    public static boolean isRECORDING() {
+        return RECORDING;
+    }
+
     public static int getOverallDuration() {
         return overallDuration;
     }
@@ -424,6 +398,14 @@ public class WorldOrder extends SimState {
         this.weeksThisYear = weeksThisYear;
     }
 
+    public double getWeekExp() {
+        return weekExp;
+    }
+
+    public void setWeekExp(double weekExp) {
+        this.weekExp = weekExp;
+    }
+
     public long getDateIndex() {
         return dateIndex;
     }
@@ -432,8 +414,8 @@ public class WorldOrder extends SimState {
         this.dateIndex = dateIndex;
     }
 
-    public void setAllTheStates(List<State> allTheStates) {
-        this.allTheStates = allTheStates;
+    public void setAllTheStates(Map<String, State> allTheseStates) {
+        this.allTheStates = allTheseStates;
     }
 
     public Color[] getColorGradients() {
@@ -536,7 +518,40 @@ public class WorldOrder extends SimState {
         globalHostility.add(globalWarLikelihood);
     }
 
+    public double getInstitutionStagnationRate() {
+        return institutionStagnationRate;
+    }
 
+    public int getMarchingPace() {
+        return this.marchingPace;
+    }
+
+    public void setMarchingPace(int i) {
+        this.marchingPace = i;
+    }
+
+    public void incrementMarchingPace() {
+        this.marchingPace++;
+    }
+
+    private int pickMarchingPace(int y) {
+        int pace = 6;
+        switch(y) {
+            case 1816:
+                return 6;
+            case 1880:
+                return 8;
+            case 1914:
+                return 9;
+            case 1938:
+                return 10;
+            case 1945:
+                return 11;
+            case 1994:
+                return 12;
+        }
+        return pace;
+    }
 
     //    public void addInstitution(Institution i) {
 //        allTheInstitutions.add(i);

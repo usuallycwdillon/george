@@ -1,12 +1,8 @@
 package edu.gmu.css.entities;
 
-import edu.gmu.css.service.DateConverter;
 import edu.gmu.css.worldOrder.WorldOrder;
 import org.neo4j.ogm.annotation.*;
-import org.neo4j.ogm.annotation.typeconversion.Convert;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.*;
 
 
@@ -14,14 +10,14 @@ public class Dataset extends Entity {
 
     @Id @GeneratedValue
     Long id;
-    @Property
-    String filename;
-    @Property
-    String name;
-    @Property
-    Integer year;
-    @Property
-    Double version;
+    @Property String filename;
+    @Property String name;
+    @Property Integer year;
+    @Property Double version;
+    @Property boolean randomOutcomes;
+    @Property boolean useDiplomacy;
+    @Property boolean useAlliances;
+
 //    @Convert(DateConverter.class)
 //    Long published = 0L;
 //    @Convert(DateConverter.class)
@@ -50,6 +46,10 @@ public class Dataset extends Entity {
         WorldOrder worldOrder = wo;
         this.seed = WorldOrder.getSeed();
         this.name = "simulation_run_" + seed;
+        this.year = worldOrder.getFromYear();
+        this.randomOutcomes = WorldOrder.RANDOM;
+        this.useDiplomacy = WorldOrder.DIPEX;
+        this.useAlliances = WorldOrder.ALLIANCES;
     }
 
     @Override
@@ -73,7 +73,7 @@ public class Dataset extends Entity {
         return facts;
     }
 
-    public void addFacts(Entity t) {
+    public void addFacts(Fact t) {
         this.facts.add(t);
     }
 

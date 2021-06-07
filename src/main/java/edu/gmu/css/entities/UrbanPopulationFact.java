@@ -1,6 +1,5 @@
 package edu.gmu.css.entities;
 
-import com.fasterxml.jackson.databind.annotation.JsonAppend;
 import edu.gmu.css.service.FactServiceImpl;
 import org.neo4j.ogm.annotation.GeneratedValue;
 import org.neo4j.ogm.annotation.Id;
@@ -17,10 +16,10 @@ public class UrbanPopulationFact extends Fact {
 
     @Relationship(type = "URBAN_POPULATION", direction = Relationship.INCOMING)
     Polity polity;
-    @Relationship(type = "DURING")
-    Year year;
-    @Relationship(type = "CONTRIBUTES", direction = Relationship.INCOMING)
-    Dataset dataset;
+//    @Relationship(type = "DURING")
+//    Year year;
+//    @Relationship(type = "CONTRIBUTES", direction = Relationship.INCOMING)
+//    Dataset dataset;
 
     public UrbanPopulationFact() {
 
@@ -28,6 +27,7 @@ public class UrbanPopulationFact extends Fact {
 
     public UrbanPopulationFact(FactBuilder builder) {
         this.from = builder.from;
+        this.until = builder.until;
         this.polity = builder.polity;
         this.year = builder.year;
         this.subject = polity.getName();
@@ -155,27 +155,21 @@ public class UrbanPopulationFact extends Fact {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof UrbanPopulationFact)) return false;
-        if (!super.equals(o)) return false;
-
-        UrbanPopulationFact fact = (UrbanPopulationFact) o;
-
-        if (!getId().equals(fact.getId())) return false;
-        if (!getName().equals(fact.getName())) return false;
-        if (getSubject() != null ? !getSubject().equals(fact.getSubject()) : fact.getSubject() != null) return false;
-        if (getPredicate() != null ? !getPredicate().equals(fact.getPredicate()) : fact.getPredicate() != null)
-            return false;
-        return getObject() != null ? getObject().equals(fact.getObject()) : fact.getObject() == null;
+        if (o == null || getClass() != o.getClass()) return false;
+        if (super.equals(o)) return false;
+        UrbanPopulationFact that = (UrbanPopulationFact) o;
+        if (getId() != null ? !getId().equals(that.getId()) : that.getId() != null) return false;
+        if (!getSubject().equals(that.getSubject())) return false;
+        if (!getPredicate().equals(that.getPredicate())) return false;
+        return getObject() != null ? getObject().equals(that.getObject()) : that.getObject() == null;
     }
 
     @Override
     public int hashCode() {
-        int result = getId().hashCode();
-        result = 31 * result + getName().hashCode();
-        result = 31 * result + (getSubject() != null ? getSubject().hashCode() : 0);
-        result = 31 * result + (getPredicate() != null ? getPredicate().hashCode() : 0);
+        int result = getId() != null ? getId().hashCode() : 0;
+        result = 31 * result + getSubject().hashCode();
+        result = 31 * result + getPredicate().hashCode();
         result = 31 * result + (getObject() != null ? getObject().hashCode() : 0);
         return result;
     }
-
 }

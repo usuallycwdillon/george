@@ -1,12 +1,13 @@
 package edu.gmu.css.util;
 
 import ec.util.MersenneTwisterFast;
+
 import java.util.Random;
 
 
 public class MTFWrapper extends Random {
 
-    private MersenneTwisterFast mtf;
+    private final MersenneTwisterFast mtf;
 //    private long seed;
 
     public MTFWrapper() {

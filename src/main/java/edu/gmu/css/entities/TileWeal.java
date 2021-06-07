@@ -1,9 +1,7 @@
 package edu.gmu.css.entities;
 
 import ec.util.MersenneTwisterFast;
-import edu.gmu.css.agents.Process;
 import edu.gmu.css.agents.Tile;
-import edu.gmu.css.relations.ProcessDisposition;
 import sim.engine.SimState;
 import sim.engine.Steppable;
 

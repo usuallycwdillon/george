@@ -1,10 +1,12 @@
 package edu.gmu.css.entities;
 
+import edu.gmu.css.agents.Peace;
 import edu.gmu.css.data.Resources;
-import edu.gmu.css.service.DateConverter;
 import edu.gmu.css.service.FactServiceImpl;
-import org.neo4j.ogm.annotation.*;
-import org.neo4j.ogm.annotation.typeconversion.Convert;
+import org.neo4j.ogm.annotation.GeneratedValue;
+import org.neo4j.ogm.annotation.Id;
+import org.neo4j.ogm.annotation.Relationship;
+import org.neo4j.ogm.annotation.Transient;
 
 import java.util.ArrayList;
 

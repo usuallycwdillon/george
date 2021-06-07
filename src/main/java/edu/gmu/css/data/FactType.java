@@ -1,8 +1,5 @@
 package edu.gmu.css.data;
 
-import java.util.EnumMap;
-import java.util.Map;
-
 public enum FactType {
 
     CINC,

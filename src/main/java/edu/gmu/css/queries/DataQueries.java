@@ -2,8 +2,6 @@ package edu.gmu.css.queries;
 
 import edu.gmu.css.service.Neo4jSessionFactory;
 import org.neo4j.ogm.model.Result;
-import scala.Int;
-import sun.rmi.server.InactiveGroupException;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -42,8 +40,8 @@ public class DataQueries {
         String q = "MATCH (fw:Week)-[:FROM_WEEK]-(f:WarParticipationFact)-[:PARTICIPATED_IN]-(w:War), " +
             "(f)-[p:PARTICIPATED{initiated:true}]-(s:State) WHERE fw.stepNumber > 52 " +
             "WITH collect({week:fw.stepNumber, wars:w, part:f, init:p}) AS rows \n" +
-            "MATCH (fw:Week)-[:FROM_WEEK]-(f:DisputeParticipationFact{originatedDistpute:true})-[:PARTICIPATED_IN]-(d:Dispute), \n" +
-            "(f)-[p:PARTICIPATED]-(s:State) WHERE fw.stepNumber > 52 " +
+            "MATCH (fw:Week)-[:FROM_WEEK]-(f:DisputeParticipationFact{originatedDistpute:true})-[:DISPUTED_OVER]-(d:Dispute), \n" +
+            "(f)-[p:DISPUTED]-(s:State) WHERE fw.stepNumber > 52 " +
             "WITH rows + collect({week:fw.stepNumber, wars:d, part:f, init:p}) AS allRows\n" +
             "UNWIND allRows AS r\n" +
             "   WITH r.week as week, r.wars as wars, r.part as part, r.init as init\n" +

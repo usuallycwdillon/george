@@ -1,10 +1,8 @@
 package edu.gmu.css.hazelcast;
 
-import com.hazelcast.config.*;
+import com.hazelcast.config.Config;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
-import com.hazelcast.ringbuffer.Ringbuffer;
-import sim.engine.Steppable;
 
 
 public class StartHazelcastInstance {

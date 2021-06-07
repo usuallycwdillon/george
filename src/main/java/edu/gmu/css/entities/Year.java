@@ -1,10 +1,12 @@
 package edu.gmu.css.entities;
 
-import edu.gmu.css.queries.TimelineQueries;
 import edu.gmu.css.service.DateConverter;
+import edu.gmu.css.service.WeekServiceImpl;
+import edu.gmu.css.service.YearServiceImpl;
 import org.neo4j.ogm.annotation.*;
 import org.neo4j.ogm.annotation.typeconversion.Convert;
 
+import java.time.LocalDate;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -26,6 +28,8 @@ public class Year extends Entity {
     private Long firstWeekBegins; // Date of the first week of the year
     @Convert(DateConverter.class)
     private Long lastWeekBegins;
+    @Property
+    private int intYear;
 
     @Relationship (direction = Relationship.INCOMING, type = "PART_OF")
     private LinkedList<Week> weeks;
@@ -77,29 +81,65 @@ public class Year extends Entity {
         return lastWeekBegins;
     }
 
+    public int getIntYear() {
+        return intYear;
+    }
+
     public List<Week> getWeeks() {
         if(weeks == null) {
-            weeks = TimelineQueries.getWeeksInYear(this);
+            weeks = new WeekServiceImpl().getWeeksInYear(this);
         }
         return weeks;
     }
 
     public Year getNextYear() {
         if(this.nextYear == null) {
-            nextYear = TimelineQueries.getNextYear(this);
+            nextYear = new YearServiceImpl().getNextYear(this);
         }
         return nextYear;
     }
 
     public Year getLastYear() {
         if(this.lastYear == null) {
-            lastYear = TimelineQueries.getLastYear(this);
+            lastYear = new YearServiceImpl().getLastYear(this);
         }
         return lastYear;
+    }
+
+    public Week getWeekFromStep(Long s, Long offset) {
+        this.weeks = new WeekServiceImpl().getWeekOfYear(this);
+        Week k = this.weeks.get(0);
+        for (Week w : weeks) {
+            if (w.getStepNumber() == s + offset) k = w;
+        }
+        return k;
     }
 
     public int getNameAsInteger() {
         return Integer.parseInt(name);
     }
 
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        if (!super.equals(o)) return false;
+
+        Year year = (Year) o;
+
+        if (getId() != null ? !getId().equals(year.getId()) : year.getId() != null) return false;
+        if (!getName().equals(year.getName())) return false;
+        if (!getBegan().equals(year.getBegan())) return false;
+        return getEnded() != null ? getEnded().equals(year.getEnded()) : year.getEnded() == null;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = getId() != null ? getId().hashCode() : 0;
+        result = 31 * result + getName().hashCode();
+        result = 31 * result + getBegan().hashCode();
+        result = 31 * result + (getEnded() != null ? getEnded().hashCode() : 0);
+        return result;
+    }
 }

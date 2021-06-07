@@ -3,20 +3,19 @@ package edu.gmu.css.entities;
 
 import edu.gmu.css.agents.*;
 import edu.gmu.css.data.*;
-import edu.gmu.css.relations.*;
-import edu.gmu.css.service.DiscretePolityFactServiceImpl;
-import edu.gmu.css.service.FactServiceImpl;
-import edu.gmu.css.service.PolityFactServiceImpl;
-import edu.gmu.css.service.StateServiceImpl;
-import edu.gmu.css.worldOrder.*;
+import edu.gmu.css.relations.ProcessDisposition;
+import edu.gmu.css.service.*;
+import edu.gmu.css.util.Lanchester;
+import edu.gmu.css.worldOrder.WorldOrder;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.neo4j.ogm.annotation.*;
 import sim.engine.SimState;
 import sim.engine.Steppable;
 
-import javax.xml.crypto.Data;
 import java.util.*;
 
+import static edu.gmu.css.data.SecurityObjective.ABIDE;
+import static edu.gmu.css.data.SecurityObjective.ACCEPT;
 import static edu.gmu.css.worldOrder.WorldOrder.DEBUG;
 
 @NodeEntity
@@ -39,12 +38,12 @@ public class State extends Polity implements Steppable {
     private double treasury;
     @Transient
     protected Set<Polity> suzereinSet;
-    @Transient
-    protected DataTrend forcesHistory = new DataTrend(105);
-    @Transient
-    protected DataTrend economicHistory = new DataTrend(105);
-    @Transient
-    protected DataTrend urbanization = new DataTrend(105);
+//    @Transient
+//    protected DataTrend forcesHistory = new DataTrend(105);
+//    @Transient
+//    protected DataTrend economicHistory = new DataTrend(14);
+//    @Transient
+//    protected DataTrend urbanization = new DataTrend(105);
     @Transient
     protected double gdpLastYear = 0.0;
 
@@ -57,13 +56,8 @@ public class State extends Polity implements Steppable {
     @Override
     public void step(SimState simState) {
         WorldOrder worldOrder = (WorldOrder) simState;
-//        if(this.cowcode.equals("365")||this.cowcode.equals("2")) {
-//            System.out.println("Let's pause for a sec...");
-//        }
-
         // Document history
-        forcesHistory.add(resources.getPax());
-        economicHistory.add(resources.getTreasury());
+//        forcesHistory.add(resources.getPax());
         // Collect Taxes from Tiles and update the econ policy
         collectTax();
         // Implement security strategy, including deterrence mission and recruiting for any shortfalls;
@@ -98,16 +92,6 @@ public class State extends Polity implements Steppable {
     public void addSuzerein(Polity suzerein) {
         suzereinSet.add(suzerein);
     }
-
-//    @Override
-//    public void setSecurityStrategy(Resources r) {
-//        this.securityStrategy = new SecurityStrategy(r);
-//    }
-//
-//    @Override
-//    public SecurityStrategy getSecurityStrategy() {
-//        return this.securityStrategy;
-//    }
 
     protected void implementSecurityStrategy(WorldOrder wo) {
         WorldOrder worldOrder = wo;
@@ -146,6 +130,10 @@ public class State extends Polity implements Steppable {
                 WarParticipationFact caller = (WarParticipationFact) p.getLeft();
                 caller.commitMore(allowable);
                 if (unmet!=null) next.add(new ImmutablePair<>(caller, unmet));
+            } else if (p.getLeft().getClass() == DisputeParticipationFact.class) {
+                DisputeParticipationFact caller = (DisputeParticipationFact) p.getLeft();
+                caller.commitMore(allowable);
+                if (unmet!=null) next.add(new ImmutablePair<>(caller, unmet));
             }
             // TODO: Add else for fopo, borders, etc.
         }
@@ -162,7 +150,7 @@ public class State extends Polity implements Steppable {
     protected double recruit() {
         double deficit = 0.0;
         // required new recruits are demand minus available resources
-        Double requirement = securityStrategy.getBaseline().getPax() - resources.getPax();
+        Double requirement = securityStrategy.getTotalDemand().getPax() - resources.getPax();
         if (requirement > 0.0) {
             deficit = recruit(requirement / 4.33);
         } else if (requirement < 0.0) {
@@ -195,23 +183,22 @@ public class State extends Polity implements Steppable {
         double force = -f;
         resources.decrementPax(force);
         for (Tile t : territory.getPopulatedTileLinks()) {
-            double pop = t.getPopulation();
+            double pop = t.getPopulationTrans();
             double ratio = pop / territory.getPopulation();
             double vets = ratio * force;
-            double uPop = t.getUrbanPop();
-            t.setPopulation(pop + vets);
+            double uPop = t.getUrbanPopTrans();
+            t.setPopulationTrans(pop + vets);
             if (uPop > 0.0) { // veteran soldiers return to cities
-                t.setUrbanPop(uPop + vets);
+                t.setUrbanPopTrans(uPop + vets);
             }
         }
     }
 
-    public void establishEconomicPolicy(WorldOrder wo) {
-        WorldOrder worldOrder = wo;
-        int w = worldOrder.weeksThisYear;
-        // evaluate tax rate based on initial summed GTPs
-        double gdp = territory.getTileLinks().stream().mapToDouble(g -> g.getWeeklyGrossTileProduction()).sum();
-        this.economicPolicy.setTaxRate(securityStrategy.getBaseline().getTreasury() / (gdp * w) );
+    private void implementDeterrenceMission(int w) {
+        int weeks = w;
+        // Do deterrence
+        double weeklyDeterrenceCost = securityStrategy.getMilitaryStrategy().getTreasury() / (weeks * 1.0);
+        resources.decrementTreasury(weeklyDeterrenceCost);
     }
 
     // TODO: Rewire this to consider current resources + (future income - future expenses)
@@ -225,14 +212,6 @@ public class State extends Polity implements Steppable {
             } else {
                 economicPolicy.setTaxRate(economicPolicy.getTaxRate() * 0.99);
             }
-//            if (urbanization.average() < urbanization.pastYearAverage() && economicPolicy.getLabor() > 0.10) {
-//                economicPolicy.setCapital(economicPolicy.getCapital() * 1.01);
-//                economicPolicy.setLabor(economicPolicy.getLabor() * 0.99);
-//            } else if (urbanization.average() > urbanization.pastYearAverage() && economicPolicy.getLabor() < 0.90) {
-//                economicPolicy.setCapital(economicPolicy.getCapital() * 0.99);
-//                economicPolicy.setLabor(economicPolicy.getLabor() * 1.01);
-//            }
-
 //            if ((totalTreasuryDemand * 1.1) < resources.getTreasury()) {
 //                double invest = resources.getTreasury() - totalTreasuryDemand;
 //                double pci = invest / territory.getPopulation();
@@ -242,97 +221,362 @@ public class State extends Polity implements Steppable {
         }
     }
 
-    public void recordEconomicHistory(WorldOrder wo) {
+    public void recordSimulationHistory(WorldOrder wo) {
+        territory.updateTotals();
+//        if (wo.RECORDING) {
+            WorldOrder worldOrder = wo;
+            Dataset run = wo.getModelRun();
+            PopulationFact pf = new PopulationFact.FactBuilder()
+                    .dataset(run)
+                    .polity(this)
+                    .value(territory.getCurrentPopulation())
+                    .during(wo.getDataYear())
+                    .build();
+            run.addFacts(pf);
+            new FactServiceImpl().createOrUpdate(pf);
+
+            UrbanPopulationFact uf = new UrbanPopulationFact.FactBuilder().dataset(run).polity(this)
+                    .value(territory.getCurrentUrbanPopulation()).during(wo.getDataYear()).build();
+            run.addFacts(uf);
+            new FactServiceImpl().createOrUpdate(uf);
+
+            this.gdpLastYear = territory.getGrossDomesticProductLastYear();
+            GdpFact gf = new GdpFact.FactBuilder().dataset(run).polity(this).value(this.gdpLastYear)
+                    .during(wo.getDataYear()).build();
+            run.addFacts(gf);
+            gdpHistory.add(gf);
+            new FactServiceImpl().createOrUpdate(gf);
+//        }
+    }
+
+    @Override
+    public boolean resolveIssue(WorldOrder wo, Issue i) {
+    /**
+     * If claimant has dipex with target, random chance determines whether dipex is strong enough to resolve issue or to
+     * start a new dipexProc. If the dipex is strong enough, test if there is an existing alliance.
+     *
+     */
         WorldOrder worldOrder = wo;
-        Dataset run = wo.getModelRun();
-        gdpLastYear = territory.getGrossDomesticProductLastYear();
-        GdpFact f = new GdpFact.FactBuilder().dataset(run).polity(this).value(gdpLastYear)
-                .during(wo.getDataYear()).build();
-        this.economicHistory.add(f);
-        run.addFacts(f);
-        new FactServiceImpl().createOrUpdate(f);
-//        System.out.println(name + " had gdp last year of " + gdpLastYear/1000);
-    }
-
-    @Override
-    public boolean findPolityData(int year) {
-        DiscretePolityFact dpf = new DiscretePolityFactServiceImpl().getPolityData(this, year);
-        if (dpf != null) {
-            polityFact = dpf;
-            return true;
-        } else {
-            setNeutralPolityFact();
-            return false;
-        }
-    }
-
-    @Override
-    public void loadInstitutionData(int year, WorldOrder wo) {
-        new PolityFactServiceImpl().loadStateInstitutions(this, wo, year);
-        this.polityFact = new DiscretePolityFactServiceImpl().getPolityData(this,year);
-    }
-
-    @Override
-    public boolean considerIssue(Issue i, WorldOrder wo) {
-        double p = 0.5;
-        for (DipExFact r : representedAt) {
-            if (r.getPolity().equals(i.getTarget())) {
-                p -= 0.1;
-            }
-        }
-        for (AllianceParticipationFact f : alliances) {
-            Alliance a = f.getAlliance();
-            if (a.isParticipant(i.getTarget())) {
-                p -= 0.1;
-            }
-        }
-        return wo.random.nextDouble() < p;
-    }
-
-    @Override
-    public boolean evaluateWarNeed(SimState simState, Issue i) {
-        // The polity has a new Issue (Change occurs) and must decide whether they perceive a need to take action. Conceptually,
-        // the ProbabilisticCausality agent creates the issue and the ProcessDisposition directly, and the ProcessDisposition
-        // contains the logic about whether the polity perceives a need to take military action over the new Issue. In
-        // practical terms, we would have to create a Process and a ProcessDisposition (because the ProcessDisposition is
-        // a Neo4j relationship and it must know both of its endpoints at creation time); and the Issue may not result in
-        // a new Process after all. For convenience, the first step of the conflict logic is inside this method.
-
-        // Neutral Switzerland, you're too complicated to play.
-        if (this.cowcode == "225") return false;
-
-        WorldOrder worldOrder = (WorldOrder) simState;
         Issue issue = i;
-        Polity t = issue.getTarget();
-        long step = worldOrder.getStepNumber();
-
-        if (evaluateWarResolve(issue, worldOrder)) {                            //
-            WarProcess proc = new WarProcess(issue, step);                      //
-            issue.setProcess(proc);                                             //
-            worldOrder.addProc(proc);                                           //
-            proc.setStopper(worldOrder.schedule.scheduleRepeating(proc));       //
-            SecurityObjective so = leadership.chooseSecurityObjective(issue, worldOrder);   //
-            Resources warStrategy = developWarStrategy(t, so);
-            // link this state to the process and prepare security strategy
-            ProcessDisposition pdo = new ProcessDisposition.Builder().from(step).owner(this).process(proc)
-                    .objective(so).side(0).commitment(warStrategy).build();     //
-            // link the target to the process
-            ProcessDisposition pdt = new ProcessDisposition.Builder().owner(t).process(proc).from(step)
-                    .side(1).build();
-            if(so.value > 1) securityStrategy.addSupplemental(pdo,warStrategy);
+        if(WorldOrder.DIPEX) {
+            if(existsDipEx(i.getTarget())) {
+                DiplomaticExchange de = hasDipEx(i.getTarget());
+                if(WorldOrder.ALLIANCES) {
+                    if(existsAlliance(i.getTarget())) {
+                        Alliance a = hasAlliance(i.getTarget());
+                        if(resolvedThroughAlliance(worldOrder, issue, a)) {
+                            // set issue.proc to allianceProc, ++alliance.strength (done inside T resolvedThruAlliance method),
+                            // ++dipex.strength, saveOut facts, stop issue, return true.
+                            de.setStrength(1.0 - ( (1.0 - de.getStrength()) * worldOrder.getInstitutionStagnationRate() ) );
+                            i.conclude(worldOrder);
+                            return true;
+                        }
+                    }
+                }
+                if(resolvedThroughDiplomacy(worldOrder, issue, de)) {
+                    // set issue.proc to dipex, ++dipex.strength, saveOut facts, stop issue, return true;
+                }
+            } else {
+                if(evaluateBeginDipEx(worldOrder, issue)) {
+                    //set issue.proc to dipex, return true;
+                }
+            }
+        }
+        if(evaluateWarNeed(worldOrder, issue)) {
+            // if true, the war proc is linked to the issue; method for claimant
+            WarProcess wp = this.initiateWarProcess(worldOrder, issue);
+            ProcessDisposition pd = wp.getProcessDispositionList().get(0);
+            pd.setN(true);
+            pd.setObjective( leadership.chooseSecurityObjective(issue, worldOrder) );
             return true;
+        }
+        // returns false if State apparatus resolves nothing, so the issue continues to irritate the claimant
+        return false;
+    }
+
+    @Override
+    public boolean evaluateWarNeed(WorldOrder wo, Issue i) {
+        /**
+         * The claimant polity has a new Issue (Change occurs) and must decide whether they perceive a need to take action.
+         * Conceptually, the ProbabilisticCausality agent creates the issue and the ProcessDisposition directly, and the
+         * ProcessDisposition contains the logic about whether the polity perceives a need to take military action over the
+         * new Issue, after some initial analysis of the threat.
+         *
+         * The fundamental question is whether resolving the Issue
+         * is worth the violence and cost of military action.
+         * @param WorldOrder simState object
+         * @param Issue that may be resolved by violence
+         * @return boolean
+         */
+//        // Neutral Switzerland, you're too complicated to play.
+//        if (this.cowcode == "225") return false;
+        WorldOrder worldOrder = wo;
+        Issue issue = i;
+        if (WorldOrder.RANDOM) {
+            return worldOrder.random.nextBoolean();
         } else {
-            return false;
+            this.territory.getCommonWeal().addIssue(issue, worldOrder);
+            return (this.leadership.evaluateWarNeed(issue, worldOrder) >  warParams.get("WAR_NEED_MIN"));
         }
     }
 
     @Override
     public boolean evaluateWarNeed(ProcessDisposition pd, WorldOrder wo) {
-        // This means that there is an impending threat of war and the evaluation criteria are different
-        if (evaluateWarResolve(pd.getProcess().getIssue(), wo)) {
-            pd.setN(true);
-            return true;
+        /**
+         * Process participants that already have a process disposition use an alternate method signature.
+         *
+         * The target polity has a new Challenge (Change occurs) and must decide whether they perceive a need to take action.
+         * Conceptually, the challenge comes from a claimant polity that has an Issue with this target.
+         *
+         * The fundamental question is whether there is a need to defend against the possible violence from the claimant
+         * polity.
+         *
+         * @param pd (created by the process) that links this polity to the process
+         * @param wo simState object
+         * @return boolean if N condition at the PD is now true.
+         */
+        //
+        // TODO: make the decision based on possible consequences
+        WorldOrder worldOrder = wo;
+        ProcessDisposition proc = pd;
+        Issue issue = pd.getProcess().getIssue();
+        if (WorldOrder.RANDOM) {
+            if (worldOrder.random.nextBoolean()) {
+                pd.setN(true);
+                pd.setObjective( leadership.chooseSecurityObjective(issue, worldOrder) );
+                return true;
+            } else {
+                return false; // Canonical x, Wright's ~A (failure to resist)
+            }
+        } else {
+            if (this.leadership.evaluateWarNeed(issue, wo) > warParams.get("WAR_NEED_MIN")) {
+                if (Objects.equals(this.cowcode, "225")) {
+                    if (pd.getEnemyDisposition().getObjective().value > 3) mobilizeTheReserves(issue);
+                }
+                pd.setN(true);
+                pd.setObjective( leadership.chooseSecurityObjective(issue, worldOrder) );
+                return true;
+            }
+            return false;  // Canonical x, Wright's ~A (failure to resist)
         }
+    }
+
+    /**
+     * An alliance partner has prompted a process to determine whether this polity will join a war or war process
+     *
+     * The fundamental question is whether there is a need to support the alliance partner in their struggle
+     *
+     * @param p the WarProcess that prompted this question
+     * @param wo simState object
+     * @param s the side to join if the answer is yes.
+     * @return boolean if N condition at the PD is now true.
+     */
+    public boolean evaluateWarNeed(WarProcess p, WorldOrder wo, int s, Alliance a) {
+        WorldOrder worldOrder = wo;
+        WarProcess process = p;
+        Issue issue = process.getIssue();
+        Alliance alliance = a;
+        Long step = worldOrder.getWeekNumber();
+        int whichSide = s;
+        boolean yes = false;
+        if (WorldOrder.RANDOM) {
+            if (worldOrder.random.nextBoolean());
+        } else {
+            this.territory.getCommonWeal().addIssue(issue, worldOrder);
+            boolean strong = worldOrder.random.nextBoolean( alliance.getStrength() );
+            boolean need = this.leadership.evaluateWarNeed(issue, worldOrder) >  warParams.get("WAR_NEED_MIN");
+            if (strong && need) {
+                yes = true;
+                alliance.setStrength(1.0 - ( (1.0 - alliance.getStrength()) * worldOrder.getInstitutionStagnationRate() ) );
+            } else {
+                yes = false;
+                alliance.setStrength(1.0 - ( (1.0 - alliance.getStrength()) / worldOrder.getInstitutionStagnationRate() ) );
+            }
+        }
+        if (yes) {
+            SecurityObjective o = leadership.chooseSecurityObjective(issue, worldOrder);
+            ProcessDisposition pda = new ProcessDisposition.Builder()
+                    .process(process)
+                    .from(step)
+                    .until(step + 1L)
+                    .side(whichSide)
+                    .owner(this)
+                    .objective(o)
+                    .need(true)
+                    .build();
+            process.addProcessParticipant(pda);
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    @Override
+    public boolean evaluateWarWillingness(ProcessDisposition pd, WorldOrder wo) {
+        /**
+         * Is the Polity willing to undertake action (commit resources) for this conflict?
+         * 1. Is the leadership willing (tax, recruit, etc) ?
+         * 2. Is the commonWeal willing (pay tax, get drafted, ect) ?
+         * @param pd ProcessDisposition linking to the war process
+         * @param wo WorldOrder simState object
+         */
+        Issue i = pd.getProcess().getIssue();
+        Polity enemy;
+
+        if (pd.getSide() == 0) {
+            enemy = pd.getProcess().getIssue().getTarget();
+        } else {
+            enemy = pd.getProcess().getIssue().getClaimant();
+        }
+        SecurityObjective response = pd.getObjective() == null ? leadership.chooseSecurityObjective(i, wo) : pd.getObjective();
+        boolean defending = (response.value == 3 || response.value == 5);
+
+        if (leadership.evaluateWarWillingness(i, wo) > warParams.get("WAR_WILLING_MIN")) {
+            Resources strategy = developWarStrategy(enemy, response);
+            pd.commit(strategy);
+            pd.setU(true);
+            if (response.value > 3) securityStrategy.addSupplemental(pd,strategy);
+            int hops = 1;
+            int weeks = 1;
+            int pace = wo.getMarchingPace();
+            if (!defending ) {
+                Territory enemyTerritory = enemy.getTerritory();
+                Map<String, Object> attackPath = new AttackPathImpl().findAttackPath(territory, enemyTerritory);
+                pd.setAttackPath(attackPath);
+                System.out.println("attacking from " + territory.getMapKey() + " to " + enemyTerritory.getMapKey());
+                hops = ((Number) attackPath.get("hops")).intValue();
+                weeks = Math.max( (hops + pace - 1) / pace, 1);
+                pd.setUt( weeks );
+            } else {
+                Map<String, Object> defensePath = new HashMap<>();
+                if (Objects.nonNull(pd.getEnemyDisposition().getAttackPath())) {
+                    defensePath.put( "finish", pd.getEnemyDisposition().getAttackPath().get("finish") );
+                }
+                hops = (int) (Math.sqrt(territory.getRadius()));
+                defensePath.put("hops", hops);
+                pd.setAttackPath(defensePath);
+                weeks = Math.max( (hops + pace - 1) / pace, 1);
+                pd.setUt(weeks);
+            }
+//            securityStrategy.addSupplemental(pd,strategy);
+            return true;
+        } else {
+            if (pd.getSide()==0) {
+                pd.setObjective(ABIDE);
+            } else {
+                pd.setObjective(ACCEPT);
+            }
+            return false;
+        }
+    }
+
+    private WarProcess initiateWarProcess(WorldOrder wo, Issue i) {
+        /**
+         * Create a new war process if the claimant decides they need to resolve the Issue with military action (may not
+         * actually be a war; it could be strike or a show of force), but that objective needs to be declared so that the
+         * target knows what they're facing.
+         * @param wo WorldOrder
+         * @param i Issue
+         * @return boolean whether a new war process has been created and both polities have a disposition toward it.
+         */
+        WorldOrder worldOrder = wo;
+        Issue issue = i;
+        long step = worldOrder.getWeekNumber();
+        WarProcess proc = new WarProcess(issue, step);
+        issue.setProcess(proc);
+        worldOrder.addProc(proc);
+        proc.setStopper(worldOrder.schedule.scheduleRepeating(proc));
+        return proc;
+    }
+
+    private boolean undertakeMilitaryAction(WorldOrder wo, ProcessDisposition pd) {
+        WorldOrder worldOrder = wo;
+        ProcessDisposition disposition = pd;
+        Issue issue = disposition.getProcess().getIssue();
+        Polity t = issue.getTarget();
+        long step = worldOrder.getWeekNumber();
+        WarProcess proc = new WarProcess(issue, step);                                  //
+        issue.setProcess(proc);                                                         //
+        worldOrder.addProc(proc);                                                       //
+        proc.setStopper(worldOrder.schedule.scheduleRepeating(proc));                   //
+        SecurityObjective so = leadership.chooseSecurityObjective(issue, worldOrder);   //
+        Resources warStrategy = developWarStrategy(t, so);
+        // link this state to the process and prepare security strategy
+        ProcessDisposition pdo = new ProcessDisposition.Builder().from(step).owner(this).process(proc)
+                .objective(so).side(0).need(true).commitment(warStrategy).build();     //
+        // link the target to the process
+        ProcessDisposition pdt = new ProcessDisposition.Builder().owner(t).process(proc).from(step)
+                .side(1).build();
+        if(so.value > 3) securityStrategy.addSupplemental(pdo,warStrategy);
+        return true;
+    }
+
+    @Override
+    public boolean resolvedThroughAlliance(WorldOrder wo, Issue i, Alliance a) {
+        Alliance alliance = a;
+        WorldOrder worldOrder = wo;
+        Issue issue = i;
+        double r = worldOrder.random.nextDouble();
+        if (alliance.getAllianceType()==AllianceType.ENTENTE) {
+            r = Math.max(r / 0.98, 0.80);
+        } else if (alliance.getAllianceType()==AllianceType.NONAGGRESSION) {
+            r = Math.max(r / 0.90, 0.90);
+        } else if (alliance.getAllianceType()==AllianceType.DEFENSE) {
+            r = Math.max(r / 0.80, 0.99);
+        }
+        if (alliance.getStrength() >= r) {
+            alliance.setStrength(1.0 - ( (1.0 - alliance.getStrength()) * worldOrder.getInstitutionStagnationRate() ) );
+            return true;
+        } else {
+            alliance.setStrength(1.0 - ( (1.0 - alliance.getStrength()) / worldOrder.getInstitutionStagnationRate() ) );
+            return false;
+        }
+    }
+
+    public boolean seekAlliedAssistance(ProcessDisposition pd, WorldOrder wo) {
+        ProcessDisposition disposition = pd;
+        Polity p = disposition.getEnemy();
+        WorldOrder worldOrder = wo;
+        Map<Double, Alliance> alliances = this.findAlliancesAgainst(p);
+        boolean help = false;
+
+        if (alliances.size() > 0) {
+            for (Alliance a : alliances.values()) {
+                if (a.getAllianceType()==AllianceType.DEFENSE) {
+                    for (AllianceParticipationFact ally : a.getAllianceParticipations() ) {
+                        State friend = (State) ally.getPolity();
+                        if (!Objects.equals(this, friend) && !Objects.equals(p, friend) ) {
+                            WarProcess wp = (WarProcess) disposition.getProcess();
+                            help = friend.evaluateWarNeed(wp, worldOrder, disposition.getSide(), a);
+                        }
+                    }
+                }
+            }
+        }
+        return help;
+    }
+
+    @Override
+    public boolean resolvedThroughDiplomacy(WorldOrder wo, Issue i, DiplomaticExchange d) {
+        DiplomaticExchange de = d;
+        WorldOrder worldOrder = wo;
+        double r = worldOrder.random.nextDouble();
+        if (de.getStrength() <= r ) {
+            de.setStrength(1.0 - ( (1.0 - de.getStrength()) * worldOrder.getInstitutionStagnationRate() ) );
+            return true;
+        } else {
+            de.setStrength(1.0 - ( (1.0 - de.getStrength()) / worldOrder.getInstitutionStagnationRate() ) );
+            return false;
+        }
+    }
+
+    @Override
+    public boolean evaluateBeginDipEx(WorldOrder wo, Issue i) {
+        return false;
+    }
+
+    @Override
+    public boolean defenseNeed(ProcessDisposition pd, WorldOrder wo) {
         return false;
     }
 
@@ -348,7 +592,7 @@ public class State extends Polity implements Steppable {
         double threshold = worldOrder.random.nextDouble();
         double meanOpinion = evaluatePolityResolve(lo, po);
         if (meanOpinion > threshold) {
-            PeaceProcess proc = new PeaceProcess(this, issue, wo.getStepNumber());
+            PeaceProcess proc = new PeaceProcess(this, issue, wo.getWeekNumber() );
             issue.setProcess(proc);
             worldOrder.addProc(proc);
             proc.setStopper(worldOrder.schedule.scheduleRepeating(proc));
@@ -363,27 +607,6 @@ public class State extends Polity implements Steppable {
 
     public boolean evaluateNeedForPeace(ProcessDisposition pd) {
         return true;
-    }
-
-    @Override
-    public boolean evaluateWarWillingness(ProcessDisposition pd, WorldOrder wo) {
-        /*
-         *  Is the State willing to undertake action (commit resources) for this conflict?
-         *    1. Is the leadership willing (tax, recruit, etc) ?
-         *    2. Is the commonWeal willing (pay tax, get drafted, ect) ?
-         */
-        Issue i = pd.getProcess().getIssue();
-        Polity enemy = pd.getProcess().getIssue().getInstigator();
-        if(evaluateWarResolve(i, wo)) {
-            SecurityObjective response = leadership.chooseSecurityObjective(i, wo);
-            Resources defenseStrategy = developWarStrategy(enemy, response);
-            pd.commit(defenseStrategy);
-            securityStrategy.addSupplemental(pd,defenseStrategy);
-            pd.setU(true);
-            return true;
-        } else {
-            return false;
-        }
     }
 
     public boolean evaluatePeaceWillingness(ProcessDisposition pd) {
@@ -412,25 +635,6 @@ public class State extends Polity implements Steppable {
         return magnitude / extent < commitment;
     }
 
-    private boolean evaluateWarResolve(Issue i, WorldOrder wo) {
-        Issue issue = i;
-        Double threshold = 0.50;
-        if (this.getForces()==0 && this.cowcode=="225") {
-            threshold = 0.90;
-        }
-        if (this.leadership.equals(null) || territory.commonWeal.equals(null)) {
-            System.out.println("What happened to " + this.getName() + "'s commonweal or leadership?");
-        }
-        double leadershipOpinion = leadership.evaluateWarNeed(issue, wo);
-        double popularOpinion = territory.commonWeal.evaluateWarNeed(issue);
-        double meanOpinion = evaluatePolityResolve(leadershipOpinion, popularOpinion);
-        boolean resolve = meanOpinion > threshold;
-        if (this.cowcode=="225" && resolve) {
-            return mobilizeTheReserves(issue);
-        }
-        return resolve;
-    }
-
     private double evaluatePolityResolve(double lo, double po) {
         double leadershipOpinion = lo;
         double popularOpinion = po;
@@ -445,6 +649,26 @@ public class State extends Polity implements Steppable {
             opinions[j] = popularOpinion;
         }
         return Arrays.stream(opinions).average().getAsDouble();
+    }
+
+    public boolean evaluateDefensePactImplementationNeed(Polity p, Issue i) {
+        return false;
+    }
+
+    @Override
+    public boolean willRelent(ProcessDisposition p, WorldOrder wo) {
+        int objective = p.getObjective() == null ? -3 : p.getObjective().value;
+        if (objective < 0) return true;
+        double forceConcentration = new Lanchester(
+                p.getCommitment().multipliedBy(2), p.getEnemyDisposition()
+                .getCommitment()).calculateMyForceConcentration();
+        boolean chances;
+        if (p.getSide() == 1) {
+            chances = forceConcentration > 1.0;
+        } else {
+            chances = forceConcentration > 1.5;
+        }
+        return (chances);
     }
 
     @Override
@@ -484,21 +708,20 @@ public class State extends Polity implements Steppable {
     }
 
     public void evaluateThreatNetwork(WorldOrder wo) {
-        List<State> result = new StateServiceImpl().getRiskyNeighbors(this.id, wo.getFromYear());
+        List<String> result = new ThreatNetworkServiceImpl().getAnyNeighbor(this.id, wo.getFromYear());
         List<State> unfriendlies = new ArrayList<>();
-        List<State> allTheStates = wo.getAllTheStates();
-        for (State s : result) {
-            for (State o : allTheStates) {
-                if (s.equals(o)) unfriendlies.add(o);
-            }
+        Map<String, State> allTheStates = wo.getAllTheStates();
+        for (String c : result) {
+            State u = allTheStates.get(c);
+            if (u != null) unfriendlies.add(u);
         }
         double networkTotalSDP = territory.getCurrentSDP();
         double networkTotalPop = territory.getCurrentPopulation();
         double networkTotalMilEx = 0.0;
         double networkTotalMilPer = 0.0;
-        double networkAvgMilEx2SDP = 0.0;
-        double networkAvgMilPer2Pop = 0.0;
-        double myThreatPosture = 0.0;
+        double networkAvgMilEx2SDP;
+        double networkAvgMilPer2Pop;
+        double myThreatPosture;
         for (State s : unfriendlies) {
             Resources milStrategy = s.getSecurityStrategy().getMilitaryStrategy();
             networkTotalSDP += s.getPublicSDP();
@@ -511,11 +734,15 @@ public class State extends Polity implements Steppable {
         myThreatPosture = (getMyMilEx2SDP() / networkAvgMilEx2SDP) * (getMyMilPer2Pop() / networkAvgMilPer2Pop);
 
         for (State s : unfriendlies) {
-            double per = s.getPublicMilPer2Pop() / networkAvgMilPer2Pop;
-            double exp = s.getPublicMilEx2SDP() / networkAvgMilEx2SDP;
-            double threat = per * exp;
-            double relativeThreat = threat / myThreatPosture;
-            this.threats.put(s, relativeThreat);
+            if (s.getCowcode().equals("225")) {
+                this.threatNet.put(s, 0.0);
+            } else {
+                double per = s.getPublicMilPer2Pop() / networkAvgMilPer2Pop;
+                double exp = s.getPublicMilEx2SDP() / networkAvgMilEx2SDP;
+                double threat = per * exp;
+                double relativeThreat = threat / myThreatPosture;
+                this.threatNet.put(s, relativeThreat);
+            }
         }
     }
 
@@ -537,7 +764,7 @@ public class State extends Polity implements Steppable {
 
     private double getMyRelativeSDP(WorldOrder wo) {
         double globalSDP = 0.0;
-        for (State s : wo.getAllTheStates() ) {
+        for (State s : wo.getAllTheStates().values() ) {
             globalSDP += s.getPublicSDP();
         }
         double mySDP = territory.getCurrentSDP();
@@ -546,24 +773,21 @@ public class State extends Polity implements Steppable {
 
     private double getTargetSDP(WorldOrder wo, Polity p) {
         double globalSDP = 0.0;
-        for (State s : wo.getAllTheStates() ) {
+        for (State s : wo.getAllTheStates().values() ) {
             globalSDP += s.getPublicSDP();
         }
         double targetSDP = p.getPublicSDP();
         return targetSDP / globalSDP;
     }
 
-
     private boolean mobilizeTheReserves(Issue i) {
-        Polity instigator = i.getInstigator();
+        Polity instigator = i.getClaimant();
         Resources opfor = instigator.getResources();
-        double reserve = territory.getPopulation();
-        if(reserve * 0.10 > opfor.getPax()) {
-            Double needed = opfor.getPax() * 2;
-            recruit(needed.intValue());
-            return true;
-        }
-        return false;
+        double threat = opfor.getPax();
+        double reserve = territory.getPopulation() * 0.1;
+        double needed = Math.min(reserve, threat * 2);
+        recruit(needed);
+        return (reserve >= needed);
     }
 
     private Resources developWarStrategy(Polity op, SecurityObjective ob) {
@@ -634,8 +858,23 @@ public class State extends Polity implements Steppable {
     }
 
     @Override
-    public void surrender(WarParticipationFact p, WorldOrder wo) {
-        super.surrender(p, wo);
+    public void surrender(ProcessDisposition p, WorldOrder wo) {
+        p.getEnemyDisposition().setS(true);
+        p.getProcess().getIssue().setResolved(true);
+    }
+
+    public void acquiesce(ProcessDisposition p, WorldOrder wo) {
+        WorldOrder worldOrder = wo;
+        ProcessDisposition disposition = p;
+        ProcessDisposition enemyDisposition = disposition.getEnemyDisposition();
+        int enemyObjective = enemyDisposition.getObjective().value;
+        if (enemyObjective > 5) {
+            // suzerainty
+        } else if (enemyObjective >= 0) {
+            // resolve issue and give up something in the issue domain
+        } else {
+           // just end the process
+        }
     }
 
     public void establishForeignStrategyCost(int i) {
@@ -670,11 +909,43 @@ public class State extends Polity implements Steppable {
 //        }
     }
 
-    private void implementDeterrenceMission(int w) {
-        int weeks = w;
-        // Do deterrence
-        double weeklyDeterrenceCost = securityStrategy.getMilitaryStrategy().getTreasury() / (weeks * 1.0);
-        resources.decrementTreasury(weeklyDeterrenceCost);
+    public void loadData(WorldOrder wo) {
+        String y = territory.getYear() + "";
+        this.resources = new Resources.ResourceBuilder()
+                .pax(((MilPerFact)(new FactServiceImpl().getMilPerFact(y, this))).getValue())
+                .treasury(((MilExFact)(new FactServiceImpl().getMilExFact(y, this))).getValue())
+                .build();
+        this.setSecurityStrategy(resources);
+        double rate = ((TaxRateFact) (new FactServiceImpl().getInitialTaxRate(this, territory.getYear()))).getValue();
+        this.setEconomicPolicy(new EconomicPolicy(0.6, 0.4, rate));
+        this.loadInstitutionData(wo);
+    }
+
+    public void establishEconomicPolicy(WorldOrder wo) {
+        WorldOrder worldOrder = wo;
+        int w = worldOrder.weeksThisYear;
+        // evaluate tax rate based on initial summed GTPs
+        double gdp = territory.getTileLinks().stream().mapToDouble(Tile::getWeeklyGTPTrans).sum();
+        this.economicPolicy.setTaxRate(securityStrategy.getBaseline().getTreasury() / (gdp * w) );
+    }
+
+    @Override
+    public boolean findPolityData(int year) {
+        DiscretePolityFact dpf = new DiscretePolityFactServiceImpl().getPolityData(this, year);
+        if (dpf != null) {
+            polityFact = dpf;
+            return true;
+        } else {
+            setNeutralPolityFact();
+            return false;
+        }
+    }
+
+    @Override
+    public void loadInstitutionData(WorldOrder wo) {
+        int y = wo.getFromYear();
+        new PolityFactServiceImpl().loadStateInstitutions(this, wo);
+        this.polityFact = new DiscretePolityFactServiceImpl().getPolityData(this,y);
     }
 
     @Override

@@ -2,13 +2,16 @@ package edu.gmu.css.entities;
 
 import edu.gmu.css.agents.Process;
 import edu.gmu.css.data.AllianceType;
+import edu.gmu.css.data.Domain;
 import edu.gmu.css.data.Resources;
-import edu.gmu.css.service.DateConverter;
+import edu.gmu.css.worldOrder.WorldOrder;
 import org.neo4j.ogm.annotation.*;
-import org.neo4j.ogm.annotation.typeconversion.Convert;
 import sim.engine.SimState;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 @NodeEntity
 public class Alliance extends Institution {
@@ -17,38 +20,47 @@ public class Alliance extends Institution {
     private Long id;
     @Property
     String ssType;
+    @Property
+    String cowcode;
+    @Property
+    String version;
     @Transient
     AllianceType allianceType;
-    @Property @Convert(DateConverter.class)
-    Long from;
-    @Property @Convert(DateConverter.class)
-    Long until;
+    @Transient Double strength = 0.50;
 
     @Relationship(direction = Relationship.INCOMING, type = "ENTERED_INTO")
-    Set<Fact> relatedFacts = new HashSet<>();
-    @Relationship(type = "PART_OF")
+    List<AllianceParticipationFact> participations = new ArrayList<>();
+    @Relationship(type = "ALLIANCE_TYPE")
     Set<CategoryList> categoryList = new HashSet<>();
-    @Relationship
-    LinkedList<AllianceParticipationFact> participations = new LinkedList<>();
+    @Relationship(type = "IS_ALLIANCE", direction = Relationship.INCOMING)
+    private AllianceFact allianceFact;
 
 
     public Alliance() {
-        if (allianceType==null) {
-            allianceType = AllianceType.name(ssType);
-        }
-        name = "Alliance";
+        this.domain = Domain.ALLIANCE;
     }
+
+    @PostLoad
+    public void findAllianceType() {
+        name = "Alliance";
+        domain = Domain.ALLIANCE;
+        cost = new Resources.ResourceBuilder().build();
+    }
+
 
     public Alliance(Process process) {
         name = "Alliance";
         from = process.getEnded();
         cause = process;
         cost = new Resources.ResourceBuilder().build();
+        domain = Domain.ALLIANCE;
     }
 
 
     @Override
     public void step(SimState simState) {
+        WorldOrder wo = (WorldOrder) simState;
+        this.strength = strength * wo.getInstitutionStagnationRate(); // decreases by every year but use increases
     }
 
     @Override
@@ -62,6 +74,14 @@ public class Alliance extends Institution {
 
     public AllianceType getAllianceType() {
         return allianceType;
+    }
+
+    public Double getStrength() {
+        return this.strength;
+    }
+
+    public void setStrength(double d) {
+        this.strength = d;
     }
 
     public void setAllianceType(AllianceType allianceType) {
@@ -86,8 +106,8 @@ public class Alliance extends Institution {
         this.until = until;
     }
 
-    public Set<Fact> getRelatedFacts() {
-        return relatedFacts;
+    public AllianceFact getRelatedFact() {
+        return this.allianceFact;
     }
 
     public Set<CategoryList> getCategoryList() {
@@ -98,7 +118,7 @@ public class Alliance extends Institution {
         participations.add(ap);
     }
 
-    public LinkedList<AllianceParticipationFact> getAllianceParticipations() {
+    public List<AllianceParticipationFact> getAllianceParticipations() {
         return this.participations;
     }
 
@@ -122,6 +142,8 @@ public class Alliance extends Institution {
         }
         return partners;
      }
+
+
 
 
     @Override

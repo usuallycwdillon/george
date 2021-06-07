@@ -1,51 +1,42 @@
 package edu.gmu.css.relations;
 
 import edu.gmu.css.agents.Process;
+import edu.gmu.css.agents.WarProcess;
+import edu.gmu.css.data.Resources;
 import edu.gmu.css.data.SecurityObjective;
 import edu.gmu.css.entities.Institution;
 import edu.gmu.css.entities.Polity;
-import edu.gmu.css.data.Resources;
+import edu.gmu.css.service.AttackPathImpl;
 import edu.gmu.css.worldOrder.WorldOrder;
-import org.neo4j.ogm.annotation.*;
 
 import java.io.Serializable;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 
 
-@RelationshipEntity(type="DISPOSITION_IN")
 public class ProcessDisposition implements Serializable {
 
-    @Id @GeneratedValue
-    private Long id;
-    @StartNode
     private Polity owner;
-    @EndNode
     private Process process;
-    @Property
     private Long from;
-    @Property
     private Long until;
-    @Property
     private Integer during;
-    @Transient
     private boolean S;
-    @Transient
     private boolean P;
-    @Transient
     private boolean C;
-    @Transient
     private boolean U;
-    @Transient
     private boolean N;
-    @Transient
     private boolean K;
-    @Transient
+    private int uT;
+    protected boolean outcome = false; // whether the other side has acted first
+    protected int[] status = new int[] {0, 0, 0};
+    protected char fiat = 'x';
     private Resources commitment;
-    @Transient
-    private SecurityObjective objective;
-    @Transient
+    private SecurityObjective objective = SecurityObjective.ACCEPT;
     private Institution subject;
-    @Transient
     private int side;
+    private Map<String, Object> attackPath;
 
 
     public ProcessDisposition() {
@@ -90,7 +81,6 @@ public class ProcessDisposition implements Serializable {
         this.side = builder.side;
     }
 
-
     public static class Builder {
         private boolean N;
         private Long from;
@@ -98,7 +88,7 @@ public class ProcessDisposition implements Serializable {
         private Integer during;
         private Polity owner;
         private Process process;
-        private Resources commitment;
+        private Resources commitment = new Resources.ResourceBuilder().build();
         private SecurityObjective objective;
         private Institution subject;
         private int side;
@@ -155,11 +145,10 @@ public class ProcessDisposition implements Serializable {
 
         public ProcessDisposition build() {
             ProcessDisposition pd = new ProcessDisposition(this);
-            owner.addProcess(pd);
-            process.addProcessParticipant(pd);
             return pd;
         }
     }
+
 
     public void commit(Resources resources) {
         commitment = resources;
@@ -168,10 +157,6 @@ public class ProcessDisposition implements Serializable {
 
     public void commitMore(Resources resources) {
         commitment.increaseBy(resources);
-    }
-
-    public Long getId() {
-        return id;
     }
 
     public Polity getOwner() {
@@ -242,6 +227,30 @@ public class ProcessDisposition implements Serializable {
         K = k;
     }
 
+    public boolean isOutcome() {
+        return outcome;
+    }
+
+    public void setOutcome(boolean outcome) {
+        this.outcome = outcome;
+    }
+
+    public int[] getStatus() {
+        return status;
+    }
+
+    public void setStatus(int[] status) {
+        this.status = status;
+    }
+
+    public char getFiat() {
+        return fiat;
+    }
+
+    public void setFiat(char fiat) {
+        this.fiat = fiat;
+    }
+
     public Resources getCommitment() {
         return commitment;
     }
@@ -282,8 +291,218 @@ public class ProcessDisposition implements Serializable {
         this.side = side;
     }
 
+    public int getUt() {
+        return uT;
+    }
+
+    public void setUt(int t) {
+        this.uT = t;
+    }
+
+    public void updateStatus() {
+        /** Binary version of Cioffi-Revilla `Canonical Process` Engine, dialectically
+         *  The Omega digit reflects whether the outcome has been calculated
+         *  The [SPC] digit reflects the external state
+         *  The [UNK] digit reflects the internal state
+         *
+         *  [Omega] [SPC] [UNK]  status  Fiat Sum
+         *      [0] [000] [001]  [0,0,1]   -   1    Both States are aware of the other, preliminary to the process; OBE
+         *      [0] [001] [001]  [0,1,1]   -   2    A change/challenge occurs between participating States; initial condition for any process
+         *      [0] [001] [011]  [0,1,3]   -   4    need to take action is recognized
+         *      [0] [011] [011]  [0,3.3]   -   6    no action undertaken; change/challenge persists
+         *      [0] [001] [111]  [0,1,7]   -   8    States prepare to act
+         *      [0] [011] [111]  [0,3,7]   -   10   change/challenge persists
+         *      [0] [111] [111]  [0,7,7]   -   14   Institution will be realized
+         *      [1] [000] [001]  [1,0,1]   e   2    Stagnate relationship between 2 or more Polities, preliminary to the process; also OBE
+         *      [1] [001] [001]  [1,1,1]   x   3    ...but need to respond does not exist
+         *      [1] [001] [011]  [1,1,3]   E   5    need to take action is recognized
+         *      [1] [011] [011]  [1,3.3]   X   7    no action undertaken; change/challenge persists
+         *      [1] [001] [111]  [1,1,7]   W   9    action undertaken, change/challenge does not persist
+         *      [1] [011] [111]  [1,3,7]   Z   11   action taken, change/challenge persists, no success
+         *      [1] [111] [111]  [1,7,7]   A   15   action is successful; change/challenge resolves into new institution
+         */
+        // Canonical Process engine
+        int internal = 0;
+        int external = 0;
+        // Assume _00
+        if (this.outcome) {
+            this.status[0] = 1;
+        } else {
+            this.status[0] = 0;
+        }
+        if (this.C) {
+            external += 1;
+        }
+        if (this.P) {
+            external += 2;
+        }
+        if (this.S) {
+            external += 4;
+        }
+        if (this.K) {
+            internal += 1;
+        }
+        if (this.N) {
+            internal += 2;
+        }
+        if (this.U) {
+            internal += 4;
+        }
+
+        this.status[1] = external;
+        this.status[2] = internal;
+        setFiat();
+    }
+
+    public int sumStatus() {
+        int statusSum = 0;
+        statusSum = Arrays.stream(status).sum();
+        return statusSum;
+    }
+
+    public void setFiat() {
+        // This process is designed to "rachet", meaning that the process will advance to the next potential fiat, even
+        // if the conditions for equivalence and the outcome have not been met; only that the limitations of theee
+        // previous fiat have been surpassed. For example: K, C, N, ~U will be classified as fiat E even before P/~P has been
+        // evaluated.
+        int [] assessableStatus = this.getStatus();
+
+        if (assessableStatus[1] == 1) {
+            if (assessableStatus[2] == 1) {         // 011 = 2, 111 = 3
+                this.fiat = 'x';
+            } else if (assessableStatus[2] == 3) {  // 013 = 4, 113 = 5
+                this.fiat = 'E';
+            } else if (assessableStatus[2] == 7) {  // 017 = 8, 117 = 9
+                this.fiat = 'W';
+            } else {
+                this.fiat = '?';
+            }
+        }
+        else if (assessableStatus[1] == 3) {        // 03_
+            if (assessableStatus[2] == 3) {         // 033 = 6, 133 = 7
+                this.fiat = 'X';
+            }
+            else if (assessableStatus[2] == 7) {    // 037 = 10, 137 = 11
+                this.fiat = 'Z';
+            } else {
+                this.fiat = '?';
+            }
+        }
+        else if (assessableStatus[1] == 7) {        // 07_
+            if (assessableStatus[2] == 7) {         // 077 = 14, 177 = 15
+                this.fiat = 'A';
+            }
+            else {
+                this.fiat = '?';
+            }
+        }
+    }
+
+    public void decrementUt() {
+        if (this.uT > 0) {
+            this.uT -=1;
+        } else {
+            this.uT = 0;
+        }
+    }
+
     public void learnPolityWarNeed(WorldOrder wo) {
         if (owner.evaluateWarNeed(this, wo))
             setN(true);
     }
+
+    public Map<String, Object> getAttackPath() {
+        if (this.attackPath == null || this.attackPath.size() == 0) {
+            this.attackPath = new AttackPathImpl().findAttackPath(owner.getTerritory(), getEnemy().getTerritory());
+        }
+        return this.attackPath;
+    }
+
+    public void setAttackPath(Map<String, Object> ap) {
+        this.attackPath = ap;
+    }
+
+    public Polity getEnemy() {
+        ProcessDisposition pd = process.getProcessDispositionList().get(0);
+        if (pd == this) {
+            return process.getProcessDispositionList().get(1).getOwner();
+        } else {
+            return pd.getOwner();
+        }
+    }
+
+    public ProcessDisposition getEnemyDisposition() {
+        for (ProcessDisposition pd : process.getProcessDispositionList()) {
+            if ( !pd.getOwner().equals(owner) ) {
+                return pd;
+            }
+        }
+        return null;
+    }
+
+    public boolean strike() {
+
+        return false;
+    }
+
+    public int developDisposition(WarProcess p, WorldOrder wo) {
+        WarProcess proc = p;
+        WorldOrder worldOrder = wo;
+        this.updateStatus();
+        int statusSum = this.sumStatus();
+        switch (statusSum) {
+            case 2:
+                this.getOwner().evaluateWarNeed(this, worldOrder);
+                break;
+            case 3:
+                break;
+            case 4:
+                this.getOwner().evaluateWarWillingness(this, worldOrder);
+                break;
+            case 5 :
+                if (getEnemyDisposition().P) setP(true);
+                if (getProcess().getIssue().getDuration() == 0) setOutcome(true);
+                break;
+            case 6:
+                setOutcome(true);
+                break;
+            case 7:
+                proc.setOutcome(true);
+                break;
+            case 8:
+                if (this.uT > 0) {
+                    decrementUt();
+                } else {
+                    int o = objective.value;
+                    if (o >= 0 && proc.getDispute() == null && proc.getInstitution() == null) {
+                        setP(true);
+                        proc.setFirstPunch(this);
+                        if (o < 4) {
+                            proc.createDispute(worldOrder);
+                        } else {
+                            proc.createWar(worldOrder);
+                        }
+                    }
+                }
+                break;
+            case 9:
+                break;
+            case 10: // if issue is resolved and strategic objective is met
+                break;
+            case 11:
+                proc.setOutcome(true);
+                break;
+            case 14:
+                setOutcome(true);
+                proc.setS(true);
+                break;
+            case 15:
+                break;
+        }
+        updateStatus();
+        return this.sumStatus();
+
+
+    }
+
 }
