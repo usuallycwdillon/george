@@ -33,9 +33,9 @@ public abstract class Institution extends Entity implements Steppable, Stoppable
     @Property
     protected double value;     // magnitude, etc. a cumulative/total measure; may be overridden to int
     @Property
-    protected int extent;         // number of participants
+    protected int extent;       // number of participants
     @Property
-    protected int during;        // not always used
+    protected int during;       // not always used
     @Property
     protected Domain domain;
     @Property
@@ -44,8 +44,6 @@ public abstract class Institution extends Entity implements Steppable, Stoppable
     protected boolean stopped;
     @Transient
     protected Resources maintenance;
-//    @Transient
-//    protected MersenneTwisterFast random;
     @Transient
     protected Stoppable stopper = null;
     @Transient
@@ -72,7 +70,7 @@ public abstract class Institution extends Entity implements Steppable, Stoppable
     }
 
     public void step(SimState simState) {
-        WorldOrder worldOrder = (WorldOrder) simState;
+        WorldOrder wo = (WorldOrder) simState;
     }
 
     @Override
@@ -150,6 +148,14 @@ public abstract class Institution extends Entity implements Steppable, Stoppable
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public Resources getMaintenance() {
+        return maintenance;
+    }
+
+    public void setMaintenance(Resources maintenance) {
+        this.maintenance = maintenance;
     }
 
     public Organization getOrganization() {

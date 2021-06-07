@@ -11,7 +11,7 @@ public class PersonServiceImpl extends GenericService<Person> implements PersonS
 
     public Collection<Person> loadAll(String territory) {
         Filter bp = new Filter("birthplace", ComparisonOperator.EQUALS, territory);
-        return session.loadAll(Person.class, bp, 1);
+        return session.loadAll(Person.class, bp, 2);
     }
 
     @Override

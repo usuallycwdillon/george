@@ -91,6 +91,15 @@ public class Resources implements Serializable {
                 .build();
     }
 
+    public Resources dividedBy(double val) {
+        return new ResourceBuilder()
+                .pax(this.pax / val)
+                .products((int)(this.products / val))
+                .natResources((int)(this.natResources / val))
+                .treasury(this.treasury / val)
+                .build();
+    }
+
     public Resources applyRatios(double[] r) {
         return new ResourceBuilder()
                 .pax(this.pax * r[0])

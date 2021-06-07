@@ -8,7 +8,7 @@ import org.neo4j.ogm.annotation.typeconversion.Convert;
 import java.util.List;
 
 @NodeEntity
-public class Organization extends Entity {
+public class Organization extends Institution {
     /**
      *
      */
@@ -84,8 +84,6 @@ public class Organization extends Entity {
     public void setLongname(String longname) {
         this.longname = longname;
     }
-
-
 
     public String getNotes() {
         return notes;

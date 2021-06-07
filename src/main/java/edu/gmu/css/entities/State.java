@@ -1,21 +1,23 @@
 package edu.gmu.css.entities;
 
 
-import edu.gmu.css.agents.PeaceProcess;
-import edu.gmu.css.agents.Tile;
-import edu.gmu.css.agents.WarProcess;
+import edu.gmu.css.agents.*;
 import edu.gmu.css.data.*;
-import edu.gmu.css.queries.StateQueries;
 import edu.gmu.css.relations.*;
 import edu.gmu.css.service.DiscretePolityFactServiceImpl;
+import edu.gmu.css.service.FactServiceImpl;
 import edu.gmu.css.service.PolityFactServiceImpl;
+import edu.gmu.css.service.StateServiceImpl;
 import edu.gmu.css.worldOrder.*;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.neo4j.ogm.annotation.*;
 import sim.engine.SimState;
 import sim.engine.Steppable;
 
+import javax.xml.crypto.Data;
 import java.util.*;
+
+import static edu.gmu.css.worldOrder.WorldOrder.DEBUG;
 
 @NodeEntity
 public class State extends Polity implements Steppable {
@@ -42,7 +44,7 @@ public class State extends Polity implements Steppable {
     @Transient
     protected DataTrend economicHistory = new DataTrend(105);
     @Transient
-    protected DataTrend urbanization = new DataTrend(270);
+    protected DataTrend urbanization = new DataTrend(105);
     @Transient
     protected double gdpLastYear = 0.0;
 
@@ -55,16 +57,17 @@ public class State extends Polity implements Steppable {
     @Override
     public void step(SimState simState) {
         WorldOrder worldOrder = (WorldOrder) simState;
-        int weeks = worldOrder.dataYear.getWeeksThisYear();
+//        if(this.cowcode.equals("365")||this.cowcode.equals("2")) {
+//            System.out.println("Let's pause for a sec...");
+//        }
 
+        // Document history
         forcesHistory.add(resources.getPax());
         economicHistory.add(resources.getTreasury());
-        // Decrement 1/weeks worth of baseline treasury, then for each ProcessDisposition and Participation commitment
-        resources.decrementTreasury(securityStrategy.getBaseline().getTreasury() / weeks);
-        // Collect Taxes from Tiles and recruit
+        // Collect Taxes from Tiles and update the econ policy
         collectTax();
-        updateEconomicPolicy(worldOrder);
-        implementSecurityStrategy(weeks);    // Includes recruiting any shortfalls
+        // Implement security strategy, including deterrence mission and recruiting for any shortfalls;
+        implementSecurityStrategy(worldOrder);
     }
 
     @Override
@@ -96,18 +99,30 @@ public class State extends Polity implements Steppable {
         suzereinSet.add(suzerein);
     }
 
-    @Override
-    public void setSecurityStrategy(Resources r) {
-        this.securityStrategy = new SecurityStrategy(r);
-    }
+//    @Override
+//    public void setSecurityStrategy(Resources r) {
+//        this.securityStrategy = new SecurityStrategy(r);
+//    }
+//
+//    @Override
+//    public SecurityStrategy getSecurityStrategy() {
+//        return this.securityStrategy;
+//    }
 
-    protected void implementSecurityStrategy(int w) {
-        double some = 8.66 / (w * 1.0);     // two months worth at a time
+    protected void implementSecurityStrategy(WorldOrder wo) {
+        WorldOrder worldOrder = wo;
+        int weeks = worldOrder.dataYear.getWeeksThisYear();
+
+        implementForeignStrategy();
+        implementDeterrenceMission(weeks);
+
+        double some = 0.25; // Amount of force that can be mobilized during any week/step
         Deque<ImmutablePair<Object, Resources>> next = new LinkedList<>();
         Deque<ImmutablePair<Object, Resources>> supp = securityStrategy.getSupplementals();
         Resources totalRequest = securityStrategy.getSupplementalsSum();
         Resources available = resources.multipliedBy(some);
         double[] ratio = available.calculateRatios(totalRequest);
+
         while (supp.iterator().hasNext()) {
             ImmutablePair<Object, Resources> p = supp.pop();
             Resources needed = p.getRight();
@@ -116,28 +131,31 @@ public class State extends Polity implements Steppable {
 
             if (available.applyRatios(ratio).isSufficientFor(needed)) {
                 allowable = needed;
-                available.reduceBy(allowable);
-                resources.reduceBy(allowable);
             } else {
                 allowable = available.applyRatios(ratio).evaluativeAvailableDifference(needed);
                 unmet = needed.evaluativeAvailableDifference(allowable);
-                available.reduceBy(allowable);
-                resources.reduceBy(allowable);
             }
+            available.reduceBy(allowable);
+            resources.reduceBy(allowable);
 
             if (p.getLeft().getClass()==ProcessDisposition.class) {
                 ProcessDisposition caller = (ProcessDisposition) p.getLeft();
                 caller.commitMore(allowable);
                 if (unmet!=null) next.add(new ImmutablePair<>(caller, unmet));
-            } else if (p.left.getClass() == WarParticipationFact.class) {
+            } else if (p.getLeft().getClass() == WarParticipationFact.class) {
                 WarParticipationFact caller = (WarParticipationFact) p.getLeft();
                 caller.commitMore(allowable);
                 if (unmet!=null) next.add(new ImmutablePair<>(caller, unmet));
             }
+            // TODO: Add else for fopo, borders, etc.
         }
+        // It's possible to recruit up to 1/8th of baseline security strategy on any week
+
         Double deficit = recruit();
         // finally, add any unmet requirements back into the queue of supplemental demands
-        securityStrategy.renewSupplementals(next);
+        if (deficit > 0.0) {
+            securityStrategy.renewSupplementals(next);
+        }
     }
 
     @Override
@@ -145,10 +163,12 @@ public class State extends Polity implements Steppable {
         double deficit = 0.0;
         // required new recruits are demand minus available resources
         Double requirement = securityStrategy.getBaseline().getPax() - resources.getPax();
-        if (requirement > 0) {
+        if (requirement > 0.0) {
             deficit = recruit(requirement / 4.33);
-        } else {
+        } else if (requirement < 0.0) {
             demobilize(requirement / 4.33);
+        } else {
+            deficit = 0.0;
         }
         return deficit;
     }
@@ -159,11 +179,11 @@ public class State extends Polity implements Steppable {
         Double recruits = 0.0;
         Double deficit = 0.0;
         int attempts = 0;
-        Set<Inclusion> popdTileLinks = territory.getPopulatedTileLinks();
+        Set<Tile> popdTileLinks = territory.getPopulatedTileLinks();
         while (recruits < forceRequest && attempts < 3) {
             Double demand = forceRequest - recruits;
             Double forceRatio = demand / territory.getPopulation();
-            recruits += popdTileLinks.stream().mapToDouble(t -> t.getTile().supplySoldiers(forceRatio)).sum();
+            recruits += popdTileLinks.stream().mapToDouble(t -> t.supplySoldiers(forceRatio)).sum();
             attempts++;
         }
         resources.incrementPax(recruits);
@@ -172,10 +192,17 @@ public class State extends Polity implements Steppable {
     }
 
     private void demobilize(double f) {
-        double force = f / 4.33;
+        double force = -f;
         resources.decrementPax(force);
-        for (Inclusion i : territory.getPopulatedTileLinks()) {
-            Tile t = i.getTile();
+        for (Tile t : territory.getPopulatedTileLinks()) {
+            double pop = t.getPopulation();
+            double ratio = pop / territory.getPopulation();
+            double vets = ratio * force;
+            double uPop = t.getUrbanPop();
+            t.setPopulation(pop + vets);
+            if (uPop > 0.0) { // veteran soldiers return to cities
+                t.setUrbanPop(uPop + vets);
+            }
         }
     }
 
@@ -183,41 +210,48 @@ public class State extends Polity implements Steppable {
         WorldOrder worldOrder = wo;
         int w = worldOrder.weeksThisYear;
         // evaluate tax rate based on initial summed GTPs
-        double gdp = territory.getTileLinks().stream().mapToDouble(g -> g.getGrossTileProductivity()).sum();
+        double gdp = territory.getTileLinks().stream().mapToDouble(g -> g.getWeeklyGrossTileProduction()).sum();
         this.economicPolicy.setTaxRate(securityStrategy.getBaseline().getTreasury() / (gdp * w) );
     }
 
     // TODO: Rewire this to consider current resources + (future income - future expenses)
     @Override
-    protected void updateEconomicPolicy(WorldOrder wo) {
+    public void updateEconomicPolicy(Leadership l, WorldOrder wo) {
         WorldOrder worldOrder = wo;
-//        int w = worldOrder.weeksThisYear;
-//        Double avgTreasury = economicHistory.average();
-        Double totalTreasuryDemand = securityStrategy.getTotalDemand().getTreasury();
-        if (totalTreasuryDemand > resources.getTreasury()) {
-            economicPolicy.setTaxRate(economicPolicy.getTaxRate() * 1.02);
-        } else {
-            economicPolicy.setTaxRate(economicPolicy.getTaxRate() * 0.99);
-        }
-        if (urbanization.average() < urbanization.pastYearAverage() && economicPolicy.getLabor() > 0.10) {
-            economicPolicy.setCapital(economicPolicy.getCapital() + 0.01);
-            economicPolicy.setLabor(economicPolicy.getLabor() - 0.01);
-        } else if (urbanization.average() > urbanization.pastYearAverage() && economicPolicy.getLabor() < 0.90) {
-            economicPolicy.setCapital(economicPolicy.getCapital() - 0.01);
-            economicPolicy.setLabor(economicPolicy.getLabor() + 0.01);
-        }
+        if (this.leadership.equals(l)) {
+            Double totalTreasuryDemand = securityStrategy.getTotalDemand().getTreasury();
+            if (totalTreasuryDemand > resources.getTreasury()) {
+                economicPolicy.setTaxRate(economicPolicy.getTaxRate() * 1.02);
+            } else {
+                economicPolicy.setTaxRate(economicPolicy.getTaxRate() * 0.99);
+            }
+//            if (urbanization.average() < urbanization.pastYearAverage() && economicPolicy.getLabor() > 0.10) {
+//                economicPolicy.setCapital(economicPolicy.getCapital() * 1.01);
+//                economicPolicy.setLabor(economicPolicy.getLabor() * 0.99);
+//            } else if (urbanization.average() > urbanization.pastYearAverage() && economicPolicy.getLabor() < 0.90) {
+//                economicPolicy.setCapital(economicPolicy.getCapital() * 0.99);
+//                economicPolicy.setLabor(economicPolicy.getLabor() * 1.01);
+//            }
 
-        if ((totalTreasuryDemand * 1.1) < resources.getTreasury()) {
-            double invest = resources.getTreasury() - totalTreasuryDemand;
-            double pci = invest / territory.getPopulation();
-            territory.getPopulatedTileLinks().stream().forEach(t -> t.getTile().takeInvestment(pci));
-            resources.decrementTreasury(invest);
+//            if ((totalTreasuryDemand * 1.1) < resources.getTreasury()) {
+//                double invest = resources.getTreasury() - totalTreasuryDemand;
+//                double pci = invest / territory.getPopulation();
+//                territory.getPopulatedTileLinks().stream().forEach(t -> t.takeInvestment(pci));
+//                resources.decrementTreasury(invest);
+//            }
         }
     }
 
-    public void recordEconomicHistory(long w) {
-        gdpLastYear = territory.getTileLinks().stream().mapToDouble(Inclusion::getGrossTileProductivityLastYear).sum();
-        System.out.println(name + " had gdp last year of " + gdpLastYear);
+    public void recordEconomicHistory(WorldOrder wo) {
+        WorldOrder worldOrder = wo;
+        Dataset run = wo.getModelRun();
+        gdpLastYear = territory.getGrossDomesticProductLastYear();
+        GdpFact f = new GdpFact.FactBuilder().dataset(run).polity(this).value(gdpLastYear)
+                .during(wo.getDataYear()).build();
+        this.economicHistory.add(f);
+        run.addFacts(f);
+        new FactServiceImpl().createOrUpdate(f);
+//        System.out.println(name + " had gdp last year of " + gdpLastYear/1000);
     }
 
     @Override
@@ -234,8 +268,8 @@ public class State extends Polity implements Steppable {
 
     @Override
     public void loadInstitutionData(int year, WorldOrder wo) {
-        PolityFactServiceImpl service = new PolityFactServiceImpl();
-        service.loadStateInstitutions(this, wo, year);
+        new PolityFactServiceImpl().loadStateInstitutions(this, wo, year);
+        this.polityFact = new DiscretePolityFactServiceImpl().getPolityData(this,year);
     }
 
     @Override
@@ -272,7 +306,7 @@ public class State extends Polity implements Steppable {
         Polity t = issue.getTarget();
         long step = worldOrder.getStepNumber();
 
-        if (evaluateWarResolve(issue, worldOrder)) {                                        //
+        if (evaluateWarResolve(issue, worldOrder)) {                            //
             WarProcess proc = new WarProcess(issue, step);                      //
             issue.setProcess(proc);                                             //
             worldOrder.addProc(proc);                                           //
@@ -294,7 +328,8 @@ public class State extends Polity implements Steppable {
 
     @Override
     public boolean evaluateWarNeed(ProcessDisposition pd, WorldOrder wo) {
-        if (evaluateWarResolve(pd.getProcess().getIssue(),wo)) {
+        // This means that there is an impending threat of war and the evaluation criteria are different
+        if (evaluateWarResolve(pd.getProcess().getIssue(), wo)) {
             pd.setN(true);
             return true;
         }
@@ -317,8 +352,9 @@ public class State extends Polity implements Steppable {
             issue.setProcess(proc);
             worldOrder.addProc(proc);
             proc.setStopper(worldOrder.schedule.scheduleRepeating(proc));
-            ProcessDisposition pdo = new ProcessDisposition.Builder().owner(this).process(proc).build();
-            ProcessDisposition pdt = new ProcessDisposition.Builder().owner(this).process(proc).build();
+            for (WarParticipationFact f : war.getParticipations()) {
+                ProcessDisposition pd = new ProcessDisposition.Builder().owner(f.getPolity()).process(proc).build();
+            }
             return true;
         } else {
             return false;
@@ -382,6 +418,9 @@ public class State extends Polity implements Steppable {
         if (this.getForces()==0 && this.cowcode=="225") {
             threshold = 0.90;
         }
+        if (this.leadership.equals(null) || territory.commonWeal.equals(null)) {
+            System.out.println("What happened to " + this.getName() + "'s commonweal or leadership?");
+        }
         double leadershipOpinion = leadership.evaluateWarNeed(issue, wo);
         double popularOpinion = territory.commonWeal.evaluateWarNeed(issue);
         double meanOpinion = evaluatePolityResolve(leadershipOpinion, popularOpinion);
@@ -410,35 +449,110 @@ public class State extends Polity implements Steppable {
 
     @Override
     public void collectTax() {
-        Set<Inclusion> popTiles = territory.getPopulatedTileLinks();
+        Set<Tile> popTiles = territory.getPopulatedTileLinks();
         Double revenue = 0.0;
-        for (Inclusion i : popTiles) {
-            revenue += i.getTile().payTaxes(economicPolicy.getTaxRate());
+        if (popTiles.size() < 250) {
+            for (Tile i : popTiles) {
+                revenue += i.payTaxes(economicPolicy.getTaxRate());
+            }
+        } else {
+            revenue = popTiles.stream().mapToDouble(t -> t.payTaxes(economicPolicy.getTaxRate())).sum();
         }
 
-        if (WorldOrder.DEBUG && revenue.isNaN()) {
+        if (DEBUG && revenue.isNaN()) {
             System.out.println(name + " collected " + revenue + " from its tiles.");
         }
-        System.out.println(name + " revenue this week is " + revenue + ", but expenses were " + securityStrategy.getBaseline().getTreasury()/52.0);
+//        System.out.println(name + " revenue this week is " + revenue + ", but expenses were " + securityStrategy.getBaseline().getTreasury()/52.0);
         this.resources.incrementTreasury(revenue);
     }
 
     public void collectTax(long s) {
         Double revenue = 0.0;
-        for (Inclusion i : territory.getTileLinks()) {
-            Double tileRevenue = i.getTile().payTaxes(economicPolicy.getTaxRate());
-            if (tileRevenue.isNaN() && WorldOrder.DEBUG) {
+        for (Tile i : territory.getTileLinks()) {
+            Double tileRevenue = i.payTaxes(economicPolicy.getTaxRate());
+            if (tileRevenue.isNaN() && DEBUG) {
                 System.out.println("wha ?");
             }
             revenue += tileRevenue;
         }
-        if (WorldOrder.DEBUG) {
+        if (DEBUG) {
             if (revenue.isNaN()) {
                 System.out.println(name + " collected " + revenue + " from its tiles.");
             }
         }
         this.resources.incrementTreasury(revenue);
     }
+
+    public void evaluateThreatNetwork(WorldOrder wo) {
+        List<State> result = new StateServiceImpl().getRiskyNeighbors(this.id, wo.getFromYear());
+        List<State> unfriendlies = new ArrayList<>();
+        List<State> allTheStates = wo.getAllTheStates();
+        for (State s : result) {
+            for (State o : allTheStates) {
+                if (s.equals(o)) unfriendlies.add(o);
+            }
+        }
+        double networkTotalSDP = territory.getCurrentSDP();
+        double networkTotalPop = territory.getCurrentPopulation();
+        double networkTotalMilEx = 0.0;
+        double networkTotalMilPer = 0.0;
+        double networkAvgMilEx2SDP = 0.0;
+        double networkAvgMilPer2Pop = 0.0;
+        double myThreatPosture = 0.0;
+        for (State s : unfriendlies) {
+            Resources milStrategy = s.getSecurityStrategy().getMilitaryStrategy();
+            networkTotalSDP += s.getPublicSDP();
+            networkTotalPop += s.getPopulation();
+            networkTotalMilPer += milStrategy.getPax();
+            networkTotalMilEx += milStrategy.getTreasury();
+        }
+        networkAvgMilEx2SDP = networkTotalMilEx / networkTotalSDP;
+        networkAvgMilPer2Pop = networkTotalMilPer / networkTotalPop;
+        myThreatPosture = (getMyMilEx2SDP() / networkAvgMilEx2SDP) * (getMyMilPer2Pop() / networkAvgMilPer2Pop);
+
+        for (State s : unfriendlies) {
+            double per = s.getPublicMilPer2Pop() / networkAvgMilPer2Pop;
+            double exp = s.getPublicMilEx2SDP() / networkAvgMilEx2SDP;
+            double threat = per * exp;
+            double relativeThreat = threat / myThreatPosture;
+            this.threats.put(s, relativeThreat);
+        }
+    }
+
+    public double getPublicMilPer2Pop() {
+        return this.securityStrategy.getMilitaryStrategy().getPax() / territory.getPopulation();
+    }
+
+    public double getPublicMilEx2SDP() {
+        return this.securityStrategy.getMilitaryStrategy().getTreasury() / getPublicSDP();
+    }
+
+    private double getMyMilPer2Pop() {
+        return this.securityStrategy.getMilitaryStrategy().getTreasury() / territory.getCurrentSDP();
+    }
+
+    private double getMyMilEx2SDP() {
+        return this.securityStrategy.getMilitaryStrategy().getPax() / territory.getPopulation();
+    }
+
+    private double getMyRelativeSDP(WorldOrder wo) {
+        double globalSDP = 0.0;
+        for (State s : wo.getAllTheStates() ) {
+            globalSDP += s.getPublicSDP();
+        }
+        double mySDP = territory.getCurrentSDP();
+        return mySDP / globalSDP;
+    }
+
+    private double getTargetSDP(WorldOrder wo, Polity p) {
+        double globalSDP = 0.0;
+        for (State s : wo.getAllTheStates() ) {
+            globalSDP += s.getPublicSDP();
+        }
+        double targetSDP = p.getPublicSDP();
+        return targetSDP / globalSDP;
+    }
+
 
     private boolean mobilizeTheReserves(Issue i) {
         Polity instigator = i.getInstigator();
@@ -524,21 +638,62 @@ public class State extends Polity implements Steppable {
         super.surrender(p, wo);
     }
 
+    public void establishForeignStrategyCost(int i) {
+        Resources portion = securityStrategy.getForeignStrategy().multipliedBy(1.0 / (52.0 * i));
+        for (BorderFact f : bordersWith) {
+            f.setMaintenanceCost(portion);
+        }
+        for (DipExFact f : representedAt) {
+            f.setMaintenanceCost(portion);
+        }
+        for (AllianceParticipationFact f : alliances) {
+            f.setMaintenanceCost(portion);
+        }
+//        for (IgoMembershipFact f : organizations) {
+//            f.setMaintenanceCost(portion);
+//        }
+
+    }
+
+    private void implementForeignStrategy() {
+        for (BorderFact f : bordersWith) {
+            resources.decrementTreasury(f.getMaintenance().getTreasury());
+        }
+        for (DipExFact f : representedAt) {
+            resources.decrementTreasury(f.getMaintenance().getTreasury());
+        }
+        for (AllianceParticipationFact f : alliances) {
+            resources.decrementTreasury(f.getMaintenance().getTreasury());
+        }
+//        for (IgoMembershipFact f : organizations) {
+//            resources.decrementTreasury(f.getMaintenance().getTreasury());
+//        }
+    }
+
+    private void implementDeterrenceMission(int w) {
+        int weeks = w;
+        // Do deterrence
+        double weeklyDeterrenceCost = securityStrategy.getMilitaryStrategy().getTreasury() / (weeks * 1.0);
+        resources.decrementTreasury(weeklyDeterrenceCost);
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
+        if (((State) o).getId().equals(this.getId())) return true;
         if (!(o instanceof State)) return false;
 
         State state = (State) o;
 
+        if (getId() != null ? !getId().equals(state.getId()) : state.getId() != null) return false;
         if (!cowcode.equals(state.cowcode)) return false;
-        return getName() != null ? getName().equals(state.getName()) : state.getName() == null;
+        return getCowcode() != null ? getCowcode().equals(state.getCowcode()) : state.getCowcode() == null;
     }
 
     @Override
     public int hashCode() {
-        int result = cowcode.hashCode();
-        result = 31 * result + (getName() != null ? getName().hashCode() : 0);
+        int result = getId() != null ? getId().hashCode() : 0;
+        result = 31 * result + (getCowcode() != null ? getCowcode().hashCode() : 0);
         return result;
     }
 }

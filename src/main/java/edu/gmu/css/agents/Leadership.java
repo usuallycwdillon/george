@@ -3,32 +3,45 @@ package edu.gmu.css.agents;
 import ec.util.MersenneTwisterFast;
 import edu.gmu.css.data.SecurityObjective;
 import edu.gmu.css.data.Issue;
-import edu.gmu.css.entities.Polity;
-import edu.gmu.css.entities.War;
-import edu.gmu.css.entities.WarParticipationFact;
+import edu.gmu.css.entities.*;
 import edu.gmu.css.relations.ProcessDisposition;
 import edu.gmu.css.data.Resources;
 import edu.gmu.css.worldOrder.WorldOrder;
+import org.neo4j.ogm.annotation.*;
 import sim.engine.SimState;
 import sim.engine.Steppable;
 
+import javax.management.relation.RelationNotFoundException;
+import java.io.Serializable;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class Leadership implements Steppable {
+@NodeEntity
+public class Leadership extends Entity implements Serializable, Steppable {
 
+    @Id @GeneratedValue
     private Long id;
+    @Property
     private int type;
+    @Relationship(type="LEADERSHIP_OF")
     private Polity polity;
+    @Relationship(type="LEADERSHIP_FROM", direction = Relationship.INCOMING)
+    private CommonWeal commonWeal;
+    @Transient
     private Map<String, Person> leaders = new HashMap<>();
 
     public Leadership() {
 
     }
 
+    @Override
     public void step(SimState simState) {
         WorldOrder worldOrder = (WorldOrder) simState;
+        this.polity.updateEconomicPolicy(this, worldOrder);
+        if (worldOrder.getStepNumber() % 26 == 0) {
+            updateSecurityPolicy(worldOrder);
+        }
     }
 
     public Long getId() {
@@ -61,6 +74,33 @@ public class Leadership implements Steppable {
 
     private void updateEconomicPolicy() {
 
+    }
+
+    private void updateSecurityPolicy(WorldOrder wo) {
+        Map<Polity, Double> threatMatrix = polity.getThreats();
+        if(threatMatrix.size() == 0 && polity instanceof State) {
+            ((State) polity).evaluateThreatNetwork(wo);
+        }
+        double totals = 0.0;
+        for (double d : threatMatrix.values()) {
+            totals += d;
+        }
+        double generalThreat = totals / threatMatrix.size();
+
+    }
+
+    public CommonWeal getCommonWeal() {
+        return commonWeal;
+    }
+
+    public void setCommonWeal(CommonWeal commonWeal) {
+        this.commonWeal = commonWeal;
+    }
+
+    public void findLeaders() {
+        if (leaders.size()==0) {
+            this.leaders = commonWeal.findLeaders();
+        }
     }
 
     public SecurityObjective chooseSecurityObjective(Issue i, WorldOrder wo) {
@@ -121,10 +161,7 @@ public class Leadership implements Steppable {
 
 
     public boolean reconsiderPeace(WorldOrder wo) {
-        boolean decision = false;
-        if (wo.random.nextDouble() < 0.50) {
-            decision = true;
-        }
+        boolean decision = wo.random.nextDouble() < 0.50;
         return decision;
     }
 

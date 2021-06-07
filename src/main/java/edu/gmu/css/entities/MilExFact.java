@@ -18,6 +18,8 @@ public class MilExFact extends Fact {
 
     @Relationship(type = "MILEX", direction = Relationship.INCOMING)
     Polity polity;
+    @Relationship(type = "CONTRIBUTES", direction = Relationship.INCOMING)
+    Dataset dataset;
 
 
     public MilExFact() {
@@ -29,7 +31,7 @@ public class MilExFact extends Fact {
         this.until = builder.until;
         this.polity = builder.polity;
         this.subject = polity.getName();
-        this.predicate = "MILEX";
+        this.predicate = builder.predicate;
         this.object = builder.object;
         this.value = builder.value;
         this.denomination = builder.denomination;
@@ -104,6 +106,13 @@ public class MilExFact extends Fact {
 
         public FactBuilder polity(Polity p) {
             this.polity = p;
+            return this;
+        }
+
+        public FactBuilder during(Year y) {
+            this.from = y.getBegan();
+            this.until = y.getEnded();
+            this.object = y.getName();
             return this;
         }
 

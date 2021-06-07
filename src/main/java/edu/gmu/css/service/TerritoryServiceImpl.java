@@ -1,37 +1,60 @@
 package edu.gmu.css.service;
 
+import edu.gmu.css.agents.Tile;
 import edu.gmu.css.entities.CommonWeal;
 import edu.gmu.css.entities.Territory;
 import edu.gmu.css.entities.Ungoverned;
-import edu.gmu.css.relations.Inclusion;
+//import edu.gmu.css.relations.Inclusion;
+import edu.gmu.css.worldOrder.WorldOrder;
 import org.neo4j.ogm.cypher.ComparisonOperator;
 import org.neo4j.ogm.cypher.Filter;
+import org.neo4j.ogm.cypher.Filters;
 import org.neo4j.ogm.model.Result;
 import java.util.*;
 import java.util.stream.Collectors;
 
 public class TerritoryServiceImpl extends GenericService<Territory> implements TerritoryService {
 
-    public Map<String, Territory> getStateTerritories(int startYear) {
+    public Map<String, Territory> getStateTerritories(int startYear, WorldOrder wo) {
+
         Map<String, Territory> territoryMap = new HashMap<>();
         String query = "MATCH (m:MembershipFact)-[:MEMBER]-(s:State)-[o]-(t:Territory{year:$year}) " +
                 "WHERE t.cowcode = s.cowcode AND (m.from.year <= $year OR m.from.year IS NULL) " +
                 "RETURN t";
         Map<String, Object> params = new HashMap<>();
         params.put("year", startYear);
-        session.query(Territory.class, query, params).forEach(t -> territoryMap.put(t.getMapKey(), t));
-        for (Map.Entry e : territoryMap.entrySet()) {
-            Territory et = (Territory) e.getValue();
-            et.setTileLinks(loadIncludedTiles(et.getMapKey()));
-        }
+        session.query(Territory.class, query, params)
+                .forEach(t -> territoryMap.put(t.getMapKey(), findTerritoryFromTileMap(t, wo)));
         return territoryMap;
     }
 
+    private Territory findTerritoryFromTileMap(Territory t, WorldOrder wo) {
+        Territory territory = t;
+        WorldOrder worldOrder = wo;
+        List<Tile> tileList = loadIncludedTiles(territory.getMapKey());
+        Tile tile = tileList.get(1);
+        Map<String, Tile> tileMap = wo.getTiles();
+        if(tileMap.containsKey(tile.getAddressYear() )) {
+            return tileMap.get(tile.getAddressYear()).getLinkedTerritory();
+        } else {
+            territory.setTileLinks(new HashSet<Tile>(loadIncludedTiles(territory.getMapKey())));
+            return territory;
+        }
+    }
 
-    public Map<String, Territory> loadWaterTerritories() {
+
+    public Map<String, Territory> loadWaterTerritories(int y) {
+        int year = y;
         Map<String, Territory> waterTerritories = new HashMap<>();
-        Filter filter = new Filter("environment",ComparisonOperator.EQUALS, "Water");
-        Collection<Territory> water = session.loadAll(Territory.class, filter, 1);
+//        Filter waterfilter = new Filter("environment",ComparisonOperator.EQUALS, "Water");
+//        Filter yearFilter = new Filter("year", ComparisonOperator.EQUALS, year);
+//        Filters filter = waterfilter.and(yearFilter);
+//        Collection<Territory> water = session.loadAll(Territory.class, filter, 1);
+        Map<String, Object> params = new HashMap<>();
+        params.put("environment", "Water");
+        params.put("year", year);
+        String query = "MATCH (t:Territory{environment:$environment, year:$year}) RETURN t";
+        Iterable<Territory> water = session.query(Territory.class,query, params);
         for(Territory t : water) {
             waterTerritories.put(t.getMapKey(), t);
             t.setPolity(new Ungoverned(t), 0L);
@@ -44,27 +67,21 @@ public class TerritoryServiceImpl extends GenericService<Territory> implements T
         Territory territory = t;
         Map<String, Object> params = new HashMap<>();
         params.put("mapKey", territory.getMapKey());
-        String q = "MATCH (t:Territory{mapKey:$mapKey}) CALL wog.getTileWithDataFromTerritory(t) YIELD value RETURN value";
+        String q = "MATCH (t:Territory{mapKey:$mapKey})-[:INCLUDES]->(i:Tile) RETURN t, i";
         return session.query(q, params);
     }
 
-    public Set<Inclusion> loadIncludedTiles(String key) {
-        Set<Inclusion> inclusionSet = new HashSet<>();
+    public List<Tile> loadIncludedTiles(String key) {
+        List<Tile> tileList = new ArrayList();
         Map<String, String> params = new HashMap<>();
         params.put("mapKey", key);
-        String q = "MATCH (t:Territory{mapKey:$mapKey})-[i:INCLUDES]->(tt:Tile) RETURN t, i, tt";
-        Iterable<Inclusion> inclusions = session.query(Inclusion.class, q, params);
-        for(Inclusion i : inclusions) inclusionSet.add(i);
-        return inclusionSet;
+        String q = "MATCH (t:Territory{mapKey:$mapKey})-[i:INCLUDES]->(tt:Tile) RETURN tt";
+        Iterable<Tile> inclusions = session.query(Tile.class, q, params);
+        for(Tile t : inclusions) tileList.add(t);
+        return tileList;
     }
 
-    public CommonWeal loadCommonWeal(String key) {
-        Map<String, String> params = new HashMap<>();
-        params.put("mapKey", key);
-        params.put("name", "Residents of " + key);
-        String query = "MATCH (:Territory{mapKey:$mapKey})-[:REPRESENTS_POPULATION]-(c:CommonWeal{name:$name}) RETURN c";
-        return session.queryForObject(CommonWeal.class, query, params);
-    }
+
 
     @Override
     Class<Territory> getEntityType() {

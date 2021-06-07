@@ -98,4 +98,8 @@ public class Year extends Entity {
         return lastYear;
     }
 
+    public int getNameAsInteger() {
+        return Integer.parseInt(name);
+    }
+
 }

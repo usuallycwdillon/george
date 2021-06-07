@@ -7,6 +7,7 @@ import edu.gmu.css.data.Resources;
 import edu.gmu.css.entities.*;
 import edu.gmu.css.service.Neo4jSessionFactory;
 import edu.gmu.css.worldOrder.WorldOrder;
+import org.apache.commons.math3.ml.neuralnet.sofm.LearningFactorFunction;
 
 import javax.xml.transform.Result;
 import java.util.*;
@@ -24,32 +25,27 @@ public class TerritoryQueries {
         params.put("year", startYear);
         Iterable<Territory> territories = Neo4jSessionFactory.getInstance().getNeo4jSession().query(Territory.class, query, params);
 
-        Neo4jSessionFactory.getInstance().getNeo4jSession().query(Territory.class, query, params)
-            .forEach(t -> territoryMap.put(t.getMapKey(), loadWithRelations(t.getMapKey(), wo)));
 
+//        Neo4jSessionFactory.getInstance().getNeo4jSession().query(Territory.class, query, params)
+//            .forEach(t -> territoryMap.put(t.getMapKey(), loadWithRelations(t.getMapKey(), wo)));
         return territoryMap;
     }
 
     public static Territory loadWithRelations(String mapKey, WorldOrder wo) {
         Territory t = Neo4jSessionFactory.getInstance().getNeo4jSession().load(Territory.class, mapKey, 1);
         int year = t.getYear();
-        if (WorldOrder.DEBUG && t.getPolity() == null) {
-            System.out.println(t.getMapKey() + " is not a known state government; creating a blank polity.");
-            Polity p = new Polity();
-            p.setTerritory(t);
-            t.setPolity(p, 0L);
-        }
         if (t.getPolity().getClass() == State.class) {
             State s = (State) t.getPolity();
-            Leadership l = new Leadership();
-            l.setPolity(s);
             s.setTerritory(t);
+            CommonWeal cw = t.findCommonWeal();
+            Leadership l = cw.getLeadership();
+            l.setPolity(s);
             s.setLeadership(l);
-//            s.loadInstitutionData(year, wo);
-            s.setResources(StateQueries.getMilResources(s, year));
-            s.setEconomicPolicy(new EconomicPolicy(0.6, 0.4, (StateQueries.getInitialTaxRate(s, year) / 0.95)));
+            s.setResources((StateQueries.getMilResources(s, year)).multipliedBy(1.1));
+            s.setEconomicPolicy(new EconomicPolicy(0.6, 0.4, (StateQueries.getInitialTaxRate(s, year) / 0.9)));
             if (s.getResources()==null) { // make something up
-                s.setResources(new Resources.ResourceBuilder().pax(25).treasury(1000.0).build());
+                s.setResources(new Resources.ResourceBuilder()
+                        .pax(s.getPopulation() * 0.01).treasury(s.getTerritory().getCurrentSDP() * 0.02).build());
                 System.out.println("I made up some military resources for " + s.getName());
             }
             s.setSecurityStrategy(s.getResources());

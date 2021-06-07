@@ -2,9 +2,11 @@ package edu.gmu.css.data;
 
 import edu.gmu.css.entities.WarParticipationFact;
 import edu.gmu.css.relations.Participation;
+import edu.gmu.css.relations.ProcessDisposition;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import java.util.Deque;
 import java.util.LinkedList;
+import java.util.concurrent.RecursiveTask;
 
 
 public class SecurityStrategy {
@@ -16,13 +18,12 @@ public class SecurityStrategy {
 
 
     public SecurityStrategy(Resources b) {
-        this.baseline = b;
-        this.costPerPax = baseline.getTreasury() / baseline.getPax();
+        this.baseline = b; // Military strategy and foreign strategy sum
         this.militaryStrategy = new Resources.ResourceBuilder().build();
         this.foreignStrategy = new Resources.ResourceBuilder().build();
         this.supplementals = new LinkedList<>();
-        militaryStrategy.increaseBy(baseline);
-        foreignStrategy.increaseBy(baseline.multipliedBy(0.1));
+        militaryStrategy.increaseBy(baseline.dividedBy(1.1));
+        foreignStrategy.increaseBy(baseline.dividedBy(11.0));
         resetBaseline();
     }
 
@@ -68,6 +69,7 @@ public class SecurityStrategy {
 
     public void addSupplemental(Object caller, Resources request) {
         ImmutablePair<Object, Resources> p = new ImmutablePair<Object, Resources>(caller, request);
+        // War funding/recruitment takes priority over impending challenges and foreign policy costs
         if (caller.getClass() == WarParticipationFact.class) {
             this.supplementals.addFirst(p);
         } else {
@@ -115,4 +117,5 @@ public class SecurityStrategy {
         total.increaseBy(getSupplementalsSum());
         return total;
     }
+
 }

@@ -1,10 +1,8 @@
 package edu.gmu.css.entities;
 
 import edu.gmu.css.agents.Process;
-import edu.gmu.css.data.DataTrend;
 import edu.gmu.css.data.Resources;
 import edu.gmu.css.data.SecurityObjective;
-import edu.gmu.css.data.World;
 import edu.gmu.css.worldOrder.WorldOrder;
 import org.neo4j.ogm.annotation.*;
 import sim.engine.SimState;
@@ -65,15 +63,13 @@ public class War extends Institution {
         // 2. Update war values
         updateValues();
         // 3. Will there be a battle?
-        // TODO: This should be a Weibul distro, bur for now it's +1sd of Gaussian normal.
-        if (worldOrder.random.nextGaussian() > 0.681 && !ceasefire) {     // 1sd above mean
+        // TODO: This should be a Weibull distro, but for now it's +1sd of Gaussian normal.
+        if (worldOrder.random.nextGaussian() < -0.681 && !ceasefire) {     // 1sd below mean
             battle(worldOrder);
         }
         if (firstStep) {
             Polity instigator = cause.getIssue().getInstigator();
             SecurityObjective goal = participations.get(0).getGoal();
-
-
         }
 
     }

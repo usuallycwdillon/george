@@ -13,8 +13,9 @@ public class SecurityPolicy implements Serializable {
     }
 
     public SecurityPolicy(double[] policy) {
-        this.military = policy[0];
-        this.foreign = policy[1];
+        // Always is a balance of the total policy
+        this.military = policy[0] / (policy[0] + policy[1]);
+        this.foreign = policy[1] / (policy[0] + policy[1]);
     }
 
     public double getMilitary() {

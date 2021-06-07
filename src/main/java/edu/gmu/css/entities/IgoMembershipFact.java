@@ -133,6 +133,10 @@ public class IgoMembershipFact extends Fact {
         return igo;
     }
 
+    public Institution getInsitution() {
+        return igo;
+    }
+
     public void setIgo(Organization igo) {
         this.igo = igo;
     }

@@ -1,10 +1,9 @@
 package edu.gmu.css.data;
 
-import javax.lang.model.type.IntersectionType;
 import java.util.EnumMap;
 import java.util.Map;
 
-public enum World {
+public enum WorldMap {
     YEAR1816(1816),
     YEAR1880(1880),
     YEAR1914(1914),
@@ -14,23 +13,23 @@ public enum World {
 
     public final Integer value;
 
-    World(int val) {
+    WorldMap(int val) {
         value = val;
     }
 
-    private static final EnumMap<World, Integer> _world = new EnumMap<World, Integer>(World.class);
+    private static final EnumMap<WorldMap, Integer> _world = new EnumMap<WorldMap, Integer>(WorldMap.class);
 
     static {
-        for (World w : World.values() )
+        for (WorldMap w : WorldMap.values() )
             _world.put(w, w.value);
     }
 
-    public static Integer valueOf(World w) {
+    public static Integer valueOf(WorldMap w) {
         return _world.get(w);
     }
 
-    public static World name(Integer val) {
-        for (Map.Entry<World, Integer> e : _world.entrySet() ) {
+    public static WorldMap name(Integer val) {
+        for (Map.Entry<WorldMap, Integer> e : _world.entrySet() ) {
             if (e.getValue() == val) {
                 return e.getKey();
             }

@@ -4,6 +4,7 @@ import ec.util.MersenneTwisterFast;
 import edu.gmu.css.data.Issue;
 import edu.gmu.css.data.IssueType;
 import edu.gmu.css.queries.StateQueries;
+import edu.gmu.css.service.StateServiceImpl;
 import edu.gmu.css.worldOrder.WorldOrder;
 import sim.engine.SimState;
 import sim.engine.Steppable;
@@ -30,17 +31,17 @@ public class ProbabilisticCausality implements Steppable, Stoppable {
 
     public void step(SimState simState) {
         WorldOrder worldOrder = (WorldOrder) simState;
-        this.updateDistribution();
+        this.updateDistribution(worldOrder);
         int freq = poisson.nextInt();
         if (freq > 0) {
             for (int f=0; f<freq; f++) {
                 int numStates = worldOrder.getAllTheStates().size();
                 int instigator = worldOrder.random.nextInt(numStates);
                 State p = worldOrder.getAllTheStates().get(instigator);
-                List<Polity> potentialTargets = StateQueries.getNeighborhoodWithoutAllies(p, worldOrder);
+                List<State> potentialTargets = new StateServiceImpl().getRiskyNeighbors(p.getId(), worldOrder.getFromYear());
                 int numPotentials = potentialTargets.size();
                 if (numPotentials > 0) {
-                    State t = (State) potentialTargets.get(random.nextInt(numPotentials));
+                    State t = potentialTargets.get(random.nextInt(numPotentials));
                     if (p != t) {
                         int d = random.nextInt(870);
                         Issue i = new Issue.IssueBuilder().instigator(p).duration(d).target(t).issueType(pickIssueType(p,t)).build();
@@ -97,8 +98,12 @@ public class ProbabilisticCausality implements Steppable, Stoppable {
 
 
 
-    public void updateDistribution() {
-        poisson = new Poisson(globalWarLikelihood,random);
+    public void updateDistribution(WorldOrder wo) {
+        if (wo.getGlobalWarLikelihood() != this.globalWarLikelihood) {
+            this.globalWarLikelihood = wo.getGlobalWarLikelihood();
+            this.random = wo.random;
+            poisson = new Poisson(globalWarLikelihood,random);
+        }
     }
 
 

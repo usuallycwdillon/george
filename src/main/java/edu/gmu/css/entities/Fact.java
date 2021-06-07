@@ -1,5 +1,6 @@
 package edu.gmu.css.entities;
 
+import edu.gmu.css.data.Resources;
 import edu.gmu.css.service.DateConverter;
 import edu.gmu.css.service.FactServiceImpl;
 import org.neo4j.ogm.annotation.*;
@@ -15,7 +16,7 @@ public class Fact extends Entity {
     @Property @Convert(DateConverter.class)
     Long until;
     @Property
-    Integer during;
+    Long during;
     @Property
     String name;
     @Property
@@ -26,6 +27,8 @@ public class Fact extends Entity {
     String object;
     @Property
     String source;
+    @Transient              //  weekly cost/commitment
+    Resources maintenance = new Resources.ResourceBuilder().build();
 
     @Relationship(type="CONTRIBUTES", direction = Relationship.INCOMING)
     Dataset dataset;
@@ -57,11 +60,11 @@ public class Fact extends Entity {
         this.until = until;
     }
 
-    public Integer getDuring() {
+    public Long getDuring() {
         return during;
     }
 
-    public void setDuring(int d) {
+    public void setDuring(long d) {
         this.during = d;
     }
 
@@ -97,7 +100,7 @@ public class Fact extends Entity {
         return source;
     }
 
-    public void setDuring(Integer during) {
+    public void setDuring(Long during) {
         this.during = during;
     }
 
@@ -128,6 +131,15 @@ public class Fact extends Entity {
         return this.year;
     }
 
+    public void setMaintenanceCost(Resources r) {
+        maintenance = new Resources.ResourceBuilder().pax(r.getPax()).treasury(r.getTreasury()).build();
+    }
+
+    public Resources getMaintenance() {
+        return this.maintenance;
+    }
+
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -144,12 +156,11 @@ public class Fact extends Entity {
         return getObject() != null ? getObject().equals(fact.getObject()) : fact.getObject() == null;
     }
 
-//    @Override
-//    public int hashCode() {
-//        int result = getId().hashCode();
-//        result = 31 * result + (getSubject() != null ? getSubject().hashCode() : 0);
-//        result = 31 * result + (getPredicate() != null ? getPredicate().hashCode() : 0);
-//        result = 31 * result + (getObject() != null ? getObject().hashCode() : 0);
-//        return result;
-//    }
+    @Override
+    public int hashCode() {
+        int result = getSubject() != null ? getSubject().hashCode() : 0;
+        result = 31 * result + (getPredicate() != null ? getPredicate().hashCode() : 0);
+        result = 31 * result + (getObject() != null ? getObject().hashCode() : 0);
+        return result;
+    }
 }

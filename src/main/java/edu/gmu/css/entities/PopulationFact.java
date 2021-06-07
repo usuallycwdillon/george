@@ -21,7 +21,8 @@ public class PopulationFact extends Fact {
 
     @Relationship(type = "POPULATION", direction = Relationship.INCOMING)
     Polity polity;
-
+    @Relationship(type = "CONTRIBUTES", direction = Relationship.INCOMING)
+    Dataset dataset;
 
     public PopulationFact() {
 
@@ -98,8 +99,16 @@ public class PopulationFact extends Fact {
             return this;
         }
 
+        public FactBuilder during(Year y) {
+            this.from = y.getBegan();
+            this.until = y.getEnded();
+            this.object = y.getName();
+            return this;
+        }
+
         public FactBuilder polity(Polity p) {
             this.polity = p;
+            this.subject = p.getName();
             return this;
         }
 

@@ -50,11 +50,11 @@ public class KnowsRelation {
     }
 
     public boolean doesKnowerHaveLeadershipRole() {
-        return knower.isLeaderRole();
+        return knower.isLeadershipRole();
     }
 
     public boolean doesKnownHaveLeadershipRole() {
-        return known.isLeaderRole();
+        return known.isLeadershipRole();
     }
 
 }

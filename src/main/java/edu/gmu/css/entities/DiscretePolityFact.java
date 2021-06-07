@@ -386,7 +386,7 @@ public class DiscretePolityFact extends Fact {
     public int hashCode() {
         int result = getId().hashCode();
         result = 31 * result + getName().hashCode();
-        result = 31 * result + (getSubject() != null ? getSubject().hashCode() : 0);
+//        result = 31 * result + (getSubject() != null ? getSubject().hashCode() : 0);
         result = 31 * result + (getPredicate() != null ? getPredicate().hashCode() : 0);
         result = 31 * result + (getObject() != null ? getObject().hashCode() : 0);
         return result;

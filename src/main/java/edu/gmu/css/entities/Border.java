@@ -5,6 +5,7 @@ import edu.gmu.css.data.Resources;
 import edu.gmu.css.service.DateConverter;
 import org.neo4j.ogm.annotation.*;
 import org.neo4j.ogm.annotation.typeconversion.Convert;
+import sim.engine.SimState;
 
 import java.util.Set;
 
@@ -15,6 +16,8 @@ public class Border extends Institution {
      */
     @Id @GeneratedValue
     private Long id;
+    @Property
+    private String name;
     @Property @Convert(DateConverter.class)
     Long from;
     @Property @Convert(DateConverter.class)
@@ -23,8 +26,6 @@ public class Border extends Institution {
     private int during;
     @Property
     private String[] subjects;
-    @Transient
-    Resources maintenance;
 
     @Relationship (type = "BORDERS_WITH", direction=Relationship.INCOMING)
     private Set<BorderFact> borderFacts;
@@ -51,6 +52,7 @@ public class Border extends Institution {
         this.until = builder.until;
         this.maintenance = builder.maintenance;
     }
+
 
     public static class BorderBuilder {
         private Set<BorderFact> borderFacts;
@@ -104,36 +106,13 @@ public class Border extends Institution {
         return maintenance;
     }
 
+    public String getName() {
+        return this.name;
+    }
+
     public void setCommitment(Resources commitment) {
         this.maintenance = commitment;
     }
-
-//    @Override
-//    public Long getFrom() {
-//        return from;
-//    }
-//
-//    public void setFrom(Long from) {
-//        this.from = from;
-//    }
-//
-//    @Override
-//    public Long getUntil() {
-//        return until;
-//    }
-//
-//    public void setUntil(Long until) {
-//        this.until = until;
-//    }
-//
-//    @Override
-//    public int getDuring() {
-//        return during;
-//    }
-//
-//    public void setDuring(int during) {
-//        this.during = during;
-//    }
 
     public String[] getSubjects() {
         return subjects;
@@ -150,4 +129,6 @@ public class Border extends Institution {
         }
         return null;
     }
+
+
 }

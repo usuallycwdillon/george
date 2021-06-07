@@ -64,12 +64,14 @@ public class StateQueries {
         String exQuery = "MATCH (p:Polity)-[:MILEX]-(m:MilExFact)-[:DURING]-(y:Year{name:$name}) " +
                 "WHERE id(p) = $id RETURN m";
 
-        MilPerFact milperfact = Neo4jSessionFactory.getInstance().getNeo4jSession().queryForObject(MilPerFact.class, paxQuery, params);
+        MilPerFact milperfact = Neo4jSessionFactory.getInstance().getNeo4jSession()
+                .queryForObject(MilPerFact.class, paxQuery, params);
         if (milperfact != null) {
             Double num = milperfact.getValue();
             pax = num != null ? num.intValue() : 0;
         }
-        MilExFact milexfact = Neo4jSessionFactory.getInstance().getNeo4jSession().queryForObject(MilExFact.class, exQuery, params);
+        MilExFact milexfact = Neo4jSessionFactory.getInstance().getNeo4jSession()
+                .queryForObject(MilExFact.class, exQuery, params);
         if (milexfact != null) {
             Double amt = milexfact.getValue();
             exp = amt != null ? amt.intValue() : 0;
@@ -83,54 +85,38 @@ public class StateQueries {
         params.put("cowcode", s.getCowcode());
         params.put("during", y);
         String query = "MATCH (s:State{cowcode:$cowcode})-[:SIM_TAX_RATE{during:$during}]->(f:TaxRateFact) RETURN f";
-        TaxRateFact f = Neo4jSessionFactory.getInstance().getNeo4jSession().queryForObject(TaxRateFact.class, query,params);
+        TaxRateFact f = Neo4jSessionFactory.getInstance().getNeo4jSession()
+                .queryForObject(TaxRateFact.class, query,params);
         return f.getValue() * 1.1; // Accounting for 10% bump on policy costs other than military
     }
 
 
-    public static Territory getTerritoryFromDatabase(State s) {
-        String cowCode = s.getCowcode();
-        Map<String, Object> params = new HashMap<>();
-        params.put("cowcode", cowCode);
-        params.put("year", WorldOrder.getFromYear());
-        String territoryQuery = "MATCH (p:State{cowcode:$cowcode})-[:OCCUPIED]-(t:Territory{year:$year}) RETURN t";
-        return Neo4jSessionFactory.getInstance().getNeo4jSession()
-                .queryForObject(Territory.class, territoryQuery, params);
-    }
-
-
-    public static State getStateFromDatabase(Territory t) {
-        State s = null;
-        String mapKey = t.getMapKey();
-        String name = WorldOrder.getFromYear() + "";
-        Map<String, Object> params = new HashMap<>();
-        params.put("mapKey",mapKey);
-        params.put("name", name);
-        String query = "MATCH (t:Territory)-[:OCCUPIED]-(s:State)-[:DURING]-(:Year{name:$name}) WHERE id(t) = $mapKey RETURN s";
-        State n = Neo4jSessionFactory.getInstance().getNeo4jSession().queryForObject(State.class, query, params);
-        if (n==null) {
-            return s;
-        } else {
-            return n;
-        }
-    }
-
-    public static DiscretePolityFact getPolityData(Polity p, int year) {
-        Map<String, Object> params = new HashMap<>();
-        params.put("id", p.getId());
-        params.put("year", year);
-        String query = "MATCH (p:Polity)<-[d:DESCRIBES_POLITY_OF]-(f:DiscretePolityFact) " +
-                "WHERE id(p) = $id AND d.from.year <= $year <= d.until.year " +
-                "RETURN f ORDER BY d.from LIMIT 1";
-        DiscretePolityFact dpf = dpf = Neo4jSessionFactory.getInstance().getNeo4jSession()
-                .queryForObject(DiscretePolityFact.class, query, params);
-        if (dpf != null) {
-            dpf.setPolity(p);
-            return dpf;
-        } else {
-            return null;
-        }
-    }
+//    public static Territory getTerritoryFromDatabase(State s) {
+//        String cowCode = s.getCowcode();
+//        Map<String, Object> params = new HashMap<>();
+//        params.put("cowcode", cowCode);
+//        params.put("year", WorldOrder.getFromYear());
+//        String territoryQuery = "MATCH (p:State{cowcode:$cowcode})-[:OCCUPIED]-(t:Territory{year:$year}) RETURN t";
+//        return Neo4jSessionFactory.getInstance().getNeo4jSession()
+//                .queryForObject(Territory.class, territoryQuery, params);
+//    }
+//
+//
+//    public static State getStateFromDatabase(Territory t) {
+//        State s = null;
+//        String mapKey = t.getMapKey();
+//        String name = WorldOrder.getFromYear() + "";
+//        Map<String, Object> params = new HashMap<>();
+//        params.put("mapKey",mapKey);
+//        params.put("name", name);
+//        String query = "MATCH (t:Territory)-[:OCCUPIED]-(s:State)-[:DURING]-(:Year{name:$name}) WHERE id(t) = $mapKey RETURN s";
+//        State n = Neo4jSessionFactory.getInstance().getNeo4jSession().queryForObject(State.class, query, params);
+//        if (n==null) {
+//            return s;
+//        } else {
+//            return n;
+//        }
+//    }
 
     public static List<Polity> getNeighborhoodWithoutAllies(Polity p, SimState simState) {
         WorldOrder worldOrder = (WorldOrder) simState;

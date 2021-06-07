@@ -2,6 +2,7 @@ package edu.gmu.css.entities;
 
 
 import edu.gmu.css.data.FactType;
+import edu.gmu.css.data.Resources;
 import edu.gmu.css.data.SeaTerritories;
 import org.neo4j.ogm.annotation.*;
 import edu.gmu.css.agents.Process;
@@ -69,4 +70,5 @@ public class DiplomaticExchange extends Institution {
     public void removeRepresentation(DipExFact f) {
         this.representation.remove(f);
     }
+
 }

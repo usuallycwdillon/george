@@ -33,7 +33,6 @@ public class Dataset extends Entity {
     @Transient
     Map<String, Double> warParameters = new HashMap<>();
 
-
     @Relationship(type="CONTRIBUTES")
     private final Set<Entity> facts = new HashSet<>();
 

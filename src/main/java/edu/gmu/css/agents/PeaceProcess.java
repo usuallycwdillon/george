@@ -83,7 +83,6 @@ public class PeaceProcess extends Process {
                 if (count >= processParticipantLinks.size()) {
                     this.N = true;
                     this.equivalence = false;
-
                 } else {
                     this.equivalence = true;
                 }

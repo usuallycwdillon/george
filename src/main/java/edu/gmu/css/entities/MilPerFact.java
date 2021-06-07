@@ -20,7 +20,8 @@ public class MilPerFact extends Fact {
 
     @Relationship(type = "MILPER", direction = Relationship.INCOMING)
     Polity polity;
-
+    @Relationship(type = "CONTRIBUTES", direction = Relationship.INCOMING)
+    Dataset dataset;
 
     public MilPerFact() {
 
@@ -99,6 +100,13 @@ public class MilPerFact extends Fact {
 
         public FactBuilder polity(Polity p) {
             this.polity = p;
+            return this;
+        }
+
+        public FactBuilder during(Year y) {
+            this.from = y.getBegan();
+            this.until = y.getEnded();
+            this.object = y.getName();
             return this;
         }
 

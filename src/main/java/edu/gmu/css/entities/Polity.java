@@ -1,11 +1,11 @@
 package edu.gmu.css.entities;
 
-import ec.util.MersenneTwisterFast;
 import edu.gmu.css.agents.Leadership;
 import edu.gmu.css.data.*;
 import edu.gmu.css.agents.Process;
-import edu.gmu.css.queries.StateQueries;
 import edu.gmu.css.relations.*;
+import edu.gmu.css.service.DiscretePolityFactServiceImpl;
+import edu.gmu.css.service.FactServiceImpl;
 import edu.gmu.css.service.Neo4jSessionFactory;
 import edu.gmu.css.worldOrder.WorldOrder;
 import org.neo4j.ogm.annotation.*;
@@ -50,7 +50,7 @@ public class Polity extends Entity implements Steppable {
 
     @Relationship (type = "OCCUPIED")
     protected Set<OccupiedRelation> allTerritories;
-    @Relationship (direction = Relationship.INCOMING)
+    @Relationship (type="LEADERSHIP_OF", direction = Relationship.INCOMING)
     protected Leadership leadership;
     @Relationship(type = "SHARES_BORDER")
     protected Set<BorderFact> bordersWith = new HashSet<>();
@@ -64,15 +64,21 @@ public class Polity extends Entity implements Steppable {
     protected Set<WarParticipationFact> warList = new HashSet<>();
     @Relationship(type = "AGREED")
     protected Set<PeaceFact> peaceList = new HashSet<>();
+    @Relationship(type = "MEMBERSHIP")
+    protected Set<IgoMembershipFact> organizations = new HashSet<>();
+    @Relationship(type="PRODUCED")
+    protected Set<GdpFact> gdpHistory = new HashSet<>();
+    @Transient
+    protected Map<Polity, Double> threats = new HashMap<>();
 
     public Polity () {
 
     }
 
-
+    @Override
     public void step(SimState simState) {
         WorldOrder worldOrder = (WorldOrder) simState;
-        updateEconomicPolicy(worldOrder);
+        updateEconomicPolicy(this.leadership, worldOrder);
     }
 
     public String getName() {
@@ -93,9 +99,6 @@ public class Polity extends Entity implements Steppable {
 
     public void setResources(Resources r) {
         this.resources = r;
-        // these must be new objects, not a reference to the resources
-//        this.economicStrategy = (new Resources.ResourceBuilder().build()).evaluativeSum(resources);
-        this.securityStrategy = new SecurityStrategy((new Resources.ResourceBuilder().build()).evaluativeSum(resources));
     }
 
     public Territory getTerritory() {
@@ -155,7 +158,7 @@ public class Polity extends Entity implements Steppable {
     }
 
     public SecurityStrategy getSecurityStrategy() {
-        return securityStrategy;
+        return this.securityStrategy;
     }
 
     public void setSecurityStrategy(Resources newStrategy) {
@@ -200,7 +203,12 @@ public class Polity extends Entity implements Steppable {
     }
 
     public double getPopulation() {
-        return territory.getPopulation();
+        if (territory.getPopulation()==null | territory.getPopulation()==0.0) {
+            return territory.getCurrentPopulation();
+        } else {
+            return territory.getPopulation();
+        }
+
     }
 
     public double geUrbanPopulation() {
@@ -208,7 +216,7 @@ public class Polity extends Entity implements Steppable {
     }
 
     public double getGrossDomesticProduct() {
-        return territory.getGrossDomesticProduct();
+        return territory.getGDP();
     }
 
     public double getForces() {
@@ -299,8 +307,12 @@ public class Polity extends Entity implements Steppable {
         Resources draft = new Resources.ResourceBuilder().build();
     }
 
+    protected void addEconomicHistory(GdpFact f) {
+        this.gdpHistory.add(f);
+    }
+
     protected double recruit(double force) {
-        double deficit = 0.0;
+        double deficit = force;
         return deficit;
     }
 
@@ -313,7 +325,7 @@ public class Polity extends Entity implements Steppable {
 
     }
 
-    protected void updateEconomicPolicy(WorldOrder wo) {
+    public void updateEconomicPolicy(Leadership l, WorldOrder wo) {
 
     }
 
@@ -323,6 +335,29 @@ public class Polity extends Entity implements Steppable {
 
     public void setYear(Year y) {
         this.year = y;
+    }
+
+    public void takeCensus(WorldOrder wo) {
+        WorldOrder worldOrder = wo;
+        Dataset run = wo.getModelRun();
+        territory.updateTotals();
+        PopulationFact pf = new PopulationFact.FactBuilder().dataset(run).polity(this).value(territory.getPopulation())
+                .during(wo.getDataYear()).build();
+        run.addFacts(pf);
+        UrbanPopulationFact uf = new UrbanPopulationFact.FactBuilder().dataset(run). polity(this)
+                .value(territory.getUrbanPopulation()).during(wo.getDataYear()).build();
+        run.addFacts(uf);
+        FactServiceImpl factService = new FactServiceImpl();
+        factService.createOrUpdate(pf);
+        factService.createOrUpdate(uf);
+    }
+
+    public double getPublicSDP() {
+        if(territory.getGDP()==null | territory.getGDP()==0.0) {
+            return territory.getCurrentSDP();
+        } else {
+            return territory.getPopulation();
+        }
     }
 
     protected void createWarStrategy(Process process, int size) {
@@ -407,6 +442,23 @@ public class Polity extends Entity implements Steppable {
         return true;
     }
 
+    public Map<Polity, Double> getThreats() {
+        return threats;
+    }
+
+    public void setThreats(Map<Polity, Double> t) {
+        this.threats = t;
+    }
+
+    public void addThreat(Polity p, Double d) {
+        this.threats.put(p, d);
+    }
+
+    public void removeThreat(Polity p) {
+        this.threats.remove(p);
+    }
+
+
     public boolean hasInsuficentResources(Institution war) {
         return true;
     }
@@ -421,18 +473,20 @@ public class Polity extends Entity implements Steppable {
         }
     }
 
-    public void setCurrentTerritory() {
-        Map<String, Object> params = new HashMap<>();
-        params.put("id", this.id);
-        params.put("year", WorldOrder.getFromYear());
-        String territoryQuery = "MATCH (p:Polity)-[:OCCUPIED]-(t:Territory{year:$year})" +
-                "WHERE id(p)=$id RETURN t LIMIT 1";
-        Territory t = Neo4jSessionFactory.getInstance().getNeo4jSession()
-                .queryForObject(Territory.class, territoryQuery, params);
-        territory = t;
-    }
+//    public void setCurrentTerritory() {
+//        Map<String, Object> params = new HashMap<>();
+//        params.put("id", this.id);
+//        params.put("year", WorldOrder.getFromYear());
+//        String territoryQuery = "MATCH (p:Polity)-[:OCCUPIED]-(t:Territory{year:$year})" +
+//                "WHERE id(p)=$id RETURN t LIMIT 1";
+//        Territory t = Neo4jSessionFactory.getInstance().getNeo4jSession()
+//                .queryForObject(Territory.class, territoryQuery, params);
+//        territory = t;
+//    }
+
 
     public void loadInstitutionData(int year, WorldOrder wo) {
+        this.polityFact = new DiscretePolityFactServiceImpl().getPolityData(this,year);
 
         // Load Polity's Borders
 
@@ -445,6 +499,7 @@ public class Polity extends Entity implements Steppable {
         // Load IGO memberbership
 
     }
+
 
     public boolean isFriend(Polity p) {
         /**
@@ -459,7 +514,7 @@ public class Polity extends Entity implements Steppable {
     }
 
     public boolean findPolityData(int year) {
-        DiscretePolityFact dpf = StateQueries.getPolityData(this, year);
+        DiscretePolityFact dpf = new DiscretePolityFactServiceImpl().getPolityData(this, year);
         if (dpf != null) {
             polityFact = dpf;
             return true;
@@ -482,4 +537,21 @@ public class Polity extends Entity implements Steppable {
 
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Polity)) return false;
+
+        Polity polity = (Polity) o;
+
+        if (getId() != null ? !getId().equals(polity.getId()) : polity.getId() != null) return false;
+        return getName().equals(polity.getName());
+    }
+
+    @Override
+    public int hashCode() {
+        int result = getId() != null ? getId().hashCode() : 0;
+        result = 31 * result + getName().hashCode();
+        return result;
+    }
 }

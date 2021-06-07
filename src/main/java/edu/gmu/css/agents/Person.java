@@ -9,6 +9,7 @@ import sim.engine.Steppable;
 import java.util.*;
 import java.util.stream.Collectors;
 
+@NodeEntity
 public class Person extends Entity implements Steppable {
 
     @Id @GeneratedValue
@@ -20,7 +21,9 @@ public class Person extends Entity implements Steppable {
     @Property
     private double bcScore;
     @Property
-    private boolean leaderRole;
+    private double ecScore;
+    @Property
+    private boolean leadershipRole;
     @Property
     private String birthplace;
     @Transient
@@ -37,8 +40,8 @@ public class Person extends Entity implements Steppable {
     public Person(String n) {
         this.name = n;
         this.sentiment = 0.0;
-        this.bcScore = 0;
-        this.leaderRole = false;
+        this.bcScore = 0.0;
+        this.leadershipRole = false;
     }
 
 
@@ -62,6 +65,14 @@ public class Person extends Entity implements Steppable {
         this.bcScore = bcScore;
     }
 
+    public double getEcScore() {
+        return ecScore;
+    }
+
+    public void setEcScore(double ecScore) {
+        this.ecScore = ecScore;
+    }
+
     public String getAddress() {
         return address;
     }
@@ -70,12 +81,12 @@ public class Person extends Entity implements Steppable {
         this.address = address;
     }
 
-    public boolean isLeaderRole() {
-        return leaderRole;
+    public boolean isLeadershipRole() {
+        return leadershipRole;
     }
 
     public void setLeaderRole(boolean leaderRole) {
-        this.leaderRole = leaderRole;
+        this.leadershipRole = leaderRole;
     }
 
     public Integer getIssueOpinion(Entity e) {

@@ -31,7 +31,7 @@
     <dependency>
       <groupId>com.uber</groupId>
       <artifactId>h3</artifactId>
-      <version>3.4.1</version>
+      <version>3.7.0</version>
     </dependency>
     <dependency>
       <groupId>de.grundid.opendatalab</groupId>
@@ -49,14 +49,14 @@
       <artifactId>neo4j-ogm-core</artifactId>
 <!--      <version>3.1.11</version>-->
       <version>3.2.7</version>
-      <scope>compile</scope>
+      <scope>runtime</scope>
     </dependency>
-    <dependency>
-      <groupId>org.neo4j</groupId>
-      <artifactId>neo4j-ogm-api</artifactId>
-<!--      <version>3.1.11</version>-->
-      <version>3.2.7</version>
-    </dependency>
+<!--    <dependency>-->
+<!--      <groupId>org.neo4j</groupId>-->
+<!--      <artifactId>neo4j-ogm-api</artifactId>-->
+<!--&lt;!&ndash;      <version>3.1.11</version>&ndash;&gt;-->
+<!--      <version>3.2.7</version>-->
+<!--    </dependency>-->
     <dependency>
       <groupId>org.neo4j</groupId>
       <artifactId>neo4j-ogm-bolt-driver</artifactId>

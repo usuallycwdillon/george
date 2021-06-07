@@ -38,7 +38,7 @@ public class Dispute extends Entity {
 
 
     @Relationship(direction=Relationship.INCOMING)
-    protected List<InstitutionParticipation> participations = new ArrayList<>();
+    protected List<DisputeParticipationFact> participations = new ArrayList<>();
     @Transient
     private final Set<Polity> participants = new HashSet<>();
 
@@ -52,9 +52,10 @@ public class Dispute extends Entity {
         until = process.getEnded();
         objective = highestLevel(process);
         for (ProcessDisposition pd : process.getProcessDispositionList()) {
-            Participation p = new Participation(pd.getOwner(), pd.getCommitment(), until);
+            DisputeParticipationFact f = new DisputeParticipationFact.FactBuilder().from(from)
+                    .subject(pd.getOwner().getName()).build();
             participants.add(pd.getOwner());
-            participations.add(p);
+            participations.add(f);
         }
     }
 

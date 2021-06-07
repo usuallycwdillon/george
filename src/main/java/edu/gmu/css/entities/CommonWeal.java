@@ -1,13 +1,16 @@
 package edu.gmu.css.entities;
 
+import edu.gmu.css.agents.Leadership;
 import edu.gmu.css.agents.Person;
 import edu.gmu.css.relations.ProcessDisposition;
+import edu.gmu.css.service.LeadershipServiceImpl;
 import edu.gmu.css.service.Neo4jSessionFactory;
 import edu.gmu.css.service.PersonServiceImpl;
 import edu.gmu.css.util.MTFWrapper;
 import edu.gmu.css.worldOrder.WorldOrder;
 import org.jgrapht.Graph;
 import org.jgrapht.alg.connectivity.ConnectivityInspector;
+import org.jgrapht.alg.scoring.AlphaCentrality;
 import org.jgrapht.alg.scoring.BetweennessCentrality;
 import org.jgrapht.generate.WattsStrogatzGraphGenerator;
 import org.jgrapht.graph.DefaultEdge;
@@ -24,6 +27,7 @@ import java.util.*;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+@NodeEntity
 public class CommonWeal extends Entity implements Steppable {
 
     @Id @GeneratedValue
@@ -50,6 +54,9 @@ public class CommonWeal extends Entity implements Steppable {
     private Territory territory;
     @Relationship(type="RESIDES_IN", direction = Relationship.INCOMING)
     private List<Person> personList;
+    @Relationship(type="LEADERSHIP_FROM", direction = Relationship.INCOMING)
+    private Leadership leadership;
+//    @Relationship(type="COMPUTED", direction = Relationship.INCOMING)
     @Transient
     private Map<String, Person> personMap;
 
@@ -62,7 +69,7 @@ public class CommonWeal extends Entity implements Steppable {
         this.territory = t;
         this.entityPosition = new HashMap<>();
         this.personMap = new HashMap<>();
-        this.name = t.getName() + "_weal";
+        this.name = "Residents of " + t.getName();
 
         if (newGraph) {
             wsg = new WattsStrogatzGraphGenerator<> (
@@ -89,6 +96,27 @@ public class CommonWeal extends Entity implements Steppable {
 
     public String getName() {
         return name;
+    }
+
+    public Leadership getLeadership() {
+        if (leadership!=null) {
+            return leadership;
+        } else {
+            leadership = new LeadershipServiceImpl().getCommonWealLeadership(this);
+            return leadership;
+        }
+    }
+
+    public Map<String, Person> findLeaders() {
+       Map<String, Person> leaderMap = new HashMap<>();
+        for (Person p : personList) {
+            if(p.isLeadershipRole()) leaderMap.put(p.getName(), p);
+        }
+        return leaderMap;
+    }
+
+    public void setLeadership(Leadership leadership) {
+        this.leadership = leadership;
     }
 
     public void setName(String name) {
@@ -157,7 +185,7 @@ public class CommonWeal extends Entity implements Steppable {
 
     public Double evaluateWarNeed(Entity e) {
         // TODO: Change this from returning a random value to the average support after a week of public deliberation.
-        //  The common weal basically asks: can we afford this issue (in people or resources)?
+        //  The common weal basically asks: can weFfind afford this issue (in people or resources)?
         Double support = random.nextDouble();
         entityPosition.put(e, support);
         return support;
@@ -193,6 +221,25 @@ public class CommonWeal extends Entity implements Steppable {
         Polity p = territory.getPolity();
         int leadershipSize = (p.getPolityFact().getAutocracyRating() * 10) + 1; // between 1 and 101
         Set<String> leaderIds = sortByValue(betweennessScores, leadershipSize).keySet();
+        Map<String, Person> leaders = new HashMap<>();
+        for (String s : leaderIds) {
+            Person l = personMap.get(s);
+            leaders.put(s,l);
+            l.setLeaderRole(true);
+        }
+        p.getLeadership().setLeaders(leaders);
+    }
+
+    public void calculateEigenValues() {
+        AlphaCentrality<String, DefaultEdge> ec = new AlphaCentrality<>(graph);
+        Map<String, Double> eigenvalues = ec.getScores();
+        for (Map.Entry<String, Double> e : eigenvalues.entrySet()) {
+            Person p = personMap.get(e.getKey());
+            p.setEcScore(e.getValue());
+        }
+        Polity p = territory.getPolity();
+        int leadershipSize = (p.getPolityFact().getAutocracyRating() * 10) + 1; // between 1 and 101
+        Set<String> leaderIds = sortByValue(eigenvalues, leadershipSize).keySet();
         Map<String, Person> leaders = new HashMap<>();
         for (String s : leaderIds) {
             Person l = personMap.get(s);
@@ -278,8 +325,30 @@ public class CommonWeal extends Entity implements Steppable {
     }
 
     public void loadPersonMap() {
-        personList = new ArrayList<>(new PersonServiceImpl().loadAll(territory.getMapKey()));
+        if(personList.equals(null) || personList.size() == 0) {
+            this.personList = new ArrayList<>(new PersonServiceImpl().loadAll(territory.getMapKey()));
+        }
         personMap = personList.stream().collect(Collectors.toMap(Person::getName, a -> a));
+        Map<String, Person> leaders = findLeaders();
+        leadership.setLeaders(leaders);
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof CommonWeal)) return false;
+        if (!super.equals(o)) return false;
+
+        CommonWeal that = (CommonWeal) o;
+
+        if (!getId().equals(that.getId())) return false;
+        return getName().equals(that.getName());
+    }
+
+    @Override
+    public int hashCode() {
+        int result = getId().hashCode();
+        result = 31 * result + getName().hashCode();
+        return result;
+    }
 }

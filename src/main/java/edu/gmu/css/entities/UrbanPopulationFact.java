@@ -19,6 +19,8 @@ public class UrbanPopulationFact extends Fact {
     Polity polity;
     @Relationship(type = "DURING")
     Year year;
+    @Relationship(type = "CONTRIBUTES", direction = Relationship.INCOMING)
+    Dataset dataset;
 
     public UrbanPopulationFact() {
 
@@ -29,7 +31,7 @@ public class UrbanPopulationFact extends Fact {
         this.polity = builder.polity;
         this.year = builder.year;
         this.subject = polity.getName();
-        this.predicate = "WEALTH";
+        this.predicate = builder.predicate;
         this.object = builder.object;
         this.value = builder.value;
         this.name = builder.name;
@@ -90,8 +92,16 @@ public class UrbanPopulationFact extends Fact {
             return this;
         }
 
+        public FactBuilder during(Year y) {
+            this.from = y.getBegan();
+            this.until = y.getEnded();
+            this.object = y.getName();
+            return this;
+        }
+
         public FactBuilder polity(Polity p) {
             this.polity = p;
+            this.subject = p.getName();
             return this;
         }
 
