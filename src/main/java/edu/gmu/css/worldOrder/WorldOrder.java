@@ -78,7 +78,7 @@ public class WorldOrder extends SimState {
     public static boolean DEBUG = false;
     public static boolean RECORDING = true;
     public static boolean DIPEX = true;
-    public static boolean ALLIANCES = true;
+    public static boolean ALLIANCES = fa;
     public static boolean RANDOM = false;
     private int fromYear; // Choices are 1816, 1880, 1914, 1938, 1945, 1994
     private int untilYear; // Depending on how generic you're willing to be, can be just below next year
