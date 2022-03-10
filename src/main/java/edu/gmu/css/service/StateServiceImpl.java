@@ -62,8 +62,6 @@ public class StateServiceImpl extends GenericService<State> implements StateServ
         return states;
     }
 
-
-
     public Map<String, State> loadSystemMemberStatesAndTerritories(WorldOrder wo) {
         int year = wo.getFromYear();
         Map<String, State> allTheStates = wo.getAllTheStates();
@@ -79,6 +77,7 @@ public class StateServiceImpl extends GenericService<State> implements StateServ
             State s = (State) match.get("s");
             Territory t = (Territory) match.get("t");
             t.linkTiles(wo);
+            t.setPolity(s, wo.getWeekNumber());
             s.setTerritory(t);
             s.loadData(wo);
             allTheStates.put(s.getCowcode(), s);

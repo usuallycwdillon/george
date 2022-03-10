@@ -10,6 +10,7 @@ import edu.gmu.css.service.FactServiceImpl;
 import edu.gmu.css.worldOrder.WorldOrder;
 import org.neo4j.ogm.annotation.*;
 
+@NodeEntity
 public class WarParticipationFact extends Fact {
 
     @Id @GeneratedValue private Long id;
@@ -18,8 +19,10 @@ public class WarParticipationFact extends Fact {
     @Property private double durationMonths;
     @Property private double maxTroops;
     @Property private double finalCost;
+    @Property private boolean initiated;
     @Property private int side;
-    @Transient private Resources commitment;
+    @Property private char fiat = 'x';
+    @Transient private Resources commitment = new Resources.ResourceBuilder().build(); // see, totally empty.
     @Transient private Resources cost;
     @Transient private final DataTrend battleHistory = new DataTrend(10);
     @Transient private SecurityObjective goal;
@@ -49,6 +52,7 @@ public class WarParticipationFact extends Fact {
         this.dataset = builder.dataset;
         this.goal = builder.goal;
         this.disposition = builder.disposition;
+        this.initiated = builder.initiated;
     }
 
     public static class FactBuilder {
@@ -60,11 +64,12 @@ public class WarParticipationFact extends Fact {
         private String subject = "unknown";
         private String predicate = "PARTICIPATED";
         private String object = "unknown";
-        private String source = "GEORGE_";
+        private String source = "";
         private Dataset dataset;
         private Resources commitment = new Resources.ResourceBuilder().build();
         private Resources cost = new Resources.ResourceBuilder().build();
         private int side;
+        private boolean initiated;
         private SecurityObjective goal;
         private ProcessDisposition disposition;
 
@@ -142,6 +147,11 @@ public class WarParticipationFact extends Fact {
 
         public FactBuilder disposition(ProcessDisposition p) {
             this.disposition = p;
+            return this;
+        }
+
+        public FactBuilder initiated(boolean b) {
+            this.initiated = b;
             return this;
         }
 
@@ -239,6 +249,22 @@ public class WarParticipationFact extends Fact {
         this.goal = goal;
     }
 
+    public char getFiat() {
+        return fiat;
+    }
+
+    public void setFiat(char fiat) {
+        this.fiat = fiat;
+    }
+
+    public boolean isInitiated() {
+        return initiated;
+    }
+
+    public void setInitiated(boolean initiated) {
+        this.initiated = initiated;
+    }
+
     public Resources getCommitment() {
         return commitment;
     }
@@ -252,6 +278,23 @@ public class WarParticipationFact extends Fact {
         commitment.increaseBy(additional);
     }
 
+    public double getBattleTrend() {
+        if (battleHistory.size()==0) return 0.0;
+        return battleHistory.average();
+    }
+
+    public void acceptDefeat(WorldOrder wo) {
+        for (ProcessDisposition d : polity.getProcessList()) {
+            if (war.getName().equals(d.getSubject())) {
+                d.setN(true);
+            } else {
+                createPeaceIssue(wo);
+            }
+            d.getProcess().setOutcome(true);
+            polity.acquiesce(d, wo);
+        }
+    }
+
     public void tallyLosses(double l, boolean w, WorldOrder wo) {
         WorldOrder worldOrder = wo;
         double pLoss = l;
@@ -263,25 +306,25 @@ public class WarParticipationFact extends Fact {
             battleHistory.add(pLoss);
         } else {
             battleHistory.add(-pLoss);
+            // If there isn't already a peace process for this war, the pd is null
+            for (ProcessDisposition d : polity.getProcessList()) {
+                if (war.equals(d.getSubject())) {
+                    d.setN(true);
+                } else {
+                    createPeaceIssue(worldOrder);
+                }
+            }
         }
+
         Resources loss = new Resources.ResourceBuilder().pax(pLoss).treasury(tLoss).build();
-        commitment.reduceBy(loss);
-        cost.increaseBy(loss);
-        polity.getSecurityStrategy().addSupplemental(this, loss);
+        if (!loss.isEmpty()) {
+            cost.increaseBy(commitment.minimumBetween(loss));
+            commitment.reduceToNoLessThanZero(loss);
+        }
+
         magnitude += pLoss;
         if (lossRatio > 0.333 || forceRatio > 0.50 || commitment.getTreasury() <= 0.0) {
             polity.surrender(disposition, worldOrder);
-        }
-        // If there isn't already a peace process for this war, the pd is null
-        ProcessDisposition pd = polity.getProcessList().stream()
-                .filter(d -> war.equals(d.getSubject()))
-                .findAny().orElse(null);
-        if (pLoss * 8 > commitment.getPax() || !winner) {
-            if (pd == null) {
-                createPeaceIssue(worldOrder);
-            } else {
-                pd.setN(true);
-            }
         }
     }
 
@@ -299,8 +342,14 @@ public class WarParticipationFact extends Fact {
                 }
             }
         }
-        Issue peace = new Issue.IssueBuilder().from(wo.getStepNumber()).claimant(polity).target(opponent)
-                .issueType(IssueType.PEACE).duration(2).cause(war).build();
+        Issue peace = new Issue.IssueBuilder()
+                .from(wo.getStepNumber())
+                .claimant(polity)
+                .target(opponent)
+                .issueType(IssueType.PEACE)
+                .duration(2)
+                .cause(war)
+                .build();
         peace.setStopper(worldOrder.schedule.scheduleRepeating(peace));
     }
 
@@ -336,15 +385,14 @@ public class WarParticipationFact extends Fact {
         return getObject() != null ? getObject().equals(fact.getObject()) : fact.getObject() == null;
     }
 
-//    @Override
-//    public int hashCode() {
-//        int result = getId().hashCode();
-//        result = 31 * result + getName().hashCode();
-//        result = 31 * result + (getSubject() != null ? getSubject().hashCode() : 0);
-//        result = 31 * result + (getPredicate() != null ? getPredicate().hashCode() : 0);
-//        result = 31 * result + (getObject() != null ? getObject().hashCode() : 0);
-//        return result;
-//    }
+    @Override
+    public int hashCode() {
+        int result = getName().hashCode();
+        result = 31 * result + (getSubject() != null ? getSubject().hashCode() : 0);
+        result = 31 * result + (getPredicate() != null ? getPredicate().hashCode() : 0);
+        result = 31 * result + (getObject() != null ? getObject().hashCode() : 0);
+        return result;
+    }
 
 
 }

@@ -1,8 +1,10 @@
 package edu.gmu.css.agents;
 
 import edu.gmu.css.data.Domain;
+import edu.gmu.css.entities.Peace;
 import edu.gmu.css.entities.PeaceFact;
 import edu.gmu.css.entities.Polity;
+import edu.gmu.css.entities.War;
 import edu.gmu.css.relations.ProcessDisposition;
 import edu.gmu.css.worldOrder.WorldOrder;
 import sim.engine.SimState;
@@ -195,6 +197,9 @@ public class PeaceProcess extends Process {
                 }
                 this.outcome = true;
                 this.updateStatus();
+                ((War) issue.getCause()).updateForSave(worldOrder);
+                issue.getCause().conclude(worldOrder);
+                System.out.println( ((War) issue.getCause()).getWarFact().getObject() + " should be ending now");
                 break;
             case 14:
                 this.equivalence = true;
@@ -202,14 +207,14 @@ public class PeaceProcess extends Process {
                 this.updateStatus();
                 break;
             case 15:
-                this.outcome = true;
-                Long step = worldOrder.schedule.getSteps();
-                // Assuming for now that peace insitutions are passive, only between participants
+                issue.setResolved(true);
                 issue.conclude(worldOrder);
+                ((War) issue.getCause()).updateForSave(worldOrder);
                 issue.getCause().conclude(worldOrder);
+                System.out.println( ((War) issue.getCause()).getWarFact().getObject() + " should be ending now");
                 peace = createPeace(worldOrder);
-                worldOrder.getAllTheInstitutions().remove(issue);
                 worldOrder.getAllTheInstitutions().add(peace);
+                worldOrder.getAllTheInstitutions().remove(issue);
                 conclude(worldOrder);
                 break;
         }
@@ -221,6 +226,7 @@ public class PeaceProcess extends Process {
         double influence = worldOrder.getInstitutionInfluence();
         Stoppable stoppable;
         peace = new Peace(this, step);
+        peace.setStrength(0.50);
         for (ProcessDisposition d : processParticipantLinks) {
             PeaceFact p = new PeaceFact.FactBuilder().from(step).peace(peace).polity(d.getOwner()).
                     commitment(d.getCommitment()).build();
@@ -230,7 +236,7 @@ public class PeaceProcess extends Process {
         }
         stoppable = worldOrder.schedule.scheduleRepeating(peace);
         peace.setStopper(stoppable);
-        worldOrder.updateGlobalWarLikelihood(processParticipantLinks.size() * influence * -1);
+        worldOrder.updateGlobalWarLikelihood(processParticipantLinks.size() * influence * -1.0);
         return peace;
     }
 

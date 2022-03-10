@@ -106,16 +106,19 @@ public class CommonWeal extends Entity implements Steppable {
     }
 
     public boolean evaluateWarWillingness(ProcessDisposition pd) {
-        // TODO: Change this from returning a random value to returning the average support for the Institution/Process
-        //  after a week of deliberation. Now that the State/Polity has asked for taxes/recruits, is the common weal willing?
         return entityPosition.get(pd.getProcess().getIssue()) > 0.40;
     }
+
 
     public Double evaluateNeedForPeace(WarParticipationFact f) {
         War war = f.getWar();
         Double support = random.nextDouble();
         entityPosition.put(war, support);
         return support;
+    }
+
+    public Double evaluatePeaceWillingess(WarParticipationFact f) {
+        return entityPosition.get(f.getWar());
     }
 
     public void addIssue(Issue i, WorldOrder wo) {
@@ -140,6 +143,21 @@ public class CommonWeal extends Entity implements Steppable {
         }
         this.socialize(issue, worldOrder);
         entityPosition.put(issue, getAvgSupport(issue));
+    }
+
+    public void addWar(War w, WorldOrder wo) {
+        WorldOrder worldOrder = wo;
+        War war = w;
+        for (WarParticipationFact f : war.getParticipations()) {
+            if (f.getPolity().equals(this.getTerritory().getPolity())) {
+                for (Person p : personMap.values()) {
+                    int o = p.takeWarOpinion(f);
+                    p.addIssue(w, o);
+                }
+            }
+        }
+        this.socialize(war, worldOrder);
+        entityPosition.put(war, getAvgSupport(war));
     }
 
     public double getAvgSupport(Entity e) {
@@ -180,37 +198,6 @@ public class CommonWeal extends Entity implements Steppable {
         entityPosition.put(entity, getAvgSupport(entity));
     }
 
-//    public void shareOpinion() {
-//        for (Map.Entry<Entity, Double> entry : entityPosition.entrySet()) {
-//            Entity e = entry.getKey();
-//            for (int days=0; days<7;days++) {
-//                for (Person p : personMap.values()) {
-//                    int po = p.getIssueOpinion(e);
-//                    double r = random.nextDouble();
-//                    if (r < rebel) {
-//                        int neighborhood = 0;
-//                        for (String v : inspector.connectedSetOf(p.getName())) {
-//                            Person target = personMap.get(v);
-//                            // TODO mitigate opinion sharing to leaders when democracy score is low
-//                            int to = target.getIssueOpinion(e);
-//                            neighborhood += to;
-//                        }
-//                        if (po < 0 && neighborhood > 0) {
-//                            p.setIssueOpinion(e, 0);
-//                        } else if (po == 0 && neighborhood < 0) {
-//                            p.setIssueOpinion(e, -1);
-//                        } else if (po == 0 && neighborhood > 0) {
-//                            p.setIssueOpinion(e, 1);
-//                        } else if (po > 0 && neighborhood < 0) {
-//                            p.setIssueOpinion(e, 0);
-//                        }
-//                        // otherwise, things stay the same
-//                    }
-//                }
-//            }
-//            entry.setValue(getAvgSupport(e));
-//        }
-//    }
 
     @Override
     public Long getId() {

@@ -3,6 +3,7 @@ package edu.gmu.css.entities;
 import edu.gmu.css.agents.CommonWeal;
 import edu.gmu.css.agents.Leadership;
 import edu.gmu.css.agents.Tile;
+import edu.gmu.css.agents.World;
 import edu.gmu.css.relations.OccupiedRelation;
 import edu.gmu.css.service.CommonWealServiceImpl;
 import edu.gmu.css.service.NameIdStrategy;
@@ -12,10 +13,7 @@ import org.neo4j.ogm.annotation.*;
 import sim.engine.SimState;
 import sim.engine.Steppable;
 
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @NodeEntity
@@ -27,17 +25,22 @@ public class Territory extends Entity implements Steppable {
     @Property String cowcode = "NA";
     @Property Long creationStep;
     @Property String abbr;
-    @Property Double area = 0.0;
+    @Property Double km2 = 0.0;
+    @Property Double population;
+    @Property Double urbanPop;
+    @Property Double wealth;
+    @Property Double builtArea;
+    @Property Double gdp;
     @Property Integer year;
     @Property Integer avgRadius;
     @Property Integer resolution;
     @Property Double centrality;
     @Property String environment;
     @Property Boolean water = false;
-    @Transient Double population;
-    @Transient Double urbanPop;
-    @Transient Double wealth;
-    @Transient Double gdp;
+    @Transient Double populationTrans;
+    @Transient Double urbanPopTrans;
+    @Transient Double wealthTrans;
+    @Transient Double gdpTrans;
     @Transient Double satisfaction;
 
     @Relationship(type="REPRESENTS_POPULATION", direction = Relationship.INCOMING)
@@ -57,15 +60,22 @@ public class Territory extends Entity implements Steppable {
         this.year = year;
         this.name = name;
         this.mapKey = name + " " + year;
-        this.area = 0.0;
+        this.km2 = 0.0;
         this.cowcode = "NA";
         this.tileLinks = new HashSet<>();
     }
 
-
     @Override
     public void step(SimState simState) {
 //        this.updateTotals();
+    }
+
+    @PostLoad
+    public void setData() {
+        this.populationTrans = this.population;
+        this.urbanPopTrans = this.urbanPop;
+        this.gdpTrans = this.gdp;
+        this.wealthTrans = this.wealth;
     }
 
     //------------------------------------------------------------------------------------------------------------------
@@ -95,11 +105,15 @@ public class Territory extends Entity implements Steppable {
     }
 
     public Double getArea() {
-        return area;
+        return km2;
+    }
+
+    public Double getBuiltArea() {
+        return this.builtArea;
     }
 
     public void setArea(Double area) {
-        this.area = area;
+        this.km2 = area;
     }
 
     public int getYear() {
@@ -123,11 +137,19 @@ public class Territory extends Entity implements Steppable {
     }
 
     public Double getWealth() {
+        return this.wealth;
+    }
+
+    public Double getWealthTrans() {
         return tileLinks.stream().mapToDouble(Tile::getWealthTrans).sum();
     }
 
     public Double getPopulation() {
         return population;
+    }
+
+    public Double getPopulationTrans() {
+        return populationTrans;
     }
 
     public Double getCurrentPopulation() {
@@ -136,32 +158,45 @@ public class Territory extends Entity implements Steppable {
             for (Tile i : tileLinks) {
                 p += i.getPopulationTrans();
             }
-            this.population = p;
+            this.populationTrans = p;
         } else {
-            this.population = tileLinks.stream().mapToDouble(Tile::getPopulationTrans).sum();
+            this.populationTrans = tileLinks.stream().mapToDouble(Tile::getPopulationTrans).sum();
         }
-        return this.population;
+        return this.populationTrans;
     }
 
-    public Double getGDP() {
+    public Double getGdp() {
         return gdp;
     }
 
+    public Double getGdpTrans() {
+        return gdpTrans;
+    }
+
     public Double getGrossDomesticProductLastYear() {
+        double old = this.gdpTrans;
         if (tileLinks.size() < 250) {
             double g = 0.0;
             for (Tile i :tileLinks) {
                 g += i.getGrossTileProductionLastYear();
             }
-            this.gdp = g;
+            this.gdpTrans = g;
         } else {
-            this.gdp = tileLinks.stream().mapToDouble(Tile::getGrossTileProductionLastYear).sum();
+            this.gdpTrans = tileLinks.stream().mapToDouble(Tile::getGrossTileProductionLastYear).sum();
         }
-        return this.gdp;
+        if (old * 1.2 < this.gdpTrans) {
+            System.out.println("This economy grew too fast");
+        }
+
+        return this.gdpTrans;
     }
 
-    public Double getUrbanPopulation() {
-        return urbanPop;
+    public Double getUrbanPop() {
+        return this.urbanPop;
+    }
+
+    public Double getUrbanPopulationTrans() {
+        return urbanPopTrans;
     }
 
     public Double getCurrentUrbanPopulation() {
@@ -170,35 +205,35 @@ public class Territory extends Entity implements Steppable {
             for (Tile i : tileLinks) {
                 p += i.getUrbanPopTrans();
             }
-            this.urbanPop = p;
+            this.urbanPopTrans = p;
         } else {
-            this.urbanPop = tileLinks.stream().mapToDouble(Tile::getUrbanPopTrans).sum();
+            this.urbanPopTrans = tileLinks.stream().mapToDouble(Tile::getUrbanPopTrans).sum();
         }
-        return this.urbanPop;
+        return this.urbanPopTrans;
     }
 
     public String getMapKey() {
         return mapKey;
     }
 
-    public Set<Tile> getTileLinks() {
+    public Set<Tile> getTileLinks(WorldOrder wo) {
         if(tileLinks==null || tileLinks.size()==0) {
-            this.tileLinks = new TileServiceImpl().loadIncludedTiles(this);
+            this.linkTiles(wo);
         }
         return tileLinks;
     }
 
     public void linkTiles(WorldOrder wo) {
         Map<String, Tile> tileMap = wo.getTiles();
-        Collection<Tile> tiles = new TileServiceImpl().loadIncludedTiles(this);
+        Collection<String> tiles = new TileServiceImpl().loadIncludedTiles(this);
         if (tiles.size() < 250) {
-            for (Tile t : tiles) {
-                Tile o = tileMap.get(t.getAddressYear());
+            for (String a : tiles) {
+                Tile o = tileMap.get(a);
                 o.setLinkedTerritory(this);
                 tileLinks.add(o);
             }
         } else {
-            tiles.stream().forEach(t -> tileLinks.add(tileMap.get(t.getAddressYear())));
+            tiles.stream().forEach(a -> tileLinks.add(tileMap.get(a)));
             tileLinks.stream().forEach(t -> t.setLinkedTerritory(this));
         }
 
@@ -219,8 +254,6 @@ public class Territory extends Entity implements Steppable {
     public Double getSatisfaction() {
         return this.satisfaction;
     }
-
-
 
     public Polity getPolity() {
         if (polity == null) {
@@ -266,12 +299,6 @@ public class Territory extends Entity implements Steppable {
         return borders;
     }
 
-
-//    private void processItem(Map<String, Object> i, Map<Long, Tile> t) {
-//        Map<String, Object> map = (Map<String, Object>) i.get("value");
-//        ( t.get( map.get("a")) ).loadFacts(map);
-//    }
-
     public void updateTotals() {
         if (this.water) {
             return;
@@ -289,21 +316,42 @@ public class Territory extends Entity implements Steppable {
                     g += i.getGrossTileProductionLastYear();
                     s += i.getSatisfaction();
                 }
-                this.population = p;
-                this.urbanPop = u;
-                this.wealth = w;
-                this.gdp = g;
+                this.populationTrans = p;
+                this.urbanPopTrans = u;
+                this.wealthTrans = w;
+                this.gdpTrans = g;
                 this.satisfaction = s / p;
             } else {
-                this.population = tileLinks.stream().mapToDouble(Tile::getPopulationTrans).sum();
-                this.urbanPop = tileLinks.stream().mapToDouble(Tile::getUrbanPopTrans).sum();
-                this.wealth = tileLinks.stream().mapToDouble(Tile::getWealthTrans).sum();
-                this.gdp = tileLinks.stream().mapToDouble(Tile::getGrossTileProductionLastYear).sum();
+                this.populationTrans = tileLinks.stream().mapToDouble(Tile::getPopulationTrans).sum();
+                this.urbanPopTrans = tileLinks.stream().mapToDouble(Tile::getUrbanPopTrans).sum();
+                this.wealthTrans = tileLinks.stream().mapToDouble(Tile::getWealthTrans).sum();
+                this.gdpTrans = tileLinks.stream().mapToDouble(Tile::getGrossTileProductionLastYear).sum();
                 this.satisfaction = tileLinks.stream().mapToDouble(Tile::getSatisfaction).average().orElse(0.0);
             }
         }
     }
 
+    public void updateTileGrowth(double exp, int y) {
+        double ex = exp;
+        if (tileLinks.size() < 250) {
+            for (Tile t : tileLinks) {
+//                t.updatePopGrowthRate(ex, y);
+            }
+        } else {
+//            tileLinks.stream().spliterator().forEachRemaining(t -> t.updatePopGrowthRate(ex, y));
+        }
+    }
+
+    public void updateTileGrowth(WorldOrder wo) {
+        WorldOrder worldOrder = wo;
+        if (tileLinks.size() < 250) {
+            for (Tile t : tileLinks) {
+                t.updatePopGrowthRate(worldOrder);
+            }
+        } else {
+            tileLinks.stream().spliterator().forEachRemaining(t -> t.updatePopGrowthRate(worldOrder));
+        }
+    }
 
     public double getCurrentSDP() {
         double p = 0.0;

@@ -19,34 +19,22 @@ public abstract class Institution extends Entity implements Steppable, Stoppable
      */
     @Id @GeneratedValue
     protected Long id;
-    @Convert(DateConverter.class)
-    protected Long from;        // from or began
-    @Convert(DateConverter.class)
-    protected Long until;       // until or ended
-    @Property
-    protected double value;     // magnitude, etc. a cumulative/total measure; may be overridden to int
-    @Property
-    protected int extent;       // number of participants
-    @Property
-    protected int during;       // not always used
-    @Property
-    protected Domain domain;
-    @Property
-    protected boolean active = false;
-    @Transient
-    protected boolean stopped;
-    @Transient
-    protected Resources maintenance;
-    @Transient
-    protected Stoppable stopper = null;
-    @Transient
-    protected String name;
-    @Transient
-    protected Issue issue;
-    @Transient
-    protected Process cause;
-    @Transient
-    protected Resources cost;
+    @Convert(DateConverter.class) protected Long from;        // from or began
+    @Convert(DateConverter.class) protected Long until;       // until or ended
+    @Property protected double value;     // magnitude, etc. a cumulative/total measure; may be overridden to int
+    @Property protected int extent;       // number of participants
+    @Property protected int during;       // not always used
+    @Property protected Domain domain;
+    @Property protected boolean active = false;
+    @Transient protected boolean stopped;
+    @Transient protected Resources maintenance = new Resources.ResourceBuilder().build();
+    @Transient protected Stoppable stopper = null;
+    @Transient protected String name;
+    @Transient protected Issue issue;
+    @Transient protected Process cause;
+    @Transient protected Resources cost = new Resources.ResourceBuilder().build();
+    @Transient protected String referenceName;
+    @Transient protected double strength;
 
 
     @Relationship
@@ -153,6 +141,10 @@ public abstract class Institution extends Entity implements Steppable, Stoppable
         return this.domain.value;
     }
 
+    public Domain getDomain() {
+        return this.domain;
+    }
+
     public Resources getMaintenance() {
         return maintenance;
     }
@@ -171,6 +163,46 @@ public abstract class Institution extends Entity implements Steppable, Stoppable
 
     public void collectCosts() {
 
+    }
+
+    public Issue getIssue() {
+        return issue;
+    }
+
+    public void setIssue(Issue issue) {
+        this.issue = issue;
+    }
+
+    public Process getCause() {
+        return cause;
+    }
+
+    public void setCause(Process cause) {
+        this.cause = cause;
+    }
+
+    public String getReferenceName() {
+        return referenceName;
+    }
+
+    public void setReferenceName(String referenceName) {
+        this.referenceName = referenceName;
+    }
+
+    public double getStrength() {
+        return strength;
+    }
+
+    public boolean isStopped() {
+        return stopped;
+    }
+
+    public void setStopped(boolean stopped) {
+        this.stopped = stopped;
+    }
+
+    public void setStrength(double strength) {
+        this.strength = strength;
     }
 
     public void setStopper(Stoppable stopper)   {this.stopper = stopper;}

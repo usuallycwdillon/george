@@ -1,8 +1,8 @@
 package edu.gmu.css.agents;
 
 import ec.util.MersenneTwisterFast;
-import edu.gmu.css.entities.State;
-import edu.gmu.css.entities.Year;
+import edu.gmu.css.data.Domain;
+import edu.gmu.css.entities.*;
 import edu.gmu.css.util.MTFApache;
 import edu.gmu.css.util.MTFWrapper;
 import edu.gmu.css.worldOrder.WorldOrder;
@@ -13,6 +13,7 @@ import sim.util.distribution.Gamma;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import static edu.gmu.css.worldOrder.WorldOrder.DEBUG;
@@ -24,6 +25,7 @@ public class World implements Steppable {
     private long oldstep;
     private long weeksThisYear;
     private double weekExp;
+    private long countdown;
     private final MTFApache random;
     private final MTFWrapper wrapper;
     private final LogNormalDistribution urbanizationRate;
@@ -41,47 +43,74 @@ public class World implements Steppable {
     @Override
     public void step(SimState simState) {
         WorldOrder wo = (WorldOrder) simState;
-        long stepNo = wo.getStepNumber();
+        long weekNumber = wo.getWeekNumber();
         long newstep = System.nanoTime();
         Year thisYear = wo.getDataYear();
 
         if(DEBUG) {
-            System.out.println("--------------------------- STEP " + stepNo + " previous took " + (newstep - oldstep)/1000000 + " -----------------------");
+            System.out.println("--------------------------- STEP " + wo.getStepNumber() + " previous took " + (newstep - oldstep)/1000000 + " -----------------------");
         }
         oldstep = System.nanoTime();
         // Record the global probability of war whether it's prescribed or calculated
         wo.updateGlobalHostility();
-        long countdown = thisYear.getEnded() - (stepNo + wo.dateIndex);
+        countdown = thisYear.getEnded() - weekNumber;
+        int yearNow = thisYear.getIntYear();
         if (countdown == 0) {
             weeksThisYear = thisYear.getWeeksThisYear();
             for (State s : wo.getAllTheStates().values()) {
                 s.recordSimulationHistory(wo);
+                s.getTerritory().updateTileGrowth(wo);
             }
-//            if(thisYear.getIntYear() % 5 == 0) {
-//                for (State s : wo.getAllTheStates().values()) {
-//                    s.takeCensus(wo);
-//                }
-//            }
             wo.setDataYear(thisYear.getNextYear());
             wo.setWeekExp(1.0 / weeksThisYear);
             urbanizeTiles(wo);
+
         }
         // End the simulation by the end of year 2200
-        if (WorldOrder.getOverallDuration() == (wo.dateIndex + stepNo)) {
+        if (wo.getOverallDuration() == weekNumber) {
             System.out.println("The Overall Duration condition has been met, so the world stops now.");
+            Dataset modelRun = wo.getModelRun();
+            modelRun.setFinalDuration((int) wo.schedule.getSteps());
+            modelRun.setFinalWarLikelihood(wo.getGlobalHostility().average());
             wo.getExternalWarStopper().stop();
             wo.finish();
         }
         // End the simulation if the global probability of war is stagnate or stable at zero
         if (wo.getGlobalWarLikelihood() <= 0) {
             System.out.println("The Global War Likelihood has gone to zero, so the world stops now.");
+            Dataset modelRun = wo.getModelRun();
+            modelRun.setFinalDuration((int) wo.schedule.getSteps());
+            modelRun.setFinalWarLikelihood(wo.getGlobalHostility().average());
             wo.finish();
         }
         // End the simulation if hostility gets stuck in a local minimum/maximum
-        if (wo.getGlobalHostility().average() == wo.getGlobalWarLikelihood() && stepNo > wo.getStabilityDuration()) {
+        if (wo.getGlobalHostility().average() == wo.getGlobalWarLikelihood() && wo.getStepNumber() > wo.getStabilityDuration()) {
             System.out.println("The average Global Hostility has stabilised, so the world stops now.");
+            Dataset modelRun = wo.getModelRun();
+            modelRun.setFinalDuration((int) wo.schedule.getSteps());
+            modelRun.setFinalWarLikelihood(wo.getGlobalHostility().average());
             wo.finish();
         }
+
+        if (DEBUG) {
+            int d = 0;
+            int w = 0;
+            int c = 0;
+            System.out.println("These are the conflicts currently underway: ");
+            for (Institution i : wo.getAllTheInstitutions()) {
+                if (i.getClass() == Dispute.class) {
+                    d++;
+                    System.out.println("\t" + ((Dispute) i).getDisputeFact().getObject());
+                }
+                if (i.getClass() == War.class) {
+                    w++;
+                    System.out.println("\t" + ((War) i).getWarFact().getObject());
+                }
+                if (i.getDomain() == Domain.WAR) c++;
+            }
+            System.out.println("There are now " + c + " conflicts: " + d + " disputes, " + w + " wars.");
+        }
+
     }
 
     private void urbanizeTiles(WorldOrder wo) {
@@ -99,16 +128,20 @@ public class World implements Steppable {
             Tile tilePick = qualifyingTiles.remove(wo.random.nextInt(rt - 1));
             double uRate = initialUrbanPop.nextDouble();
             double pop = tilePick.getPopulationTrans();
-            double uPop = uRate * pop;
+            double uPop = Math.min((uRate * pop), pop);
             rt = qualifyingTiles.size();
             tilePick.setUrbanPopTrans(uPop);
-            tilePick.setUrbanGrowthRateTrans(tilePick.getInitialPopRateTrans() * 1.015);
+            tilePick.setUrbanGrowthRateTrans( Math.pow(tilePick.getWeeklyPopGrowthRate(), 1.0269135) );
             // from tilePopGrowth.R #1410-1429
             double ex = -6.6781690 + (Math.log10(uPop) * 0.9165595);
             double builtArea = (Math.pow(10, ex)) * tilePick.getGrid().getKm2();
             tilePick.setBuiltUpArea(builtArea);
 
         }
+    }
+
+    public long getCountdown() {
+        return this.countdown;
     }
 
 }

@@ -1,11 +1,8 @@
 package edu.gmu.css.entities;
 
-import org.neo4j.ogm.annotation.GeneratedValue;
-import org.neo4j.ogm.annotation.Id;
-import org.neo4j.ogm.annotation.Property;
-import org.neo4j.ogm.annotation.Relationship;
+import org.neo4j.ogm.annotation.*;
 
-
+@NodeEntity
 public class DiscretePolityFact extends Fact {
 
     @Id @GeneratedValue

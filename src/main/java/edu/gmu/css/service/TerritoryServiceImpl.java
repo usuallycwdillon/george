@@ -26,13 +26,13 @@ public class TerritoryServiceImpl extends GenericService<Territory> implements T
     private Territory findTerritoryFromTileMap(Territory t, WorldOrder wo) {
         Territory territory = t;
         WorldOrder worldOrder = wo;
-        List<Tile> tileList = loadIncludedTiles(territory.getMapKey());
+        List<Tile> tileList = loadIncludedTiles(territory.getMapKey(), wo);
         Tile tile = tileList.get(1);
         Map<String, Tile> tileMap = wo.getTiles();
         if(tileMap.containsKey(tile.getAddressYear() )) {
             return tileMap.get(tile.getAddressYear()).getLinkedTerritory();
         } else {
-            territory.setTileLinks(new HashSet<Tile>(loadIncludedTiles(territory.getMapKey())));
+            territory.setTileLinks(new HashSet<>(loadIncludedTiles(territory.getMapKey(), wo)));
             return territory;
         }
     }
@@ -65,13 +65,18 @@ public class TerritoryServiceImpl extends GenericService<Territory> implements T
         return session.query(q, params);
     }
 
-    public List<Tile> loadIncludedTiles(String key) {
+    public List<Tile> loadIncludedTiles(String key, WorldOrder wo) {
         List<Tile> tileList = new ArrayList();
         Map<String, String> params = new HashMap<>();
         params.put("mapKey", key);
-        String q = "MATCH (t:Territory{mapKey:$mapKey})-[i:INCLUDES]->(tt:Tile) RETURN tt";
-        Iterable<Tile> inclusions = session.query(Tile.class, q, params);
-        for(Tile t : inclusions) tileList.add(t);
+        String q = "MATCH (t:Territory{mapKey:$mapKey})-[i:INCLUDES]->(tt:Tile) RETURN tt.addressYear";
+        Result r = session.query(q, params);
+        Iterator it = r.iterator();
+//        Iterable<String> inclusions = session.query(Tile.class, q, params);
+        while (it.hasNext()) {
+            tileList.add(wo.tiles.get(it.next()));
+        }
+//        for(Tile t : inclusions) tileList.add(t);
         return tileList;
     }
 

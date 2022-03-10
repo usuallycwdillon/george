@@ -91,6 +91,9 @@ public abstract class Process implements Steppable, Stoppable {
     public boolean atE() {
         return equivalence;
     }
+    public boolean isStopped() {
+        return stopped;
+    }
     public boolean isOutcome() {
         return outcome;
     }
@@ -164,7 +167,9 @@ public abstract class Process implements Steppable, Stoppable {
     public void setIssue(Issue issue) {
         this.issue = issue;
     }
-    public void setStopper(Stoppable stopper)   {this.stopper = stopper;}
+    public void setStopper(Stoppable stopper)   {
+        this.stopper = stopper;
+    }
 
 
     public void updateStatus() {
@@ -180,7 +185,8 @@ public abstract class Process implements Steppable, Stoppable {
         if (this.C) {
             external += 1;
         }
-        if (this.P) {
+        // N is also necessary here so that lopsided processes will evolve to x instead of E [1,3,1]
+        if (this.P && this.N) {
             external += 2;
         }
         if (this.S) {
