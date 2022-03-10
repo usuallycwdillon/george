@@ -1,6 +1,5 @@
 package edu.gmu.css.entities;
 
-import edu.gmu.css.agents.Peace;
 import edu.gmu.css.data.Resources;
 import edu.gmu.css.service.FactServiceImpl;
 import org.neo4j.ogm.annotation.GeneratedValue;

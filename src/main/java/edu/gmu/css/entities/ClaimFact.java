@@ -5,6 +5,7 @@ import org.neo4j.ogm.annotation.*;
 
 import java.util.Objects;
 
+@NodeEntity
 public class ClaimFact extends Fact {
 
     @Id

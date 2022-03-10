@@ -2,6 +2,8 @@ package edu.gmu.css.entities;
 
 import ec.util.MersenneTwisterFast;
 import edu.gmu.css.agents.Process;
+import edu.gmu.css.agents.Tile;
+import edu.gmu.css.agents.WarProcess;
 import edu.gmu.css.data.Domain;
 import edu.gmu.css.data.Resources;
 import edu.gmu.css.relations.ProcessDisposition;
@@ -19,14 +21,12 @@ public class War extends Institution {
      */
     @Id @GeneratedValue
     private Long id;
-    @Transient
-    private Resources involvement;
-    @Transient
-    private boolean ceasefire = false;
-    @Property
-    private double warCost = 0.0;
-    @Property
-    private double magnitude = 0.0;
+    @Transient private Resources involvement;
+    @Transient private boolean ceasefire = false;
+    @Transient private int battleAttempts = 0;
+    @Transient private Tile location;
+    @Property private double warCost = 0.0;
+    @Property private double magnitude = 0.0;
 
     @Relationship (type = "PARTICIPATED_IN", direction = Relationship.INCOMING)
     private final List<WarParticipationFact> participations = new LinkedList<>();
@@ -38,14 +38,17 @@ public class War extends Institution {
         cost = new Resources.ResourceBuilder().build();
         involvement = new Resources.ResourceBuilder().build();
         domain = Domain.WAR;
+        strength = 1.0;
     }
 
-    public War(Process proc) {
+    public War(Process proc, long s) {
         this();
-        Process p = proc;
-        cost.increaseBy(p.getCost());
-        cause = p;
-        domain = Domain.WAR;
+        this.cause = proc;
+        this.cost.increaseBy(cause.getCost());
+        this.involvement.increaseBy(cause.getInvolvement());
+        this.issue = proc.getIssue();
+        this.from = s;
+        this.until = s + 1L;
     }
 
 
@@ -56,23 +59,40 @@ public class War extends Institution {
            return;
         }
         WorldOrder worldOrder = (WorldOrder) simState;
-        // 0. Consume resources at wartime rate = 2x peacetime
-        consumeResources(worldOrder);
-        // 1. Do any participants need peace?
+        // 1. Do any participants ...need peace?
         for (WarParticipationFact p : participations) {
+            ProcessDisposition pd = p.getDisposition();
             if ( Objects.isNull(p.getCommitment() ) ) {
-                p.getPolity().surrender(p.getDisposition(), worldOrder);
+                if(!pd.atN() || !pd.atU()) {
+                    pd.developDisposition((WarProcess) this.cause, worldOrder);
+                } else {
+                    p.getPolity().surrender(p.getDisposition(), worldOrder);
+                }
                 // TODO: if the attacker objective is to conquer, move this state out of the system, and merge
                 // it with the attacking state.
                 return;
+            } else {
+                if (!pd.getMobilized().isEmpty()) {
+                    p.getCommitment().increaseBy(pd.getMobilized());
+                    pd.getMobilized().zeroize();
+                }
+                consumeResources(worldOrder, p);
+            }
+
+            if (p.getCommitment().getTreasury() < 0.0) {
+                System.out.println("Why is this negative? The security implementation process should correct it. \n" +
+                        "Financial commitment is: " + pd.getCommitment().getTreasury() + "\n" +
+                        "...and State resources are: " + p.getPolity().getResources().getTreasury() );
+                pd.getOwner().evaluateNeedForPeace(worldOrder, this.cause.getIssue());
             }
         }
+
         // 2. Update war values
         updateValues();
+
         // 3. Will there be a battle?
         // TODO: This should probably be a Weibull distro, but for now it's +1sd of Gaussian normal.
         if (worldOrder.random.nextGaussian() < -0.681 && !ceasefire) {     // 1sd below mean
-
             battle(worldOrder);
         }
 
@@ -115,9 +135,14 @@ public class War extends Institution {
         this.ceasefire = false;
     }
 
+    @Override
+    public String getReferenceName() {
+        return super.referenceName;
+    }
+
     public double estimateBattleDeaths(int e, int d, MersenneTwisterFast r) {
         /**
-         * Cioffi-revilla, Claudio. 1991. “On the Likely Magnitude , Extent , and Duration of an Iraq-UN War.”
+         * Cioffi-Revilla, Claudio. 1991. “On the Likely Magnitude , Extent , and Duration of an Iraq-UN War.”
          * Journal of Conflict Resolution 35 (3): 387–411.
          *
          * For all interstate wars (regardless of great power status/participation)
@@ -140,23 +165,37 @@ public class War extends Institution {
         WorldOrder worldOrder = wo;
 
         // 1. How to divide (and attribute) the losses?
-        Map<Double, WarParticipationFact> lossMap = new HashMap<>();
         int five = 0;
         int marching = 0;
         int side1 = 0;
         int side0 = 0;
         Resources attackers = new Resources.ResourceBuilder().build();
         Resources defenders = new Resources.ResourceBuilder().build();
+        if (attackers.getPax() <= 0.0 && defenders.getPax() <= 0.0) {
+            return;
+        }
         Resources currentInvolvement = new Resources.ResourceBuilder().build();
         for (WarParticipationFact wp : participations) {
             int o = wp.getDisposition().getObjective() != null ? wp.getDisposition().getObjective().value : -3;
-            if (wp.getCommitment().getPax() == 0.0) wp.getPolity().surrender(wp.getDisposition(), worldOrder);
+            if (wp.getCommitment().getPax() == 0.0) {
+                ProcessDisposition pd = wp.getDisposition();
+                WarProcess proc = (WarProcess) pd.getProcess();
+                if(!pd.atN() || !pd.atU()) {
+                    pd.developDisposition(proc, worldOrder);
+                } else {
+                    wp.getPolity().surrender(wp.getDisposition(), worldOrder);
+                }
+            }
+            if (wp.isInitiated()) {
+                String address = (String) wp.getDisposition().getAttackPath(worldOrder).get("last");
+                location = worldOrder.getTiles().get(address);
+            }
             Resources thisInvolvement = wp.getCommitment();
             if (wp.getSide() == 0) {
                 currentInvolvement.increaseBy(thisInvolvement);
+                attackers.increaseBy(thisInvolvement);
                 side0 += 1;
                 if (wp.getDisposition().getUt() > 0) {
-                    attackers.increaseBy(thisInvolvement);
                     marching += 1;
                 }
             } else {
@@ -172,15 +211,62 @@ public class War extends Institution {
         // all attackers are still marching and all defenders are dug in
         if ((marching == side0 && five == side1) || side0 == 0 || side1 == 0) return;
 
-        double attackForceConcentration = new Lanchester(attackers, defenders).calculateMyForceConcentration();
+        // potential battle magnitude
         Long d = worldOrder.getWeekNumber() - from;
         double fatalities = estimateBattleDeaths(participations.size(), d.intValue(), worldOrder.random);
+
+        // calculate ratio of losses between sides
+        double attackForceConcentration = new Lanchester(attackers, defenders).calculateAttackForceConcentration();
+        // handle fringe cases
+        if (attackForceConcentration == -1) {
+            // Can't attack: no forces. Defender wins war (if they have forces)
+            for (WarParticipationFact wp : participations) {
+                if (wp.getSide()==0) {
+                    if (attackers.getPax() > 0.0 && battleAttempts < 5) {
+                        battleAttempts += 1;
+                        return;
+                    }
+                    if (defenders.getPax() > 0.0) {
+                        wp.acceptDefeat(worldOrder);
+                        wp.getDisposition().getProcess().setOutcome(true);
+                    }
+                }
+            }
+        }
+        if (attackForceConcentration == -9) {
+            // Can't defend: mo forces. This was a route by the attacker. Defender takes losses and loses the war.
+            double lossRate = worldOrder.random.nextDouble(true,true);
+            double decimation = Math.max(defenders.getPax() * lossRate , fatalities);
+            for (WarParticipationFact wp : participations) {
+                double myPax = wp.getPolity().getResources().getPax();
+                double myShare = defenders.getPax() > 0.0 ? myPax / defenders.getPax() : 1.0;
+                double myLoss = Math.min(myPax, (decimation * myShare));
+                wp.getCost().incrementPax(myLoss);
+                wp.getPolity().getResources().decrementPax(myLoss);
+                cost.incrementPax(myLoss);
+                ProcessDisposition pd = wp.getDisposition();
+                if (!pd.atU()) pd.getProcess().setOutcome(true);
+                if (pd.atU() && pd.getUt() > 3) wp.getPolity().surrender(pd, worldOrder);
+                if (location!=null) {
+                    double popLoss = Math.min(100, location.getPopulationTrans());
+                    popLoss = Math.max(location.getPopulationTrans() * 0.005, popLoss);
+                    double uPopLoss = Math.min(popLoss, location.getUrbanPopTrans());
+                    uPopLoss = Math.max(location.getUrbanPopTrans() * 0.010, uPopLoss);
+                    double builtLoss = Math.min(2.0, location.getBuiltUpArea());
+                    builtLoss = Math.max(location.getBuiltUpArea() * 0.005, builtLoss);
+                    if (popLoss > 0.0) location.setPopulationTrans(location.getPopulationTrans() - popLoss);
+                    if (uPopLoss > 0.0) location.setUrbanPopTrans(location.getPopulationTrans() - uPopLoss);
+                    if (builtLoss > 0.0) location.setBuiltUpArea(location.getBuiltUpArea() - builtLoss);
+                }
+            }
+        }
+
 
         double fatalitiesSide0;
         if (attackForceConcentration > 1.0) {
             fatalitiesSide0 = fatalities / (attackForceConcentration + 1.0);
         } else {
-            fatalitiesSide0 = fatalities - (fatalities / ((1.0 / attackForceConcentration) + 1.0));
+            fatalitiesSide0 = fatalities - (fatalities / ( (1.0 / attackForceConcentration) + 1.0));
         }
         int winningSide = (fatalitiesSide0 / fatalities > 0.5) ? 1 : 0;
 
@@ -230,20 +316,15 @@ public class War extends Institution {
         involvement = temp;
     }
 
-    private void consumeResources(WorldOrder wo) {
+    private void consumeResources(WorldOrder wo, WarParticipationFact wp) {
         int weeks = wo.dataYear.getWeeksThisYear();
-        for (WarParticipationFact wp : participations) {
-            Polity p = wp.getPolity();
-            Resources c = wp.getCommitment();
-            if (!Objects.isNull(c)) {
-                double myCost = c.getTreasury() / weeks;
-                c.decrementTreasury(myCost);
-                cost.incrementTreasury(myCost);
-                wp.getCost().incrementTreasury(myCost);
-                Resources req = new Resources.ResourceBuilder().treasury(myCost).build();
-                p.getSecurityStrategy().addSupplemental(wp,req);
-            }
-
+        Polity p = wp.getPolity();
+        Resources c = wp.getCommitment();
+        if (!Objects.isNull(c)) {
+            double myCost = c.getPax() * c.getCostPerPax() / weeks;
+            c.decrementTreasury(myCost);
+            this.cost.incrementTreasury(myCost);
+            wp.getCost().incrementTreasury(myCost);
         }
     }
 
@@ -256,13 +337,13 @@ public class War extends Institution {
             mag += f.getCost().getPax();
             cos += f.getCost().getTreasury();
             f.setUntil(week);
-            f.setDurationMonths((this.from - this.until) / 4.33);
+            f.setDurationMonths((this.until - this.from) / 4.33);
         }
         warFact.setMagnitude(mag);
         warFact.setFinalCost(cos);
         warFact.setUntil(week);
         warFact.setExtent(participations.size());
-        warFact.setDurationMonths((this.from - this.until) / 4.33);
+        warFact.setDurationMonths((this.until - this.from) / 4.33);
     }
 
     @Override
@@ -271,16 +352,20 @@ public class War extends Institution {
         if (o == null || getClass() != o.getClass()) return false;
         if (!super.equals(o)) return false;
 
-        War war = (War) o;
+        War that = (War) o;
 
-        if (getId() != null ? !getId().equals(war.getId()) : war.getId() != null) return false;
-        return getWarFact() != null ? getWarFact().equals(war.getWarFact()) : war.getWarFact() == null;
+        if (getReferenceName() != null ? !getReferenceName()
+                .equals(that.getReferenceName()) : that.getReferenceName() != null) return true;
+        if (getId() != null ? !getId().equals(that.getId()) : that.getId() != null) return false;
+        return getName().equals(that.getName());
     }
 
     @Override
     public int hashCode() {
         int result = getId() != null ? getId().hashCode() : 0;
-        result = 31 * result + (getWarFact() != null ? getWarFact().hashCode() : 0);
+        result = 31 * result + getReferenceName().hashCode();
+        result = 31 * result + getName().hashCode();
+
         return result;
     }
 }

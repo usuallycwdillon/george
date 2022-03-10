@@ -196,12 +196,12 @@ public class DipExFact extends Fact {
         this.institution = institution;
     }
 
-//    public Year getYear() {
-//        if (this.year==null) {
-//            this.year = new FactServiceImpl().getRelatedYear(this);
-//        }
-//        return this.year;
+//    public Polity findPolity() {
+//        Polity p;
+//
+//        return p;
 //    }
+
 
 
     @Override

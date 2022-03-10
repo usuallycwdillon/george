@@ -1,17 +1,17 @@
 package edu.gmu.css.data;
 
 import java.io.Serializable;
+import java.util.Objects;
 
 public class Resources implements Serializable {
     /**
      * Resources are some combination of the resource types (and values) a State government has at its disposal.
      */
-    private double pax;         // e.g. military personnel
-    private int products;       // gov't controlled items
-    private int natResources;   // gov't controlled resources
-    private double treasury;    // gov't controlled cash
+    private Double pax;         // e.g. military personnel
+    private Integer products;       // gov't controlled items
+    private Integer natResources;   // gov't controlled resources
+    private Double treasury;    // gov't controlled cash
     private boolean sufficient;
-
 
 
     public static class ResourceBuilder {
@@ -58,6 +58,7 @@ public class Resources implements Serializable {
         this.products = builder.products;
         this.natResources = builder.natResources;
         this.treasury = builder.treasury;
+        this.sufficient = builder.sufficient;
     }
 
     private Resources() { }
@@ -82,6 +83,17 @@ public class Resources implements Serializable {
         }
     }
 
+    public void reduceToNoLessThanZero(Resources other) {
+        if (other != null) {
+            this.pax = Math.max(0.0, this.pax - other.pax);
+            this.products = Math.max(0, this.products - other.products);
+            this.natResources = Math.max(0, this.natResources - other.natResources);
+            this.treasury = Math.max(0.0, this.treasury - other.treasury);
+        }
+    }
+
+
+
     public Resources multipliedBy(double val) {
         return new ResourceBuilder()
                 .pax(this.pax * val)
@@ -100,7 +112,7 @@ public class Resources implements Serializable {
                 .build();
     }
 
-    public Resources applyRatios(double[] r) {
+    public Resources applyRatios(Double[] r) {
         return new ResourceBuilder()
                 .pax(this.pax * r[0])
                 .products((int)(this.products * r[1]))
@@ -118,7 +130,7 @@ public class Resources implements Serializable {
                 .build();
     }
 
-    public Resources evaluativeAvailableDifference(Resources other) {
+    public Resources afterSubtracting(Resources other) {
         if (other != null) {
             return new ResourceBuilder()
                     .pax(Math.max(this.pax - other.getPax(), 0.0))
@@ -131,12 +143,57 @@ public class Resources implements Serializable {
         }
     }
 
+    public Resources minimumBetween(Resources other) {
+        if (!Objects.isNull(other)) {
+            return new ResourceBuilder()
+                    .pax(Math.min(this.pax, other.getPax()))
+                    .products(Math.min(this.products, other.getProduct()))
+                    .natResources(Math.min(this.natResources, other.getNatResources()))
+                    .treasury(Math.min(this.treasury, other.getTreasury()))
+                    .build();
+        } else {
+            return new Resources.ResourceBuilder().build();
+        }
+    }
+
+    public void setSufficient(boolean b) {
+        this.sufficient = b;
+    }
+
+    public boolean isEmpty() {
+        return (Objects.isNull(this.pax) || this.pax == 0.0) &&
+                (Objects.isNull(this.treasury) || this.treasury == 0.0) &&
+                (Objects.isNull(this.products) || this.products == 0) &&
+                (Objects.isNull(this.natResources) || this.natResources == 0);
+    }
+
+    public void zeroize() {
+        this.pax = 0.0;
+        this.treasury = 0.0;
+        this.natResources = 0;
+        this.products = 0;
+    }
+
+    public Resources evaluativeDifference(Resources other) {
+        if (other != null) {
+            return new ResourceBuilder()
+                    .pax(this.pax - other.getPax())
+                    .products(this.products - other.getProduct())
+                    .natResources(this.natResources - other.getNatResources())
+                    .treasury(this.treasury - other.getTreasury())
+                    .build();
+        } else {
+            return new Resources.ResourceBuilder().build();
+        }
+    }
+
     public boolean isSufficientFor(Resources other) {
         if (other != null) {
-            if(this.pax >= other.getPax()
-                    && this.treasury >= other.getTreasury()
-                    && this.natResources >= other.getNatResources()
-                    && this.products >= other.getProduct() ) {
+            if (this.pax >= other.getPax() &&
+                this.treasury >= other.getTreasury() &&
+                this.natResources >= other.getNatResources() &&
+                this.products >= other.getProduct()
+            ) {
                 this.sufficient = true;
                 return this.sufficient;
             } else {
@@ -148,15 +205,15 @@ public class Resources implements Serializable {
         }
     }
 
-    public double [] calculateRatios(Resources total) {
-        double[] ratios = new double[4];
-        double x;   // 0
-        double p;   // 1
-        double n;   // 2
-        double t;   // 3
+    public Double [] calculateRatios(Resources total) {
+        Double[] ratios = new Double[4];
+        Double x;   // 0
+        Double p;   // 1
+        Double n;   // 2
+        Double t;   // 3
 
-        if (pax > 0) {
-            x = total.getPax() != 0 ? total.getPax() : pax;
+        if (pax > 0.0) {
+            x = total.getPax() >= 0.0 ? total.getPax() : pax;
             ratios[0] = Math.min(1.0, (pax / x));
         } else {
             ratios[0] = 1.0;
@@ -177,7 +234,7 @@ public class Resources implements Serializable {
         }
 
         if (treasury > 0.0) {
-            t = total.getTreasury() != 0.0 ? total.getTreasury() : treasury;
+            t = total.getTreasury() >= 0.0 ? total.getTreasury() : treasury;
             ratios[3] = Math.min(1.0, (treasury / t));
         } else {
             ratios[3] = 1.0;
@@ -217,19 +274,19 @@ public class Resources implements Serializable {
         this.products += number;
     }
 
-    public double getPax(){
+    public Double getPax(){
         return this.pax;
     }
 
-    public int getProduct() {
+    public Integer getProduct() {
         return this.products;
     }
 
-    public int getNatResources() {
+    public Integer getNatResources() {
         return natResources;
     }
 
-    public double getTreasury() {
+    public Double getTreasury() {
         return treasury;
     }
 
@@ -258,5 +315,14 @@ public class Resources implements Serializable {
     }
 
 
-
+    @Override
+    public String toString() {
+        return "Resources{" +
+                "pax:" + pax +
+                ", products:" + products +
+                ", natResources:" + natResources +
+                ", treasury:" + treasury +
+                ", sufficient:" + sufficient +
+                '}';
+    }
 }

@@ -1,20 +1,19 @@
 package edu.gmu.css.entities;
 
-import edu.gmu.css.worldOrder.WorldOrder;
-import org.neo4j.ogm.annotation.GeneratedValue;
-import org.neo4j.ogm.annotation.Id;
-import org.neo4j.ogm.annotation.Property;
-import org.neo4j.ogm.annotation.Relationship;
+import edu.gmu.css.data.Resources;
+import org.neo4j.ogm.annotation.*;
 
 public class DisputeFact extends Fact {
 
-    @Id
-    @GeneratedValue
-    Long id;
+    @Id @GeneratedValue Long id;
     @Property private String notes;
     @Property private char fiat;
-    @Property private double magnitude;
+    @Property private double preciseFatalities;
     @Property private double finalCost;
+    @Property private String hightestAction;
+    @Property private String hostilityLevel;
+    @Property private String outcome;
+    @Transient private Resources involvement;
 
     @Relationship (type = "ABOUT")
     Dispute dispute;
@@ -36,7 +35,7 @@ public class DisputeFact extends Fact {
         this.dataset = builder.dataset;
         this.dispute = builder.dispute;
         this.fiat = builder.fiat;
-
+        this.involvement = builder.involvement;
 
         if (this.from == null && this.until != null) {
             this.from = this.until - 1L;
@@ -45,8 +44,8 @@ public class DisputeFact extends Fact {
             this.until = this.from + 1L;
         }
         if (this.from == null && this.until == null) {
-            this.from = 0L;
-            this.until = 0L;
+            this.from = 1L;
+            this.until = 2L;
         }
     }
 
@@ -61,6 +60,7 @@ public class DisputeFact extends Fact {
         private Dispute dispute;
         private String source;
         private String notes;
+        private final Resources involvement = new Resources.ResourceBuilder().build();
         private char fiat;
 
         public FactBuilder from(Long from) {
@@ -114,6 +114,11 @@ public class DisputeFact extends Fact {
             return this;
         }
 
+        public FactBuilder involvement(Resources r) {
+            this.involvement.increaseBy(r);
+            return this;
+        }
+
         public FactBuilder fiat(char s) {
             this.fiat = s;
             return this;
@@ -158,12 +163,12 @@ public class DisputeFact extends Fact {
         this.war = war;
     }
 
-    public double getMagnitude() {
-        return magnitude;
+    public double getPreciseFatalities() {
+        return preciseFatalities;
     }
 
-    public void setMagnitude(double magnitude) {
-        this.magnitude = magnitude;
+    public void setPreciseFatalities(double preciseFatalities) {
+        this.preciseFatalities = preciseFatalities;
     }
 
     public double getFinalCost() {
@@ -174,6 +179,45 @@ public class DisputeFact extends Fact {
         this.finalCost = finalCost;
     }
 
+    public void increaseInvolvement(Resources r) {
+        this.involvement.increaseBy( r);
+    }
+
+    public char getFiat() {
+        return fiat;
+    }
+
+    public String getHightestAction() {
+        return hightestAction;
+    }
+
+    public void setHightestAction(String hightestAction) {
+        this.hightestAction = hightestAction;
+    }
+
+    public String getHostilityLevel() {
+        return hostilityLevel;
+    }
+
+    public void setHostilityLevel(String hostilityLevel) {
+        this.hostilityLevel = hostilityLevel;
+    }
+
+    public String getOutcome() {
+        return outcome;
+    }
+
+    public void setOutcome(String outcome) {
+        this.outcome = outcome;
+    }
+
+    public Resources getInvolvement() {
+        return involvement;
+    }
+
+    public void setInvolvement(Resources involvement) {
+        this.involvement = involvement;
+    }
 
     @Override
     public boolean equals(Object o) {

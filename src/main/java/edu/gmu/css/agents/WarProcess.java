@@ -8,6 +8,9 @@ import edu.gmu.css.service.*;
 import edu.gmu.css.worldOrder.WorldOrder;
 import sim.engine.SimState;
 
+import java.util.Objects;
+
+import static edu.gmu.css.worldOrder.WorldOrder.DEBUG;
 import static edu.gmu.css.worldOrder.WorldOrder.RECORDING;
 
 
@@ -106,8 +109,9 @@ public class WarProcess extends Process {
                  * This process will end this step or the next. If a state has already undertaken action and the D-day
                  * has arrived, there will be consequences. Otherwise, the process just ends here.
                  */
-                if (!nowFighting) this.conclude(worldOrder);
-                this.returnStatesResources(worldOrder, true);
+                if ((!Objects.isNull(this.institution) && this.institution.isStopped()) ||
+                        (!Objects.isNull(this.dispute) && this.dispute.isStopped()) ) this.conclude(worldOrder);
+                this.returnStatesResources(worldOrder, false);
                 break;
             case 4:  // May evaluate to 4-equivalence, 5-equivalence, 5 or 8
                 // Test first for equivalence (NOT at this case before). If no equivalence, test for P; otherwise, ask
@@ -119,9 +123,15 @@ public class WarProcess extends Process {
                 } else {
                     count = 0;
                     for (ProcessDisposition p : processParticipantLinks) {
+                        int oldStatus = p.sumStatus();
                         int thisStatus = p.developDisposition(this, worldOrder);
                         if (thisStatus >= 8) {
                             count++;
+                        }
+                        if (oldStatus < thisStatus) {
+                            if (Objects.isNull(dispute)) {
+                                p.mobilizeCommitment();
+                            }
                         }
                     }
                     if (count == this.processParticipantLinks.size()) {
@@ -133,7 +143,6 @@ public class WarProcess extends Process {
                 break;
             case 5:  // Evaluates to 5+equivalence or E
                 for (ProcessDisposition p : processParticipantLinks) {
-
                     int thisStatus = p.developDisposition(this, worldOrder);
                     if (thisStatus == 10) {
                         this.setP(true);
@@ -141,9 +150,10 @@ public class WarProcess extends Process {
                         break;
                     }
                 }
-                if (!nowFighting) {
+                if ((!Objects.isNull(this.institution) && this.institution.isStopped()) ||
+                        (!Objects.isNull(this.dispute) && this.dispute.isStopped()) ) {
                     this.updateStatus();
-                    this.returnStatesResources(worldOrder, true);
+                    this.returnStatesResources(worldOrder, false);
                     this.conclude(worldOrder);
                 }
                 break;
@@ -156,9 +166,10 @@ public class WarProcess extends Process {
                 /**
                  * This process is inevitable
                  */
-                if (!nowFighting) {
+                if ((!Objects.isNull(this.institution) && this.institution.isStopped()) ||
+                        (!Objects.isNull(this.dispute) && this.dispute.isStopped()) ) {
                     this.updateStatus();
-                    this.returnStatesResources(worldOrder, true);
+                    this.returnStatesResources(worldOrder, false);
                     this.conclude(worldOrder);
                 }
                 break;
@@ -178,7 +189,7 @@ public class WarProcess extends Process {
                 this.updateStatus();
                 break;
             case 9:  // Always evaluates to W
-                this.returnStatesResources(worldOrder, true);
+                this.returnStatesResources(worldOrder, false);
                 this.conclude(worldOrder);
                 break;
             case 10: // Evaluates to 11 or 14
@@ -199,6 +210,7 @@ public class WarProcess extends Process {
                 conclude(worldOrder);
                 break;
         }
+        this.setFiat();
         return;
     }
 
@@ -227,59 +239,57 @@ public class WarProcess extends Process {
         this.nowFighting = nowFighting;
     }
 
-    public War createWar(WorldOrder wo) {
+    public War createWar(ProcessDisposition instigator, WorldOrder wo) {
         WorldOrder worldOrder = wo;
         Long weekNo = worldOrder.getWeekNumber();
         Dataset ds = worldOrder.getModelRun();
-        // Create a new war out of this process; mirrors WarMakingFact
-        this.institution = new War(this);
+        StringBuilder labels = new StringBuilder(processParticipantLinks.get(0).getOwner().getName() + "-");
+        labels.append(processParticipantLinks.get(1).getOwner().getName() + "_warOf_" + weekNo);
+
+        this.institution = new War(this, weekNo);
+        this.institution.setReferenceName(labels.toString());
         this.institution.setStopper(worldOrder.schedule.scheduleRepeating(institution));
         worldOrder.allTheInstitutions.add( this.institution);
         worldOrder.updateGlobalWarLikelihood(processParticipantLinks.size() * worldOrder.getInstitutionInfluence());
 
-        StringBuilder labels = new StringBuilder(processParticipantLinks.get(0).getOwner().getName() + "-");
-        labels.append(processParticipantLinks.get(1).getOwner().getName() + "_warOf_" + weekNo);
-
         WarFact warFact = new WarFact.FactBuilder()
                 .from(weekNo)
                 .until(weekNo + 1L)
-                .subject(labels.toString())
-                .object("Simulated War from " + worldOrder.getModelRun()
-                .getName())
+                .subject(issue.getIssueType().value)
+                .object(labels.toString())
+                .name("Simulated War from " + worldOrder.getModelRun().getName())
                 .magnitude(this.cost.getPax())
                 .war(institution)
                 .dataset(ds)
                 .finalCost(this.cost.getTreasury())
                 .build();
-        this.institution.setName(labels.toString());
-        this.institution.setFrom(weekNo);
-        this.institution.setUntil(weekNo + 1L);
         this.institution.setWarFact(warFact);
-
         this.setNowFighting(true);
         if (dispute != null) dispute.getDisputeFact().setWar(warFact);
-
         if(RECORDING) new WarFactServiceImpl().createOrUpdate(warFact);
         // Create a Participation Fact out of each Process Disposition link (which creates its own relations)
-
         for (ProcessDisposition pd : processParticipantLinks) {
+            Resources deployment = new Resources.ResourceBuilder().build();
+            deployment.increaseBy(pd.getMobilized());
             WarParticipationFact f = new WarParticipationFact.FactBuilder()
                     .from(weekNo)
                     .until(weekNo + 1L)
                     .disposition(pd)
                     .polity(pd.getOwner())
                     .object(labels.toString())
-                    .commitment(pd.getCommitment())
+                    .commitment(deployment)
                     .side(pd.getSide())
                     .war(institution)
                     .dataset(ds)
+                    .initiated(instigator.equals(pd))
                     .build();
             this.institution.addParticipation(f);
             pd.getOwner().addWarParticipationFact(f);
+            pd.getMobilized().zeroize();
             ds.addFacts(f);
             if(RECORDING) new WarParticipationFactServiceImpl().createOrUpdate(f);
         }
-
+        if (DEBUG) System.out.println("New war: " + labels);
         return this.institution;
     }
 
@@ -287,33 +297,34 @@ public class WarProcess extends Process {
         WorldOrder worldOrder = wo;
         Dataset ds = worldOrder.getModelRun();
         Long weekNo = worldOrder.getWeekNumber();
-        this.dispute = new Dispute(this);
-        dispute.setFrom(weekNo);
-        dispute.setUntil(weekNo + 1L);
-        this.dispute.setStopper(worldOrder.schedule.scheduleRepeating( this.dispute));
-        worldOrder.updateGlobalWarLikelihood(processParticipantLinks.size() * worldOrder.getInstitutionInfluence());
-        worldOrder.allTheInstitutions.add(this.dispute);
-        // I have not decided whether disputes raise the globalWarLikelihood
         StringBuilder labels = new StringBuilder(processParticipantLinks.get(0).getOwner().getName() + "-");
         labels.append(processParticipantLinks.get(1).getOwner().getName() + "_disputeOf_" + weekNo);
+
+        this.dispute = new Dispute(this, weekNo);
+        this.dispute.setStopper(worldOrder.schedule.scheduleRepeating( this.dispute));
+        this.dispute.setReferenceName(labels.toString());
+        worldOrder.updateGlobalWarLikelihood(processParticipantLinks.size() * worldOrder.getInstitutionInfluence());
+        worldOrder.allTheInstitutions.add(this.dispute);
+        this.dispute.setPlannedDuration(2 + worldOrder.random.nextInt(181));
 
         DisputeFact df = new DisputeFact.FactBuilder()
                 .from(weekNo)
                 .until(weekNo + 1L)
+                .name("Simulated Dispute from " + worldOrder.getModelRun().getName())
                 .subject(issue.getIssueType().value)
                 .object(labels.toString())
                 .dataset(ds)
                 .dispute(this.dispute)
                 .fiat(this.getFiat())
                 .build();
-        this.dispute.setName(labels.toString());
         this.dispute.setDisputeFact(df);
         this.setNowFighting(true);
         if(RECORDING) new DisputeFactServiceImpl().createOrUpdate(df);
 
         Resources involvement = new Resources.ResourceBuilder().build();
         for (ProcessDisposition pd : processParticipantLinks) {
-            Resources thisCommitment = pd.getCommitment();
+            Resources deployment = new Resources.ResourceBuilder().build();
+            deployment.increaseBy(pd.getMobilized());
             DisputeParticipationFact f = new DisputeParticipationFact.FactBuilder()
                     .from(weekNo)
                     .until(weekNo + 1L)
@@ -323,32 +334,45 @@ public class WarProcess extends Process {
                     .dataset(ds)
                     .sideA(pd.getSide()==0)
                     .originatedDispute(pd.equals(firstPunch))
-                    .commitment(thisCommitment)
+                    .commitment(deployment)
+                    .polity(pd.getOwner())
+                    .dispute(dispute)
                     .build();
-            involvement.increaseBy(thisCommitment);
+            involvement.increaseBy(deployment);
             this.dispute.addParticipant(f);
             pd.getOwner().addDisputeParticipationFact(f);
+            pd.getMobilized().zeroize();
             ds.addFacts(f);
             if(RECORDING) new DisputeParticipationFactServiceImpl().createOrUpdate(f);
         }
         dispute.setInvolvement(involvement);
+        if (DEBUG) System.out.println("New dispute: " + labels);
         return this.dispute;
     }
 
     private void returnStatesResources(WorldOrder wo, boolean all) {
         // return all committed war resources to state participants
         WorldOrder worldOrder = wo;
-        if(all) {
-            for (ProcessDisposition pd : processParticipantLinks) {
-                Resources returnable = pd.getCommitment();
-                Polity p = pd.getOwner();
-                p.getResources().increaseBy(returnable);
+        if (all) {
+            if (!Objects.isNull(this.institution)) {
+                for (WarParticipationFact f : institution.getParticipations()) {
+                    f.getPolity().getResources().increaseBy(f.getCommitment());
+                }
+            }
+            if (!Objects.isNull(this.dispute)) {
+                for (DisputeParticipationFact f : dispute.getParticipations()) {
+                    f.getPolity().getResources().increaseBy(f.getCommitment());
+                }
             }
         } else {
-            Polity instigator = issue.getClaimant();
-            for (ProcessDisposition pd : processParticipantLinks) {
-                if (pd.getOwner().equals(instigator)) {
-                    instigator.getResources().increaseBy(pd.getCommitment());
+            if (!Objects.isNull(this.institution)) {
+                for (WarParticipationFact f : institution.getParticipations()) {
+                    if (f.getDisposition().atS()) f.getPolity().getResources().increaseBy(f.getCommitment());
+                }
+            }
+            if (!Objects.isNull(this.dispute)) {
+                for (DisputeParticipationFact f : dispute.getParticipations()) {
+                    if (f.getDisposition().atS()) f.getPolity().getResources().increaseBy(f.getCommitment());
                 }
             }
         }
@@ -359,12 +383,13 @@ public class WarProcess extends Process {
         for (ProcessDisposition pd : processParticipantLinks) {
             Resources c = pd.getCommitment();
             Polity p = pd.getOwner();
-            if (c != null) {
+            if (c != null && !Objects.isNull(p)) {
                 double myCost = (c.getTreasury() / weeks) * 2.0;
-                c.decrementTreasury(myCost);
+                p.getResources().decrementTreasury(myCost);
                 cost.incrementTreasury(myCost);
-                Resources req = new Resources.ResourceBuilder().treasury(myCost).build();
-                p.getSecurityStrategy().addSupplemental(pd,req);
+                p.getMilExPer().incrementTreasury(myCost);
+//                Resources req = new Resources.ResourceBuilder().treasury(myCost).build();
+//                p.getSecurityStrategy().addSupplemental(pd,req);
             }
         }
     }
@@ -466,16 +491,27 @@ public class WarProcess extends Process {
         if (institution != null) {
             institution.updateForSave(worldOrder);
             institution.getWarFact().setFiat(this.fiat);
+            institution.getWarFact().setUntil(week);
+            institution.getWarFact().setSubject(issue.getFact().getName());
             if (RECORDING) new WarFactServiceImpl().createOrUpdate(institution.getWarFact());
             for (WarParticipationFact f : institution.getParticipations() ) {
+                f.getDisposition().setFiat();
+                f.setFiat(f.getDisposition().getFiat());
+                f.setSubject(institution.getReferenceName());
                 if (RECORDING) new WarParticipationFactServiceImpl().createOrUpdate(f);
+                f.getPolity().removeWarParticipationFact(f);
+                f.getPolity().addToOldWarsList(f);
             }
         } else if (dispute != null) {
             dispute.updateForSave(worldOrder);
             dispute.getDisputeFact().setFiat(this.fiat);
             if (RECORDING) new DisputeFactServiceImpl().createOrUpdate(dispute.getDisputeFact());
             for (DisputeParticipationFact f : dispute.getParticipations() ) {
+                f.getDisposition().setFiat();
+                f.setFiat(f.getDisposition().getFiat());
+                f.setSubject(issue.getFact().getName());
                 if (RECORDING) new DisputeParticipationFactServiceImpl().createOrUpdate(f);
+                f.getPolity().removeDisputeParticipationFact(f);
             }
        } else {
 
@@ -483,7 +519,7 @@ public class WarProcess extends Process {
     }
 
     @Override
-    protected void conclude(WorldOrder wo) {
+    public void conclude(WorldOrder wo) {
         WorldOrder worldOrder = wo;
         /**
          *  Figure out what condition the process is in, save it appropriately, then clean up/delete.
@@ -492,12 +528,31 @@ public class WarProcess extends Process {
         stopped = true;
         this.ended = worldOrder.getWeekNumber();
         this.updateFacts(worldOrder);
-        this.returnStatesResources(worldOrder, true);
-        // TODO: update all the facts and save
+        this.returnStatesResources(worldOrder, false);
         wo.getAllTheProcs().remove(this);
+        if (institution != null) {
+            this.institution.setStopped(true);
+            this.institution.stop();
+            wo.getAllTheInstitutions().remove(this.institution);
+            if (DEBUG) System.out.println(institution.getWarFact().getObject() + " has ended");
+        }
+        if (dispute != null) {
+            this.dispute.setStopped(true);
+            this.dispute.stop();
+            wo.getAllTheInstitutions().remove(this.dispute);
+            if (DEBUG) System.out.println(dispute.getDisputeFact().getObject() + " has ended");
+        }
         for (ProcessDisposition pd : processParticipantLinks) {
             pd.getOwner().removeProcess(pd);
         }
+//        if (DEBUG) {
+//            if (institution != null) {
+//                System.out.println();
+//            }
+//            if (dispute != null) {
+//
+//            }
+//        }
     }
 
 

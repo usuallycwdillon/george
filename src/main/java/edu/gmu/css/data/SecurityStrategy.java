@@ -5,13 +5,16 @@ import org.apache.commons.lang3.tuple.ImmutablePair;
 
 import java.util.Deque;
 import java.util.LinkedList;
+import java.util.Objects;
 
 
 public class SecurityStrategy {
     Resources baseline;
     Resources militaryStrategy;
     Resources foreignStrategy;
-    Double costPerPax;
+    Double costPerPax = 0.0;
+    Double weeklyDeterrenceCost;
+    Double weeklyForeignPolicyCost;
     Deque<ImmutablePair<Object, Resources>> supplementals;
 
 
@@ -20,9 +23,18 @@ public class SecurityStrategy {
         this.militaryStrategy = new Resources.ResourceBuilder().build();
         this.foreignStrategy = new Resources.ResourceBuilder().build();
         this.supplementals = new LinkedList<>();
-        militaryStrategy.increaseBy(baseline.dividedBy(1.1));
-        foreignStrategy.increaseBy(baseline.dividedBy(11.0));
-        resetBaseline();
+        this.militaryStrategy.increaseBy(baseline);
+        this.militaryStrategy.setSufficient(true);
+        this.weeklyDeterrenceCost = militaryStrategy.getTreasury() / 52.0;
+        this.foreignStrategy.increaseBy(baseline.dividedBy(11.0));
+        this.foreignStrategy.setSufficient(true);
+        this.weeklyForeignPolicyCost = foreignStrategy.getTreasury() / 52.0;
+        this.resetBaseline();
+        if ( baseline.getPax() > 0.0 && baseline.getTreasury() > 0.0) {
+            this.costPerPax = baseline.getTreasury() / baseline.getPax();
+        } else {
+            this.costPerPax = 1.0;
+        }
     }
 
     public Resources getBaseline() {
@@ -55,6 +67,30 @@ public class SecurityStrategy {
             ss.increaseBy(i.getRight());
         }
         return ss;
+    }
+
+    public Double getCostPerPax() {
+        return costPerPax;
+    }
+
+    public void setCostPerPax(Double costPerPax) {
+        this.costPerPax = costPerPax;
+    }
+
+    public Double getWeeklyDeterrenceCost() {
+        return weeklyDeterrenceCost;
+    }
+
+    public Double getWeeklyForeignPolicyCost() {
+        return weeklyForeignPolicyCost;
+    }
+
+    public void setWeeklyForeignPolicyCost(Double weeklyForeignPolicyCost) {
+        this.weeklyForeignPolicyCost = weeklyForeignPolicyCost;
+    }
+
+    public void setWeeklyDeterrenceCost(Double weeklyDeterrenceCost) {
+        this.weeklyDeterrenceCost = weeklyDeterrenceCost;
     }
 
     public void replaceBaseline(Resources r) {
@@ -114,6 +150,10 @@ public class SecurityStrategy {
         total.increaseBy(baseline);
         total.increaseBy(getSupplementalsSum());
         return total;
+    }
+
+    public Double getBaselineWeeklyCostSum() {
+        return getWeeklyDeterrenceCost() + getWeeklyForeignPolicyCost();
     }
 
 }

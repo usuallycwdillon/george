@@ -1,6 +1,7 @@
 package edu.gmu.css.service;
 
 import edu.gmu.css.entities.*;
+import org.neo4j.ogm.model.Result;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -46,9 +47,22 @@ public class FactServiceImpl extends GenericService<Fact> implements FactService
         params.put("cowcode", s.getCowcode());
         params.put("during", y);
         String query = "MATCH (s:State{cowcode:$cowcode})-[:SIM_TAX_RATE{during:$during}]->(f:TaxRateFact) RETURN f";
-        Fact f = Neo4jSessionFactory.getInstance().getNeo4jSession()
-                .queryForObject(TaxRateFact.class, query,params);
+        Fact f = session.queryForObject(TaxRateFact.class, query,params);
         return f;
+    }
+
+    public Double getNeighborAverageCostPerPax(State s, int y) {
+        Map<String, Object> params = new HashMap<>();
+        params.put("cowcode", s.getCowcode());
+        params.put("during", y);
+        String query = "MATCH (s:State{cowcode:$cowcode})-[:SHARES_BORDER]->(:BorderFact)-[:BORDERS_WITH]->(:Border{year:$during}" +
+                ")<-[:BORDERS_WITH]-(:BorderFact)<-[:SHARES_BORDER]-(n:State) \n" +
+                "MATCH (n)-[:MILEX]->(x:MilExFact{during:$during}) WITH n,s,x\n" +
+                "MATCH (n)-[:MILPER]->(p:MilPerFact{during:$during}) WITH n, s, x, p\n" +
+                "WITH sum(x.value) AS costs, sum(p.value) AS pax\n" +
+                "RETURN costs/pax AS cpp";
+        Result r = session.query(query, params, true);
+        return (Double) (r.iterator().next().get("cpp"));
     }
 
 

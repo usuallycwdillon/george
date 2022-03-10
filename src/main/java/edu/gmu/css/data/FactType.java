@@ -28,6 +28,7 @@ public enum FactType {
     URBAN_POP,
     WAR,
     WAR_PARTICIPATION,
-    WEALTH
+    WEALTH,
+    NETWORK
 
 }

@@ -118,6 +118,25 @@ public class DataTrend<T> extends ArrayList<T> {
         return (Double) this.get(from);
     }
 
+    public double averageChangeRate() {
+        int size = this.size();
+        int diffs = size - 1;
+        DataTrend<Double> changes = new DataTrend<>(diffs);
+        for (int i=0;i<diffs;i++) {
+            int j = i + 1;
+            Double oldest  = (Double) this.get(i);
+            Double newest = (Double) this.get(j);
+            Double rate = (newest - oldest) / oldest;
+            changes.add(rate);
+        }
+        Double changeRate = changes.average();
+        if (changeRate.isInfinite() || changeRate.isNaN()) {
+            return 0.0;
+        } else {
+            return changeRate;
+        }
+    }
+
     public Double mostRecent() {
         return (Double) this.get(this.size() - 1);
     }

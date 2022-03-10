@@ -3,24 +3,21 @@ package edu.gmu.css.entities;
 import org.neo4j.ogm.annotation.*;
 
 @NodeEntity
-public class GdpFact extends Fact {
+public class SatisfactionFact extends Fact {
 
-    @Id @GeneratedValue
-    private Long id;
-    @Property private String currency = "2013 GK Dollars";
+    @Id @GeneratedValue private Long id;
     @Property private Double value;
-    @Property private int factor;
 
-    @Relationship(type = "PRODUCED", direction = Relationship.INCOMING)
+    @Relationship(type = "SATISFACTION", direction = Relationship.INCOMING)
     Polity polity;
     @Relationship(type = "CONTRIBUTES", direction = Relationship.INCOMING)
     Dataset dataset;
 
-    public GdpFact() {
+    public SatisfactionFact() {
 
     }
 
-    private GdpFact(FactBuilder builder) {
+    private SatisfactionFact(FactBuilder builder) {
         this.name = builder.name;
         this.subject = builder.subject;
         this.predicate = builder.predicate;
@@ -29,7 +26,6 @@ public class GdpFact extends Fact {
         this.value = builder.value;
         this.from = builder.from;
         this.until = builder.until;
-        this.factor = builder.factor;
         this.polity = builder.polity;
         this.dataset = builder.dataset;
         this.simulationRun = builder.dataset.getName();
@@ -37,40 +33,26 @@ public class GdpFact extends Fact {
     }
 
     public static class FactBuilder {
-        private String name = "GDP Fact";
+        private final String name = "Satisfaction Fact";
         private String subject = "Not Collected";
-        private String predicate = "PRODUCED";
+        private String predicate = "SATISFACTION";
         private String object = "";
         private String source = "GEORGE_";
         private Double value = 0.0;
-        private int factor = 1000;
         private Long from = 0L;
         private Long until = 0L;
         private Polity polity;
         private Dataset dataset;
 
-        public FactBuilder name(String name) {
-            this.name = name;
-            return this;
-        }
-
-        public FactBuilder subject(String subject) {
-            this.subject = subject;
-            return this;
-        }
 
         public FactBuilder predicate(String predicate) {
             this.predicate = predicate;
             return this;
         }
 
-        public FactBuilder source(String s) {
-            this.source = s;
-            return this;
-        }
-
         public FactBuilder dataset(Dataset d) {
             this.dataset = d;
+            this.source = d.getName();
             return this;
         }
 
@@ -92,27 +74,15 @@ public class GdpFact extends Fact {
             return this;
         }
 
-        public FactBuilder factor(int f) {
-            this.factor = f;
-            return this;
-        }
-
-        public GdpFact build() {
-            return new GdpFact(this);
+        public SatisfactionFact build() {
+            return new SatisfactionFact(this);
         }
     }
+
 
     @Override
     public Long getId() {
-        return id;
-    }
-
-    public String getCurrency() {
-        return currency;
-    }
-
-    public void setCurrency(String currency) {
-        this.currency = currency;
+        return this.id;
     }
 
     public Double getValue() {
@@ -121,14 +91,6 @@ public class GdpFact extends Fact {
 
     public void setValue(Double value) {
         this.value = value;
-    }
-
-    public int getFactor() {
-        return factor;
-    }
-
-    public void setFactor(int factor) {
-        this.factor = factor;
     }
 
     public Polity getPolity() {
@@ -140,20 +102,31 @@ public class GdpFact extends Fact {
     }
 
     @Override
+    public Dataset getDataset() {
+        return dataset;
+    }
+
+    @Override
+    public void setDataset(Dataset dataset) {
+        this.dataset = dataset;
+    }
+
+
+    @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         if (!super.equals(o)) return false;
 
-        GdpFact gdpFact = (GdpFact) o;
+        SatisfactionFact fact = (SatisfactionFact) o;
 
-        if (!getId().equals(gdpFact.getId())) return false;
-        if (!getName().equals(gdpFact.getName())) return false;
-        if (getSubject() != null ? !getSubject().equals(gdpFact.getSubject()) : gdpFact.getSubject() != null)
+        if (!getId().equals(fact.getId())) return false;
+        if (!getName().equals(fact.getName())) return false;
+        if (getSubject() != null ? !getSubject().equals(fact.getSubject()) : fact.getSubject() != null)
             return false;
-        if (getPredicate() != null ? !getPredicate().equals(gdpFact.getPredicate()) : gdpFact.getPredicate() != null)
+        if (getPredicate() != null ? !getPredicate().equals(fact.getPredicate()) : fact.getPredicate() != null)
             return false;
-        return getObject() != null ? getObject().equals(gdpFact.getObject()) : gdpFact.getObject() == null;
+        return getObject() != null ? getObject().equals(fact.getObject()) : fact.getObject() == null;
     }
 
     @Override
@@ -164,4 +137,6 @@ public class GdpFact extends Fact {
         result = 31 * result + (getObject() != null ? getObject().hashCode() : 0);
         return result;
     }
+
+
 }

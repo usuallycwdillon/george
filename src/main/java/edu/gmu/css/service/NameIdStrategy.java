@@ -9,7 +9,7 @@ public class NameIdStrategy implements IdStrategy {
     }
 
     @Override
-    public Object generateId(Object entity) {
+    public String generateId(Object entity) {
         Territory territory = (Territory) entity;
         return territory.getMapKey();
     }

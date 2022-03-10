@@ -41,13 +41,13 @@ public class ThreatNetworkServiceImpl extends GenericService<State> {
         params.put("id", id);
         params.put("year", yr);
         String q = "MATCH (p1:State) WHERE id(p1)=$id \n" +
-                "MATCH (p1)-[:OCCUPIED]-(t:Territory{year:$year})-[:BORDERS{during:$year}]->(:Border)-[:BORDERS{" +
+                "MATCH (p1)-[:OCCUPIED]-(t:Territory{year:$year})-[:BORDERS{during:$year}]->(:Border)-[:BORDERS{\n" +
                 "during:$year}]-(nt:Territory)-[:BORDERS{during:$year}]-(:Border)-[:BORDERS{during:$year}]-(ot:Territory) \n" +
                 "WHERE t <> nt AND t <> ot \n" +
                 "WITH COLLECT(nt) + COLLECT(ot) AS ter, t \n" +
                 "UNWIND ter AS z \n" +
-                "MATCH (z)<-[:OCCUPIED]-(p:State)-[:MEMBER]->(mf:MembershipFact) " +
-                "WHERE mf.from.year <= $year AND mf.until.year >= $year \n" +
+                "MATCH (z)<-[:OCCUPIED]-(p:State)-[:MEMBER]->(mf:MembershipFact) \n" +
+                "WHERE (mf.from.year <= $year OR mf.from.year IS NULL) AND mf.until.year >= $year \n" +
                 "WITH COLLECT(DISTINCT p.cowcode) as potential \n" +
                 "UNWIND potential AS cow RETURN cow ";
         Result result = session.query(q, params, true);

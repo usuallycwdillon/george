@@ -38,6 +38,7 @@ public class PolityFactServiceImpl extends GenericService<Fact> implements FactS
         Iterable<Fact> borders = session.query(Fact.class, bq, params);
         for (Fact f : borders) {
             BorderFact b = (BorderFact) f;
+            b.setPolity(state);
             bordersWith.add(b);
             worldOrder.allTheInstitutions.add(b.getBorder());
             institutionTally++;
@@ -51,6 +52,7 @@ public class PolityFactServiceImpl extends GenericService<Fact> implements FactS
         Iterable<Fact> alliances = session.query(Fact.class, aq, params);
         for (Fact f : alliances) {
             AllianceParticipationFact a = (AllianceParticipationFact) f;
+            a.setPolity(state);
             allianceWith.add(a);
             worldOrder.allTheInstitutions.add(a.getAlliance());
             institutionTally++;
@@ -65,6 +67,7 @@ public class PolityFactServiceImpl extends GenericService<Fact> implements FactS
         Iterable<Fact> exchanges = session.query(Fact.class, dq, params);
         for (Fact f : exchanges) {
             DipExFact d = (DipExFact) f;
+            d.setMission(state);
             representedAt.add(d);
             worldOrder.allTheInstitutions.add(d.getInstitution());
             institutionTally++;

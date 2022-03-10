@@ -18,7 +18,6 @@ import java.util.List;
 import java.util.Map;
 
 import static edu.gmu.css.worldOrder.WorldOrder.ALLIANCES;
-import static edu.gmu.css.worldOrder.WorldOrder.DEBUG;
 
 @NodeEntity
 public class Leadership extends Entity implements Serializable, Steppable {
@@ -331,7 +330,11 @@ public class Leadership extends Entity implements Serializable, Steppable {
     public double evaluateWarNeed(Issue i, WorldOrder wo) {
         Issue issue = i;
         WorldOrder worldOrder = wo;
-        if (!commonWeal.getEntityPositionMap().containsKey(issue)) this.commonWeal.addIssue(issue, worldOrder);
+        if (!commonWeal.getEntityPositionMap().containsKey(issue)) {
+            this.commonWeal.addIssue(issue, worldOrder);
+        } else {
+            this.commonWeal.socialize(issue, worldOrder);
+        }
         return getAvgSupport(issue);
     }
 
@@ -340,8 +343,23 @@ public class Leadership extends Entity implements Serializable, Steppable {
         return getAvgSupport(i);
     }
 
+    public double evaluatePeaceNeed(War w, WorldOrder wo) {
+        WorldOrder worldOrder = wo;
+        War war = w;
+        if (!this.commonWeal.getEntityPositionMap().containsKey(war)) {
+            this.commonWeal.addWar(war, worldOrder);
+        }
+        return getAvgSupport(war);
+    }
+
+    public double evaluatePeaceWillingness(War w, WorldOrder wo) {
+        this.commonWeal.socialize(w, wo);
+        return getAvgSupport(w);
+    }
+
+
     private double evaluateEnemyThreatWithAlliedSupport(Map<State, Resources> help, State enemy) {
-        double ourPop = polity.getTerritory().getPopulation();
+        double ourPop = polity.getTerritory().getPopulationTrans();
         double ourSDP = polity.getPublicSDP();
         double ourMilPer = polity.getMilitaryStrategy().getPax();
         double ourMilEx = polity.getMilitaryStrategy().getTreasury();
@@ -397,7 +415,7 @@ public class Leadership extends Entity implements Serializable, Steppable {
 
     public Resources respondToThreat(ProcessDisposition disposition, Resources threat) {
         // commit resources in response to threat upto twice the threat
-        Resources available = polity.getResources().evaluativeAvailableDifference(threat.multipliedBy(2.0));
+        Resources available = polity.getResources().afterSubtracting(threat.multipliedBy(2.0));
         return available;
     }
 

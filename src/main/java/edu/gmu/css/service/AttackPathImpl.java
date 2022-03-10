@@ -4,6 +4,7 @@ import com.uber.h3core.H3Core;
 import com.uber.h3core.exceptions.DistanceUndefinedException;
 import edu.gmu.css.agents.Tile;
 import edu.gmu.css.entities.Territory;
+import edu.gmu.css.worldOrder.WorldOrder;
 import org.neo4j.ogm.model.Result;
 
 import java.util.Collections;
@@ -15,7 +16,7 @@ import static edu.gmu.css.worldOrder.WorldOrder.DEBUG;
 
 public class AttackPathImpl extends GenericService<Tile>{
 
-    public Map<String, Object> findAttackPath(Territory s, Territory t) {
+    public Map<String, Object> findAttackPath(Territory s, Territory t, WorldOrder wo) {
         if(!isAttackGraphLoaded("territoryTiles")) loadTerritoryTilesSubgraph();
         if(!isAttackGraphLoaded("tileLattice")) loadTileLatticeSubgraph();
         String yr = "." + s.getYear();
@@ -45,8 +46,8 @@ public class AttackPathImpl extends GenericService<Tile>{
         int dist = 3;
         switch (len) {
             case 1:
-                String a = this.getRandomTileFromTerritory(s);
-                String b = this.getRandomTileFromTerritory(t);
+                String a = this.getRandomTileFromTerritory(s, wo);
+                String b = this.getRandomTileFromTerritory(t, wo);
                 dist += countTilesBetween(a, b);
                 attackPath.put("first", a + yr);
                 attackPath.put("last",  b + yr);
@@ -90,9 +91,14 @@ public class AttackPathImpl extends GenericService<Tile>{
         return (r.iterator().next().get("graphName").toString() == "tileLattice");
     }
 
-    private String getRandomTileFromTerritory(Territory t) {
+    private String getRandomTileFromTerritory(Territory t, WorldOrder wo) {
         Territory territory = t;
-        Tile h = territory.getPopulatedTileLinks().iterator().next();
+        Tile h;
+        if (territory.getPopulatedTileLinks().size() > 0) {
+            h = territory.getPopulatedTileLinks().iterator().next();
+        } else {
+            h = territory.getTileLinks(wo).iterator().next();
+        }
         return h.getAddress();
     }
 

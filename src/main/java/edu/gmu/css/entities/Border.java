@@ -133,5 +133,24 @@ public class Border extends Institution {
         return null;
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        if (!super.equals(o)) return false;
 
+        Border border = (Border) o;
+
+        if (getId() != null ? !getId().equals(border.getId()) : border.getId() != null) return false;
+        if (!getName().equals(border.getName())) return false;
+        return getFrom() != null ? getFrom().equals(border.getFrom()) : border.getFrom() == null;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = getId() != null ? getId().hashCode() : 0;
+        result = 31 * result + getName().hashCode();
+        result = 31 * result + (getFrom() != null ? getFrom().hashCode() : 0);
+        return result;
+    }
 }

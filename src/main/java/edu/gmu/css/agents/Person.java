@@ -2,6 +2,7 @@ package edu.gmu.css.agents;
 
 import edu.gmu.css.entities.DiscretePolityFact;
 import edu.gmu.css.entities.Entity;
+import edu.gmu.css.entities.WarParticipationFact;
 import edu.gmu.css.relations.KnowsRelation;
 import edu.gmu.css.worldOrder.WorldOrder;
 import org.neo4j.ogm.annotation.*;
@@ -146,6 +147,31 @@ public class Person extends Entity implements Steppable {
     public boolean removeFromCircle(Person p) {
         this.circle.remove(p);
         return true;
+    }
+
+    public int takeWarOpinion(WarParticipationFact f) {
+//        WarParticipationFact fact = f;
+        double bt = f.getBattleTrend();
+        if (leadershipRole) {
+//            double trend = f.getBattleTrend();
+            double baseline = commonWeal.getTerritory().getPolity().getSecurityStrategy().getBaseline().getPax();
+            if (Math.abs(bt/baseline) < baseline * 0.1) {
+                return 0;
+            } else if (bt < 0.0) {
+                return -1;
+            } else {
+                return 1;
+            }
+        } else {
+            double satisfaction = commonWeal.getTerritory().getSatisfaction();
+            if (satisfaction >= 0.95) {
+                return 1;
+            } else if (satisfaction < 0.75) {
+                return -1;
+            } else {
+                return 0;
+            }
+        }
     }
 
     public void shareOpinion(Entity e, WorldOrder wo) {

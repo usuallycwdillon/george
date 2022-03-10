@@ -35,7 +35,6 @@ public class PopulationFact extends Fact {
         this.subject = polity.getName();
         this.predicate = "POPULATION";
         this.object = builder.object;
-        this.value = builder.value;
         this.name = builder.name;
         this.source = builder.source;
         this.dataset = builder.dataset;

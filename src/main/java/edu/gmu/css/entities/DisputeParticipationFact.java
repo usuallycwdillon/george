@@ -6,22 +6,26 @@ import org.neo4j.ogm.annotation.*;
 
 import static java.lang.Boolean.FALSE;
 
+@NodeEntity
 public class DisputeParticipationFact extends Fact {
 
     @Id @GeneratedValue private Long id;
+    @Transient private Resources cost = new Resources.ResourceBuilder().build();
+    @Transient private Resources commitment = new Resources.ResourceBuilder().build();
+    @Transient private ProcessDisposition disposition;
     @Property private String fatalityLevel;
     @Property private String highestAction;
     @Property private String hostilityLevel;
-    @Property private Double preciseFatalities;
+    @Property private Double preciseFatalities = cost.getPax();
+    @Property private Double finalCost = cost.getTreasury();
     @Property private boolean originatedDispute;
     @Property private boolean sideA;
-    @Property private String fiat;
-    @Transient private Resources cost;
-    @Transient private Resources commitment;
-    @Transient private ProcessDisposition disposition;
+    @Property private char fiat;
 
-    @Relationship private Polity polity;
-    @Relationship private Dispute dispute;
+    @Relationship (type = "DISPUTED", direction = Relationship.INCOMING)
+    private Polity polity;
+    @Relationship (type = "DISPUTED_OVER")
+    private Dispute dispute;
 
 
     public DisputeParticipationFact() {
@@ -45,6 +49,8 @@ public class DisputeParticipationFact extends Fact {
         this.fiat = builder.fiat;
         this.cost = builder.cost;
         this.disposition = builder.disposition;
+        this.polity = builder.polity;
+        this.dispute = builder.dispute;
     }
 
     public static class FactBuilder {
@@ -55,7 +61,7 @@ public class DisputeParticipationFact extends Fact {
         private String predicate = "DISPUTED";
         private String object = "";
         private Dataset dataset;
-        private String source = "GEORGE_";
+        private String source = "";
         private String fatalityLevel = " deaths";
         private String highestAction = "Clash";
         private Boolean sideA = FALSE;
@@ -63,8 +69,10 @@ public class DisputeParticipationFact extends Fact {
         private Resources cost = new Resources.ResourceBuilder().build();
         private Resources commitment = new Resources.ResourceBuilder().build();
         private Double preciseFatalities = cost.getPax();
-        private String fiat;
+        private char fiat;
         private ProcessDisposition disposition;
+        private Polity polity;
+        private Dispute dispute;
 
         public FactBuilder from(Long from) {
             this.from = from;
@@ -132,7 +140,7 @@ public class DisputeParticipationFact extends Fact {
             return this;
         }
 
-        public FactBuilder fiat(String s) {
+        public FactBuilder fiat(char s) {
             this.fiat = s;
             return this;
         }
@@ -153,6 +161,15 @@ public class DisputeParticipationFact extends Fact {
             return this;
         }
 
+        public FactBuilder polity(Polity p) {
+            this.polity = p;
+            return this;
+        }
+
+        public FactBuilder dispute(Dispute d) {
+            this.dispute = d;
+            return this;
+        }
 
         public DisputeParticipationFact build() {
             return new DisputeParticipationFact(this);
@@ -191,6 +208,14 @@ public class DisputeParticipationFact extends Fact {
         this.preciseFatalities = preciseFatalities;
     }
 
+    public Double getFinalCost() {
+        return finalCost;
+    }
+
+    public void setFinalCost(Double finalCost) {
+        this.finalCost = finalCost;
+    }
+
     public boolean isOriginatedDispute() {
         return originatedDispute;
     }
@@ -227,12 +252,36 @@ public class DisputeParticipationFact extends Fact {
         this.commitment = commitment;
     }
 
-    public void setFiat(String s) {
+    public void setFiat(char s) {
         this.fiat = s;
+    }
+
+    public char getFiat() {
+        return fiat;
     }
 
     public ProcessDisposition getDisposition() {
         return disposition;
+    }
+
+    public void setDisposition(ProcessDisposition disposition) {
+        this.disposition = disposition;
+    }
+
+    public Polity getPolity() {
+        return polity;
+    }
+
+    public void setPolity(Polity polity) {
+        this.polity = polity;
+    }
+
+    public Dispute getDispute() {
+        return dispute;
+    }
+
+    public void setDispute(Dispute dispute) {
+        this.dispute = dispute;
     }
 
     @Override

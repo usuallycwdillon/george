@@ -21,33 +21,25 @@ import java.util.*;
 @NodeEntity
 public class Polity extends Entity implements Steppable {
 
-    @Id @GeneratedValue
-    private Long id;
-    @Property
-    protected int color;
-    @Property
-    protected String name;
-    @Transient
-    protected Territory territory;
-    @Transient
-    protected List<Fact> factList = new ArrayList<>();
+    @Id @GeneratedValue private Long id;
+    @Property protected int color;
+    @Property protected String name;
+    @Transient protected Territory territory;
+    @Transient protected List<Fact> factList = new ArrayList<>();
 //     Resources, Strategies and Policies
-    @Transient  // The actual resources available to this polity
-    protected Resources resources = new Resources.ResourceBuilder().build();
-    @Transient
-    protected SecurityStrategy securityStrategy;
-    @Transient
-    protected SecurityPolicy securityPolicy = new SecurityPolicy(0.9, 1.0);
-    @Transient
-    protected EconomicPolicy economicPolicy = new EconomicPolicy(0.4, 0.6, 0.0004);
-    @Transient
-    protected DiscretePolityFact polityFact;
-    @Transient
-    protected Color polColor = new Color(color);
-    @Transient
-    protected Map<String, Double> warParams;
-    @Transient
-    protected Year year;
+    @Transient protected Resources resources = new Resources.ResourceBuilder().build(); // The actual resources available to this polity
+    @Transient protected Resources milExPer = new Resources.ResourceBuilder().build();
+    @Transient protected Resources foPoEx = new Resources.ResourceBuilder().build();
+    @Transient protected SecurityStrategy securityStrategy;
+    @Transient protected SecurityPolicy securityPolicy = new SecurityPolicy(0.9, 1.0);
+    @Transient protected EconomicPolicy economicPolicy = new EconomicPolicy(0.4, 0.6, 0.0004);
+    @Transient protected DiscretePolityFact polityFact;
+    @Transient protected Color polColor = new Color(color);
+    @Transient protected Map<String, Double> warParams;
+    @Transient protected Year year;
+    @Transient protected ArrayList<WarParticipationFact> oldWars = new ArrayList<>();
+    @Transient protected Map<Polity, Double> threatNet = new HashMap<>();
+    @Transient protected List<ProcessDisposition> processList = new ArrayList<>();
 
     @Relationship (type = "OCCUPIED")
     protected Set<OccupiedRelation> allTerritories = new HashSet<>();
@@ -71,10 +63,7 @@ public class Polity extends Entity implements Steppable {
     protected Set<GdpFact> gdpHistory = new HashSet<>();
     @Relationship(type = "POPULATION")
     protected Set<PopulationFact> populationHistory = new HashSet<>();
-    @Transient
-    protected Map<Polity, Double> threatNet = new HashMap<>();
-    @Transient
-    protected List<ProcessDisposition> processList = new ArrayList<>();
+
 
 
     public Polity () {
@@ -211,20 +200,20 @@ public class Polity extends Entity implements Steppable {
     }
 
     public double getPopulation() {
-        if (territory.getPopulation()==null | territory.getPopulation()==0.0) {
+        if (territory.getPopulationTrans()==null | territory.getPopulationTrans()==0.0) {
             return territory.getCurrentPopulation();
         } else {
-            return territory.getPopulation();
+            return territory.getPopulationTrans();
         }
 
     }
 
     public double geUrbanPopulation() {
-        return territory.getUrbanPopulation();
+        return territory.getUrbanPopulationTrans();
     }
 
     public double getGrossDomesticProduct() {
-        return territory.getGDP();
+        return territory.getGdpTrans();
     }
 
     public double getForces() {
@@ -323,6 +312,14 @@ public class Polity extends Entity implements Steppable {
         this.gdpHistory.add(f);
     }
 
+    public void addToOldWarsList(WarParticipationFact f) {
+        this.oldWars.add(f);
+    }
+
+    public void removeFromOldWarsList(WarParticipationFact f) {
+        this.oldWars.remove(f);
+    }
+
     protected double recruit(double force) {
         double deficit = force;
         return deficit;
@@ -366,15 +363,15 @@ public class Polity extends Entity implements Steppable {
         }
     }
 
-    public boolean willRelent(ProcessDisposition p, WorldOrder wo) {
+    public boolean willRelent(ProcessDisposition mine, ProcessDisposition theirs, WorldOrder wo) {
         return wo.random.nextBoolean();
     }
 
     public double getPublicSDP() {
-        if(territory.getGDP()==null | territory.getGDP()==0.0) {
+        if(territory.getGdpTrans()==null || territory.getGdpTrans()==0.0) {
             return territory.getCurrentSDP();
         } else {
-            return territory.getPopulation();
+            return Math.max((territory.getGdpTrans() - (territory.getPopulationTrans() * 365 * 0.003)), 0.0);
         }
     }
 
@@ -537,6 +534,23 @@ public class Polity extends Entity implements Steppable {
 //    }
 
 
+    public void gatherInstitutionPartners(WorldOrder wo) {
+        WorldOrder worldOrder = wo;
+        Map<String, State> states = worldOrder.getAllTheStates();
+        Map<String, String> translation = new HashMap<>();
+        for (State mapped : states.values()) {
+            translation.put(mapped.getName(), mapped.getCowcode());
+        }
+        // Diplomacy
+        for (DipExFact f : representedAt) {
+            if (Objects.isNull(f.getPolity()) && !Objects.isNull(f.getObject())) {
+                f.setPolity(states.get(translation.get(f.getObject())));
+            }
+        }
+
+
+    }
+
 
     public boolean evaluateAllianceNeed(WorldOrder wo, Issue i) {
         return false;
@@ -636,6 +650,37 @@ public class Polity extends Entity implements Steppable {
         // Load IGO memberbership
 
     }
+
+    public Resources getMilExPer() {
+        return milExPer;
+    }
+
+    public void setMilExPer(Resources milExPer) {
+        this.milExPer = milExPer;
+    }
+
+    public void resetMilExPer() {
+        this.milExPer = new Resources.ResourceBuilder().build();
+    }
+
+    public Resources getFoPoEx() {
+        return foPoEx;
+    }
+
+    public void setFoPoEx(Resources foPoEx) {
+        this.foPoEx = foPoEx;
+    }
+
+    public void resetFoPoEx() {
+        this.foPoEx = new Resources.ResourceBuilder().build();
+    }
+
+    public void acquiesce(ProcessDisposition p, WorldOrder wo) {
+        p.getEnemyDisposition().setS(true);
+        p.getProcess().setOutcome(true);
+    }
+
+
 
     @Override
     public boolean equals(Object o) {

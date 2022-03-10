@@ -13,23 +13,15 @@ import java.util.List;
 @NodeEntity
 public class Year extends Entity {
 
-    @Id @GeneratedValue
-    private Long id;
-    @Index(unique = true)
-    private String name;
-    private int weeksThisYear;
-    @Convert(DateConverter.class)
-    private Long last; // Last day of the year a new week can start;
-    @Convert(DateConverter.class)
-    private Long began;
-    @Convert(DateConverter.class)
-    private Long ended;
-    @Convert(DateConverter.class)
-    private Long firstWeekBegins; // Date of the first week of the year
-    @Convert(DateConverter.class)
-    private Long lastWeekBegins;
-    @Property
-    private int intYear;
+    @Id @GeneratedValue private Long id;
+    @Index(unique = true) private String name;
+    @Convert(DateConverter.class) private Long last; // Last day of the year a new week can start;
+    @Convert(DateConverter.class) private Long began;
+    @Convert(DateConverter.class) private Long ended;
+    @Convert(DateConverter.class) private Long firstWeekBegins; // Date of the first week of the year
+    @Convert(DateConverter.class) private Long lastWeekBegins;
+    @Property private int intYear;
+    @Property private int weeksThisYear;
 
     @Relationship (direction = Relationship.INCOMING, type = "PART_OF")
     private LinkedList<Week> weeks;

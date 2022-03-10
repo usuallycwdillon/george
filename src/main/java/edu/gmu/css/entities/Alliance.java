@@ -18,15 +18,10 @@ public class Alliance extends Institution {
 
     @Id @GeneratedValue
     private Long id;
-    @Property
-    String ssType;
-    @Property
-    String cowcode;
-    @Property
-    String version;
-    @Transient
-    AllianceType allianceType;
-    @Transient Double strength = 0.50;
+    @Property String ssType;
+    @Property String cowcode;
+    @Property String version;
+    @Transient AllianceType allianceType;
 
     @Relationship(direction = Relationship.INCOMING, type = "ENTERED_INTO")
     List<AllianceParticipationFact> participations = new ArrayList<>();
@@ -45,6 +40,7 @@ public class Alliance extends Institution {
         name = "Alliance";
         domain = Domain.ALLIANCE;
         cost = new Resources.ResourceBuilder().build();
+        strength = 0.50;
     }
 
 
@@ -74,14 +70,6 @@ public class Alliance extends Institution {
 
     public AllianceType getAllianceType() {
         return allianceType;
-    }
-
-    public Double getStrength() {
-        return this.strength;
-    }
-
-    public void setStrength(double d) {
-        this.strength = d;
     }
 
     public void setAllianceType(AllianceType allianceType) {

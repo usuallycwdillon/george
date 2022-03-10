@@ -2,17 +2,17 @@ package edu.gmu.css.relations;
 
 import edu.gmu.css.agents.Process;
 import edu.gmu.css.agents.WarProcess;
+import edu.gmu.css.agents.World;
 import edu.gmu.css.data.Resources;
 import edu.gmu.css.data.SecurityObjective;
-import edu.gmu.css.entities.Institution;
 import edu.gmu.css.entities.Polity;
 import edu.gmu.css.service.AttackPathImpl;
 import edu.gmu.css.worldOrder.WorldOrder;
 
 import java.io.Serializable;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 
 public class ProcessDisposition implements Serializable {
@@ -28,13 +28,15 @@ public class ProcessDisposition implements Serializable {
     private boolean U;
     private boolean N;
     private boolean K;
-    private int uT;
+    private boolean stopped;
+    private int uT = 9999;
     protected boolean outcome = false; // whether the other side has acted first
     protected int[] status = new int[] {0, 0, 0};
     protected char fiat = 'x';
     private Resources commitment;
+    private final Resources mobilized;
     private SecurityObjective objective = SecurityObjective.ACCEPT;
-    private Institution subject;
+    private String subject;
     private int side;
     private Map<String, Object> attackPath;
 
@@ -47,6 +49,7 @@ public class ProcessDisposition implements Serializable {
         this.N = false;
         this.K = true;      // default state is for K to be true (otherwise there would be no process or relation to it
         this.commitment = new Resources.ResourceBuilder().build();
+        this.mobilized = new Resources.ResourceBuilder().build();
     }
 
     public ProcessDisposition(Polity polity, Process process, int year) {
@@ -68,14 +71,16 @@ public class ProcessDisposition implements Serializable {
         this.P = false;
         this.C = true;
         this.N = builder.N;
-        this.U = builder.commitment != null && builder.commitment.getPax() >= 0;
+        this.U = false;
         this.K = true;
+        this.stopped = false;
         this.from = builder.from;
         this.until = builder.until;
         this.during = builder.during;
         this.owner = builder.owner;
         this.process = builder.process;
         this.commitment = builder.commitment;
+        this.mobilized = new Resources.ResourceBuilder().build();
         this.objective = builder.objective;
         this.subject = builder.subject;
         this.side = builder.side;
@@ -90,7 +95,7 @@ public class ProcessDisposition implements Serializable {
         private Process process;
         private Resources commitment = new Resources.ResourceBuilder().build();
         private SecurityObjective objective;
-        private Institution subject;
+        private String subject;
         private int side;
 
         public Builder from(Long f) {
@@ -133,7 +138,7 @@ public class ProcessDisposition implements Serializable {
             return this;
         }
 
-        public Builder subject(Institution i) {
+        public Builder subject(String i) {
             this.subject = i;
             return this;
         }
@@ -157,6 +162,31 @@ public class ProcessDisposition implements Serializable {
 
     public void commitMore(Resources resources) {
         commitment.increaseBy(resources);
+    }
+
+    public void mobilizeCommitment(Resources r) {
+        // Mobilize what can be mobilized and add supplemental request for all remaining
+        // Note: Supplemental evaluates against whole PD commitment.
+        Resources requirement = r;
+        if (!Objects.isNull(r) && !r.isEmpty() ) {
+            if (owner.getResources().isSufficientFor(requirement)) {
+                this.mobilized.increaseBy(requirement);
+                owner.getResources().reduceBy(requirement);
+            }
+        }
+//        if (!this.mobilized.isSufficientFor(this.commitment)) {
+//            Resources gap = this.commitment.evaluativeDifference(this.mobilized);
+//            owner.getSecurityStrategy().addSupplemental(this, gap);
+//        }
+    }
+
+    public void mobilizeCommitment() {
+        this.mobilized.increaseBy(this.commitment);
+        owner.getResources().reduceBy(this.commitment);
+    }
+
+    public Resources getMobilized() {
+        return this.mobilized;
     }
 
     public Polity getOwner() {
@@ -275,11 +305,11 @@ public class ProcessDisposition implements Serializable {
         this.objective = objective;
     }
 
-    public Institution getSubject() {
+    public String getSubject() {
         return subject;
     }
 
-    public void setSubject(Institution subject) {
+    public void setSubject(String subject) {
         this.subject = subject;
     }
 
@@ -411,9 +441,9 @@ public class ProcessDisposition implements Serializable {
             setN(true);
     }
 
-    public Map<String, Object> getAttackPath() {
+    public Map<String, Object> getAttackPath(WorldOrder wo) {
         if (this.attackPath == null || this.attackPath.size() == 0) {
-            this.attackPath = new AttackPathImpl().findAttackPath(owner.getTerritory(), getEnemy().getTerritory());
+            this.attackPath = new AttackPathImpl().findAttackPath(owner.getTerritory(), getEnemy().getTerritory(), wo);
         }
         return this.attackPath;
     }
@@ -450,6 +480,7 @@ public class ProcessDisposition implements Serializable {
         WorldOrder worldOrder = wo;
         this.updateStatus();
         int statusSum = this.sumStatus();
+        if (proc.isStopped() || this.stopped) return statusSum;
         switch (statusSum) {
             case 2:
                 this.getOwner().evaluateWarNeed(this, worldOrder);
@@ -460,7 +491,7 @@ public class ProcessDisposition implements Serializable {
                 this.getOwner().evaluateWarWillingness(this, worldOrder);
                 break;
             case 5 :
-                if (getEnemyDisposition().P) setP(true);
+                if (getEnemyDisposition().atP()) setP(true);
                 if (getProcess().getIssue().getDuration() == 0) setOutcome(true);
                 break;
             case 6:
@@ -472,37 +503,45 @@ public class ProcessDisposition implements Serializable {
             case 8:
                 if (this.uT > 0) {
                     decrementUt();
+                    if (!getEnemyDisposition().atP() && proc.getIssue().getDuration() == 0) {
+                        this.setOutcome(true); // will go to 9W
+                        break;
+                    }
                 } else {
                     int o = objective.value;
+                    setP(true);
                     if (o >= 0 && proc.getDispute() == null && proc.getInstitution() == null) {
-                        setP(true);
                         proc.setFirstPunch(this);
-                        if (o < 4) {
+                        if (o < 4 && proc.getDispute() == null) {
                             proc.createDispute(worldOrder);
                         } else {
-                            proc.createWar(worldOrder);
+                            if (proc.getInstitution() == null) proc.createWar(this, worldOrder);
                         }
                     }
                 }
                 break;
             case 9:
+                proc.setOutcome(true);
                 break;
             case 10: // if issue is resolved and strategic objective is met
                 break;
             case 11:
+                this.setOutcome(true);
                 proc.setOutcome(true);
                 break;
             case 14:
                 setOutcome(true);
-                proc.setS(true);
                 break;
             case 15:
+                // End the war
+                this.setS(true);
+                proc.setNowFighting(false);
+                proc.setOutcome(true);
                 break;
         }
         updateStatus();
+        this.setFiat();
         return this.sumStatus();
-
-
     }
 
 }
